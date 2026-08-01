@@ -9,9 +9,9 @@ PHY processing chain, make internal measurements observable, and provide a
 repeatable path from a MATLAB floating-point reference model through Simulink
 and generated Verilog to a ZynqSDR implementation.
 
-> Status: project scaffold and executable MATLAB floating-point CSS model. The
-> Simulink architecture, generated Verilog, and board support are planned; the
-> repository does not yet contain a hardware LoRa receiver.
+> Status: executable MATLAB floating-point CSS and hard-decision LoRa packet
+> model. The Simulink architecture, generated Verilog, and board support are
+> planned; the repository does not yet contain a hardware LoRa receiver.
 
 ## Project goals
 
@@ -58,30 +58,36 @@ results = run_tests;
 assertSuccess(results);
 ```
 
-Generate the acquisition and BER/SER figures:
+Generate the acquisition, uncoded CSS, and coded packet BER/PER figures:
 
 ```matlab
 outputs = run_visualizations;
 ```
 
-The current frame receiver detects a research `8 upchirp + 2 downchirp`
+The acquisition receiver detects a research `8 upchirp + 2 downchirp`
 preamble, estimates CFO, and recovers aligned payload symbols. It is an
-algorithm-development frame, not yet a standards-complete LoRa packet.
+algorithm-development frame. Separately, `encode_packet` and `decode_packet`
+implement explicit header, payload CRC, whitening, Hamming FEC, diagonal
+interleaving, and Gray/CSS mapping with all intermediate values exposed.
 
 ![CSS frame acquisition](docs/images/css-frame-acquisition-sf7.png)
 
 ![Uncoded CSS BER and SER](docs/images/css-ber-sf7.png)
 
+![Coded LoRa payload BER and PER](docs/images/lora-coded-ber-sf7.png)
+
 ## What the BER figure means
 
-The committed curve is a **demodulator baseline**, not coded LoRa packet BER.
+The uncoded curve is a **demodulator baseline**, not coded LoRa packet BER.
 It compares the natural `SF`-bit labels of transmitted and detected CSS symbol
 indices with known timing in AWGN. Preamble failures, whitening, FEC,
 interleaving, CRC, and rejected packets are deliberately excluded.
 
-The complete measurement definition, SNR convention, trial counts, zero-error
-marker rule, and CSV location are in the prominently indexed
-**[BER/SER methodology](docs/ber-methodology.md)**. The planned coding chain is
+The coded curve compares CR 4/5 and CR 4/8 for a 16-byte payload with explicit
+header and CRC. It still assumes known packet timing and therefore does not
+include preamble-detection failures. Measurement definitions, SNR convention,
+trial counts, zero-error marker rule, and CSV locations are in the
+**[BER/SER methodology](docs/ber-methodology.md)**. The implemented coding chain is
 described in **[LoRa PHY coding stages](docs/lora-phy-coding.md)**.
 
 ## Auxiliary Python checks

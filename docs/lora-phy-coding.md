@@ -1,151 +1,155 @@
 # LoRa PHY coding stages
 
-This document separates the purpose of each bit-processing stage from its exact
-SX1262-compatible bit ordering. The conceptual chain is stable; parity matrices,
-whitening sequence alignment, header exceptions, and low-data-rate optimization
-will be locked only after MATLAB golden vectors match Heltec/SX1262 captures.
+This document describes the implemented MATLAB hard-decision packet-coding
+model. Its conventions follow the reverse-engineered Semtech-compatible PHY
+chain and are kept visible as intermediate vectors for later Simulink and HDL
+comparison.
 
-## Transmit and receive order
-
-The MATLAB implementation will use this explicit pipeline:
+## Implemented transmit and receive order
 
 ```text
 TX
 payload bytes
-  → append payload CRC when enabled
-  → whitening
-  → FEC encoding
-  → diagonal interleaving
-  → Gray/symbol mapping
-  → CSS chirp modulation
+  -> calculate payload CRC over the original bytes when enabled
+  -> whiten payload bytes only
+  -> split bytes into low-nibble-first order
+  -> prepend the five-nibble explicit header
+  -> append four unwhitened CRC nibbles
+  -> FEC encode each nibble
+  -> diagonal interleave each block
+  -> inverse-Gray label mapping and +1 CSS-bin offset
+  -> CSS chirp modulation
 
 RX
-CSS symbol decisions or soft metrics
-  → inverse Gray/symbol mapping
-  → deinterleaving
-  → FEC decoding
-  → dewhitening
-  → split and verify payload CRC
-  → accept/reject payload
+hard CSS symbol decisions
+  -> remove CSS-bin offset and restore Gray labels
+  -> diagonal deinterleave
+  -> hard maximum-likelihood FEC decode
+  -> parse and verify explicit header
+  -> join and dewhiten payload bytes
+  -> reconstruct and verify payload CRC
+  -> accept or reject packet
 ```
 
-The explicit LoRa physical header is processed with its prescribed protection
-and carries the payload length, payload coding rate, and payload-CRC-present
-flag. Header mode and payload mode must therefore be parameters of every golden
-vector, not implicit global state.
+The first block is a special case: it contains `SF-2` codewords, always uses
+CR 4/8, and produces eight reduced-rate symbols. At SF7 the five explicit
+header nibbles exactly fill that block. Subsequent blocks use the payload CR;
+with low-data-rate optimization they also use `SF-2` codewords per block.
 
 ## Whitening
 
-Whitening XORs the data bits with a deterministic pseudo-random binary sequence:
+Whitening XORs each payload byte with a deterministic sequence. The implemented
+8-bit LFSR uses polynomial `x^8 + x^6 + x^5 + x^4 + 1`, starts at `0xFF`, and
+restarts for every packet. Its first bytes are:
 
 ```text
-whitened[n] = data[n] XOR sequence[n]
+FF FE FC F8 F0 E1 C2 85 0B 17 2F 5E BC 78 F1 E3
 ```
 
-Applying the same aligned sequence again restores the data. Whitening:
+The operation is self-inverse:
 
-- breaks up long or repetitive bit patterns;
-- reduces data-dependent structure presented to later PHY stages;
-- helps different payloads exercise the symbol alphabet more uniformly;
-- adds no redundancy and corrects no errors.
+```text
+whiten(whiten(payload)) == payload
+```
 
-Synchronization of the sequence is critical. A one-bit offset produces a
-completely wrong payload even if every CSS symbol is detected correctly. The
-project will therefore test known byte patterns (`00`, `FF`, counters, PRBS),
-packet-length boundaries, and reset/alignment behavior against SX1262 captures.
+Whitening adds no redundancy and corrects no errors. It breaks up repetitive
+patterns before coding. The CRC nibbles are not whitened in this compatibility
+chain.
 
 ## Forward error correction (FEC)
 
-LoRa applies a systematic block code to four-bit input nibbles. The configured
-coding rate selects a codeword length of `4 + CR` bits:
+Each four-bit nibble becomes a systematic codeword of `4 + CR` bits:
 
-| CR setting | Nominal rate | Encoded bits per 4 data bits | Trade-off |
+| CR setting | Nominal rate | Codeword width | Use |
 |---:|---:|---:|---|
-| 1 | 4/5 | 5 | least redundancy, shortest airtime |
-| 2 | 4/6 | 6 | more parity |
-| 3 | 4/7 | 7 | Hamming-derived protection |
-| 4 | 4/8 | 8 | most redundancy, longest airtime |
+| 1 | 4/5 | 5 | shortest airtime |
+| 2 | 4/6 | 6 | additional parity |
+| 3 | 4/7 | 7 | more protection |
+| 4 | 4/8 | 8 | strongest supported hard code |
 
-The systematic property means the original data bits appear in the codeword and
-the remaining bits are parity. The decoder uses parity consistency to detect or
-correct likely errors. More redundancy generally improves robustness but
-increases the number of transmitted symbols and time on air.
-
-The first MATLAB version will implement hard-decision encode/decode and inject
-errors into every codeword position. A later version should accept soft metrics
-from the FFT detector so competing codewords can be ranked by likelihood rather
-than by hard bits alone.
-
-## Interleaving
-
-Interleaving writes coded bits into a block and reads them out in a different,
-diagonal order before symbol mapping. It does not change bit values or add
-redundancy.
-
-Its purpose is to spread adjacent bits of each FEC codeword across different CSS
-symbols. A burst disturbance or a badly detected symbol is then converted into
-smaller errors distributed among several codewords, which is a better input for
-the block decoder than destroying one complete codeword.
-
-The inverse permutation must exactly match spreading factor, coding rate, header
-rules, and low-data-rate optimization. Tests will verify both identities:
+For CR 2 through 4, with MSB-first data bits `[d0 d1 d2 d3]`, parity bits are
+selected from:
 
 ```text
-deinterleave(interleave(bits)) == bits
-interleave(deinterleave(bits)) == bits
+p0 = d0 xor d1 xor d2
+p1 = d1 xor d2 xor d3
+p2 = d0 xor d1 xor d3
+p3 = d0 xor d2 xor d3
 ```
 
-as well as impulse-error propagation through the permutation.
+CR 1 uses the single parity `d0 xor d1 xor d2 xor d3`. The MATLAB decoder
+compares a received hard codeword with all 16 valid codewords and chooses the
+minimum Hamming-distance candidate. This makes tie behavior explicit and gives
+the distance needed for diagnostics. Soft-decision decoding is not implemented
+yet.
 
-## Cyclic redundancy check (CRC)
+## Diagonal interleaving
 
-CRC appends a deterministic remainder computed over the protected payload. At
-the receiver, the payload is reconstructed first and the remainder is computed
-again. A mismatch marks the packet invalid.
+Interleaving permutes coded bits without adding or removing information. For a
+codeword-bit row `i` and an output-symbol bit `j`, the implemented permutation
+selects codeword row:
 
-CRC:
+```text
+source = mod(i - j - 1, effectiveSF)
+```
 
-- detects residual errors after FEC;
-- does not identify which bit is wrong;
-- does not correct errors;
-- is not encryption, authentication, or a replacement for the LoRaWAN MIC.
+where `effectiveSF` is `SF` normally and `SF-2` for the first block or LDRO.
+The reduced-rate transmitter adds one parity bit and one zero bit to make a
+full-SF label. The receiver removes the two reduced-rate label bits before the
+inverse permutation.
 
-The LoRa payload CRC is configurable. In explicit-header mode, the physical
-header tells the receiver whether payload CRC is present, along with payload
-length and coding rate. Tests must include zero-length payloads, odd/even byte
-counts, single-bit faults, burst faults, correct/incorrect CRC, and explicit vs
-implicit header operation.
+Spreading adjacent codeword bits across multiple CSS symbols makes a bad symbol
+look like smaller errors in several codewords rather than the destruction of a
+single complete codeword. Tests verify normal and reduced-rate round trips for
+all four coding rates.
 
-## Why processing order matters
+## CRC
 
-These blocks solve different problems:
+The payload CRC uses polynomial `0x1021` and initial state zero. Compatibility
+requires a LoRa-specific final-byte convention: all but the last two payload
+bytes pass through the bitwise CRC recurrence, then the penultimate byte is
+XORed into the high CRC byte and the final byte into the low CRC byte. Four CRC
+nibbles are serialized least-significant nibble first.
 
-| Stage | Changes length? | Corrects errors? | Detects residual packet error? |
-|---|---:|---:|---:|
-| Whitening | No | No | No |
-| FEC | Yes | Yes, within code capability | Partly through parity |
-| Interleaving | No | No | No |
-| CRC | Yes | No | Yes |
+CRC detects residual payload errors after FEC. It does not correct errors and
+is not authentication or a replacement for the LoRaWAN MIC. The explicit
+header separately carries payload length, payload CR, and the CRC-present flag,
+and has its own five-bit checksum.
 
-CRC is calculated on the payload before reversible scrambling/coding so the
-receiver can validate the final reconstructed bytes. Interleaving follows FEC
-so correlated symbol errors are dispersed before the individual codewords are
-decoded. Keeping stage boundaries visible in MATLAB lets us measure BER before
-and after each operation instead of treating the PHY as an opaque packet block.
+## Bit ordering and mapping
 
-## Planned MATLAB acceptance tests
+- Payload bytes split into low nibble then high nibble.
+- Codeword rows are represented MSB first.
+- Interleaved labels are converted from Gray to binary and incremented modulo
+  `2^SF` to obtain the CSS cyclic-shift index.
+- The receiver subtracts that offset, applies binary-to-Gray conversion, and
+  then deinterleaves.
 
-1. Every stage has an inverse and deterministic bit-order convention.
-2. TX → RX round-trip succeeds for payload lengths and all CR settings.
-3. Golden intermediate vectors are stored after CRC, whitening, FEC,
-   interleaving, and symbol mapping.
-4. Single-bit and burst faults demonstrate expected FEC/interleaver behavior.
-5. CRC rejects residual corrupted payloads and accepts correct payloads.
-6. Generated symbols match SX1262 captures for the same payload and settings.
+These are compatibility rules, not cosmetic choices. Reversing a nibble, bit,
+or Gray convention can still produce plausible chirps while every packet fails.
+
+## Tests and golden vector
+
+`TestPacketCoding` checks:
+
+1. The known whitening prefix and self-inverse operation.
+2. The complete 16-entry CR 4/8 Hamming codebook.
+3. Single-bit correction at every CR 4/8 codeword position.
+4. Normal and reduced-rate interleaver/mapping inverses.
+5. Header and payload-CRC fixed vectors.
+6. A fixed 16-byte payload through all intermediate stages and CSS symbols.
+7. Complete noiseless packet round trips for every CR.
+8. Raw denominators returned by the coded BER/PER experiment.
+
+The machine-readable vector is
+[`model/matlab/golden/lora-phy-sf7-cr1.json`](../model/matlab/golden/lora-phy-sf7-cr1.json).
+It is a deterministic internal regression vector. Final over-the-air
+compatibility still requires comparison with SX1262 IQ captures.
 
 ## References
 
-- [Semtech SX1262 product page and current datasheet](https://www.semtech.com/products/wireless-rf/lora-connect/sx1262)
-- [Semtech LoRaWAN FAQ: explicit header fields and coding-rate guidance](https://www.semtech.com/design-support/faq/faq-lorawan)
-- [Semtech TN1300.05: 4/5 coding rate and normal interleaving baseline](https://www.semtech.com/uploads/technology/LoRa/predicting-lorawan-capacity.pdf)
+- [Semtech SX1262 product page and datasheet](https://www.semtech.com/products/wireless-rf/lora-connect/sx1262)
+- [Semtech LoRaWAN FAQ: explicit header fields and coding rate](https://www.semtech.com/design-support/faq/faq-lorawan)
+- [Semtech TN1300.05: normal interleaving baseline](https://www.semtech.com/uploads/technology/LoRa/predicting-lorawan-capacity.pdf)
 - [Marquet, Montavont, Papadopoulos: SDR LoRa PHY reverse engineering](https://doi.org/10.1016/j.comcom.2020.02.034)
+- [EPFL GNU Radio LoRa SDR implementation](https://github.com/tapparelj/gr-lora_sdr)

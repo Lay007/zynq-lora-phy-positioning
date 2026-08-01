@@ -1,7 +1,7 @@
-# CSS BER/SER methodology
+# BER/SER/PER methodology
 
-> Current status: this document describes the implemented uncoded CSS
-> demodulator experiment. It does not claim coded LoRa or packet performance.
+The repository contains two distinct AWGN experiments: an uncoded CSS
+demodulator baseline and a complete hard-decision packet-coding experiment.
 
 ## What the current curve measures
 
@@ -65,9 +65,32 @@ For publication-quality low-BER results, replace the fixed trial count with a
 stopping rule such as a minimum number of observed errors plus a maximum number
 of processed bits, and report a confidence interval.
 
-## Metrics to add with the complete PHY
+## Implemented coded packet experiment
 
-One curve cannot describe the whole receiver. The complete model will report:
+`simulate_coded_ber` generates random payload bytes, builds the explicit header,
+CRC, whitening, FEC, interleaving, Gray mapping, and CSS waveform, then reverses
+the chain after AWGN. Timing is known and no preamble is sent, so the curve
+isolates packet coding plus hard CSS decisions rather than acquisition.
+
+The committed comparison uses:
+
+| Parameter | Value |
+|---|---:|
+| Spreading factor | 7 |
+| Samples per chip | 2 |
+| Payload | 16 bytes |
+| Header / CRC | explicit / enabled |
+| Coding rates | 4/5 and 4/8 |
+| Packets per SNR and CR | 100 |
+| SNR sweep | -20:2:-6 dB |
+
+The plot is [`docs/images/lora-coded-ber-sf7.png`](images/lora-coded-ber-sf7.png).
+Raw results are stored in
+[`lora-coded-ber-sf7-cr1.csv`](data/lora-coded-ber-sf7-cr1.csv) and
+[`lora-coded-ber-sf7-cr4.csv`](data/lora-coded-ber-sf7-cr4.csv).
+
+One curve cannot describe the whole receiver. The experiment reports the
+implemented metrics below and reserves one counter for later CRC safety work:
 
 | Metric | Comparison point | What it isolates |
 |---|---|---|
@@ -76,11 +99,17 @@ One curve cannot describe the whole receiver. The complete model will report:
 | Post-FEC BER | original bits vs FEC-decoder output | residual decoder errors |
 | Payload BER | original payload vs dewhitened payload | complete bit pipeline |
 | PER/FER | packets with any payload error or failed CRC | application-visible reliability |
-| Undetected-error rate | CRC-pass packets with wrong payload | CRC safety check |
+| Undetected-error rate | CRC-pass packets with wrong payload | CRC safety check (planned counter) |
 
-For every SNR point, the experiment must record raw error counts and denominators
-instead of only decimal rates. Coded and uncoded curves must use the same channel
-realizations where practical. Packet experiments must separately count:
+For `PayloadBER`, a header failure or an output with the wrong length counts all
+payload bits as erroneous. This conservative rule keeps failed packets in the
+denominator. `PER` counts a header failure, CRC failure, or any wrong payload as
+a packet error. Zero observations are plotted at `0.5/N`, while CSV values and
+raw counts remain exact.
+
+For every SNR point, the experiment records raw error counts and denominators
+instead of only decimal rates. A future acquisition-inclusive experiment must
+add these separate state counters:
 
 ```text
 attempted packets

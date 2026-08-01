@@ -16,7 +16,8 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 
 - [x] CSS upchirp and downchirp generation.
 - [x] Symbol modulation, dechirp/FFT demodulation, AWGN, and CFO baseline.
-- [ ] LoRa packet encode/decode: whitening, interleaving, Hamming code, and CRC.
+- [x] Hard-decision LoRa packet encode/decode: explicit header, whitening,
+  interleaving, Hamming code, CRC, and Gray/CSS symbol mapping.
 - [x] Detect the research 8-up/2-down preamble without a priori frame start.
 - [x] Estimate and compensate carrier frequency offset on synthetic frames.
 - [x] Produce reproducible uncoded BER/SER versus sample SNR results.
@@ -25,7 +26,8 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 - [ ] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
 - [ ] Implement coarse/fractional ToA estimators and characterize bias/jitter.
 - [ ] Implement calibrated TDoA observations and 2D multilateration.
-- [ ] Generate versioned golden vectors for every HDL-bound block.
+- [x] Generate a versioned SF7/CR1 golden packet vector with intermediate
+  values for the current HDL-bound bit-processing blocks.
 - [ ] Capture Heltec SX1262 packets at BW 125 kHz and SF7 and recover them with
   the MATLAB model.
 

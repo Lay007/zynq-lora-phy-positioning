@@ -8,10 +8,10 @@
 
 ## PHY algorithms and measurements
 
-- **[CSS BER/SER methodology](ber-methodology.md)** — the exact meaning of the
-  current graph, SNR convention, trial counts, CSV, and future coded metrics.
-- **[Whitening, FEC, interleaving, and CRC](lora-phy-coding.md)** — TX/RX order,
-  purpose, trade-offs, and planned MATLAB acceptance tests.
+- **[BER/SER/PER methodology](ber-methodology.md)** — exact definitions for
+  the uncoded and coded graphs, SNR convention, raw counts, and CSV outputs.
+- **[Whitening, FEC, interleaving, and CRC](lora-phy-coding.md)** — implemented
+  TX/RX ordering, equations, bit conventions, and acceptance tests.
 
 ## Hardware and experiments
 
