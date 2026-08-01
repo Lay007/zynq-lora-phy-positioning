@@ -72,6 +72,18 @@ algorithm-development frame, not yet a standards-complete LoRa packet.
 
 ![Uncoded CSS BER and SER](docs/images/css-ber-sf7.png)
 
+## What the BER figure means
+
+The committed curve is a **demodulator baseline**, not coded LoRa packet BER.
+It compares the natural `SF`-bit labels of transmitted and detected CSS symbol
+indices with known timing in AWGN. Preamble failures, whitening, FEC,
+interleaving, CRC, and rejected packets are deliberately excluded.
+
+The complete measurement definition, SNR convention, trial counts, zero-error
+marker rule, and CSV location are in the prominently indexed
+**[BER/SER methodology](docs/ber-methodology.md)**. The planned coding chain is
+described in **[LoRa PHY coding stages](docs/lora-phy-coding.md)**.
+
 ## Auxiliary Python checks
 
 Python 3.10 or newer is recommended.
@@ -111,7 +123,9 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 - [Roadmap and acceptance criteria](docs/roadmap.md)
 - [Hardware test bench](docs/test-bench.md)
 - [Experiment workflow](experiments/README.md)
-- [BER/SER methodology](docs/ber-methodology.md)
+- **[BER/SER methodology](docs/ber-methodology.md)**
+- **[Whitening, FEC, interleaving, and CRC](docs/lora-phy-coding.md)**
+- [Documentation index](docs/README.md)
 
 ## Measurement principles
 
