@@ -1,0 +1,60 @@
+schema_version: 1
+experiment:
+  id: "YYYY-MM-DD_toa_cable_001"
+  kind: "toa"
+  objective: "Measure single-receiver timestamp bias and repeatability"
+  operator: null
+  started_utc: null
+  repository_commit: null
+  repository_dirty: false
+
+waveform:
+  source: "heltec-sx1262"
+  center_frequency_hz: 868100000
+  bandwidth_hz: 125000
+  spreading_factor: 7
+  coding_rate: "4/5"
+  preamble_symbols: 8
+  payload_hex: null
+  tx_power_dbm: null
+  packet_count: 1000
+
+stimulus:
+  path: "cable"
+  attenuation_db: null
+  splitter_id: null
+  cable_id: null
+  expected_delay_s: null
+
+receiver:
+  station_id: "rx01"
+  board_serial: null
+  board_revision: null
+  rfic: null
+  sample_rate_hz: null
+  rf_gain_db: null
+  gain_mode: "manual"
+  firmware_revision: null
+  bitstream_sha256: null
+
+timing:
+  reference_source: null
+  reference_frequency_hz: null
+  epoch_source: null
+  calibration_id: null
+
+acquisition:
+  capture_format: "complex-int16-le-iq"
+  pretrigger_samples: null
+  posttrigger_samples: null
+  raw_capture_path: null
+  raw_capture_sha256: null
+
+analysis:
+  estimator: "matched-filter-parabolic-v1"
+  acceptance:
+    maximum_bias_samples: null
+    maximum_std_samples: null
+    maximum_outlier_rate: null
+  output_directory: "artifacts/YYYY-MM-DD_toa_cable_001"
+  notes: null

@@ -1,0 +1,74 @@
+schema_version: 1
+experiment:
+  id: "YYYY-MM-DD_tdoa_cable_001"
+  kind: "tdoa"
+  objective: "Validate synchronized timestamps and calibrated 2D TDoA"
+  operator: null
+  started_utc: null
+  repository_commit: null
+  repository_dirty: false
+
+coordinate_frame:
+  name: "local-east-north-up"
+  origin: null
+  units: "m"
+
+waveform:
+  source: "heltec-sx1262"
+  center_frequency_hz: 868100000
+  bandwidth_hz: 125000
+  spreading_factor: 7
+  coding_rate: "4/5"
+  preamble_symbols: 8
+  payload_hex: null
+  tx_power_dbm: null
+  packet_count: 1000
+
+transmitter:
+  position_m: [null, null]
+  position_uncertainty_m: null
+
+timing:
+  reference_source: null
+  reference_frequency_hz: null
+  distribution_id: null
+  epoch_source: null
+  epoch_rate_hz: null
+
+receivers:
+  - station_id: "rx01"
+    position_m: [0.0, 0.0]
+    board_serial: null
+    rfic: null
+    calibration_id: null
+    fixed_delay_s: null
+    raw_capture_path: null
+    raw_capture_sha256: null
+  - station_id: "rx02"
+    position_m: [null, null]
+    board_serial: null
+    rfic: null
+    calibration_id: null
+    fixed_delay_s: null
+    raw_capture_path: null
+    raw_capture_sha256: null
+  - station_id: "rx03"
+    position_m: [null, null]
+    board_serial: null
+    rfic: null
+    calibration_id: null
+    fixed_delay_s: null
+    raw_capture_path: null
+    raw_capture_sha256: null
+
+analysis:
+  event_association_key: "payload-sequence-id"
+  toa_estimator: "matched-filter-parabolic-v1"
+  solver: "gauss-newton-v1"
+  propagation_speed_m_s: 299792458.0
+  acceptance:
+    maximum_channel_offset_s: null
+    maximum_tdoa_std_s: null
+    maximum_horizontal_error_m: null
+  output_directory: "artifacts/YYYY-MM-DD_tdoa_cable_001"
+  notes: null
