@@ -58,6 +58,20 @@ results = run_tests;
 assertSuccess(results);
 ```
 
+Generate the acquisition and BER/SER figures:
+
+```matlab
+outputs = run_visualizations;
+```
+
+The current frame receiver detects a research `8 upchirp + 2 downchirp`
+preamble, estimates CFO, and recovers aligned payload symbols. It is an
+algorithm-development frame, not yet a standards-complete LoRa packet.
+
+![CSS frame acquisition](docs/images/css-frame-acquisition-sf7.png)
+
+![Uncoded CSS BER and SER](docs/images/css-ber-sf7.png)
+
 ## Auxiliary Python checks
 
 Python 3.10 or newer is recommended.
@@ -97,6 +111,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 - [Roadmap and acceptance criteria](docs/roadmap.md)
 - [Hardware test bench](docs/test-bench.md)
 - [Experiment workflow](experiments/README.md)
+- [BER/SER methodology](docs/ber-methodology.md)
 
 ## Measurement principles
 

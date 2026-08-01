@@ -17,9 +17,11 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 - [x] CSS upchirp and downchirp generation.
 - [x] Symbol modulation, dechirp/FFT demodulation, AWGN, and CFO baseline.
 - [ ] LoRa packet encode/decode: whitening, interleaving, Hamming code, and CRC.
-- [ ] Detect repeated upchirps without a priori packet start.
-- [ ] Estimate and compensate carrier frequency offset.
-- [ ] Detect the sync-word/downchirp transition and symbol boundary.
+- [x] Detect the research 8-up/2-down preamble without a priori frame start.
+- [x] Estimate and compensate carrier frequency offset on synthetic frames.
+- [x] Produce reproducible uncoded BER/SER versus sample SNR results.
+- [ ] Implement the standard LoRa sync-word/downchirp transition and packet
+  boundary conventions.
 - [ ] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
 - [ ] Implement coarse/fractional ToA estimators and characterize bias/jitter.
 - [ ] Implement calibrated TDoA observations and 2D multilateration.
