@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+build/
+dist/
+
+# Generated measurements and vendor build products
+artifacts/
+captures/*.bin
+captures/*.npy
+captures/*.npz
+fpga/build/
+fpga/.Xil/
+*.jou
+*.log
+*.str
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
