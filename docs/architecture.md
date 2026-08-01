@@ -84,20 +84,36 @@ The system therefore separates:
 - a versioned per-channel calibration correction;
 - an uncertainty estimate carried into the position solution.
 
-## Model-to-hardware traceability
+## MATLAB-to-hardware traceability
 
-Each hardware DSP block should have four representations when applicable:
+The implementation flow is intentionally unidirectional:
+
+```text
+MATLAB floating point
+        ↓ verified test vectors and numerical requirements
+Simulink streaming architecture
+        ↓ fixed-point types, rates, latency, and HDL-compatible controls
+HDL Coder generated Verilog
+        ↓ Vivado integration, constraints, and AXI wrappers
+ZynqSDR hardware
+```
+
+Each hardware DSP block has four representations when applicable:
 
 | Layer | Purpose | Required evidence |
 |---|---|---|
-| Floating point | Algorithm definition | NumPy tests and plots |
-| Fixed point | Word-length design | Error bounds vs float |
-| RTL/HLS | Cycle-accurate implementation | Golden-vector regression |
+| MATLAB float | Authoritative algorithm | `matlab.unittest`, plots, golden vectors |
+| Simulink | Streaming architecture and fixed point | Error bounds vs MATLAB float |
+| Generated Verilog | Cycle-accurate implementation | HDL cosimulation and golden-vector regression |
 | Hardware | Real RF behavior | Versioned configuration and measurements |
 
-Initial RTL boundaries are channel filter, preamble detector, dechirp, FFT peak
-detector, timestamp unit, and AXI-Stream packetizer. Packet decoding can remain
-in PS until profiling justifies moving stages into PL.
+The Simulink DUT boundary will initially contain dechirp, FFT, and peak
+detection. Channel filtering, preamble detection, timestamping, fractional ToA,
+and AXI-Stream control will be added after the symbol detector is verified. TDoA
+event association, calibration, and multilateration remain software algorithms
+validated in MATLAB; they are not initial HDL Coder targets. Generated Verilog
+is treated as a build artifact of the reviewed model and generation scripts,
+not as a second hand-maintained implementation.
 
 ## Metadata contract
 

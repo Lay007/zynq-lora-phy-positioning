@@ -6,17 +6,18 @@ estimation, and time-difference-of-arrival (TDoA) positioning.
 The project is an engineering and research platform, not a replacement for a
 low-power commercial LoRa transceiver. Its purpose is to expose the complete
 PHY processing chain, make internal measurements observable, and provide a
-repeatable path from a floating-point reference model to a ZynqSDR
-implementation.
+repeatable path from a MATLAB floating-point reference model through Simulink
+and generated Verilog to a ZynqSDR implementation.
 
-> Status: project scaffold and executable Python reference model. RTL and board
-> support are planned; the repository does not yet contain a hardware LoRa
-> receiver.
+> Status: project scaffold and executable MATLAB floating-point CSS model. The
+> Simulink architecture, generated Verilog, and board support are planned; the
+> repository does not yet contain a hardware LoRa receiver.
 
 ## Project goals
 
 - Receive and transmit LoRa-compatible packets with a ZynqSDR platform.
-- Build a traceable implementation path: float model → fixed-point model → RTL.
+- Build a traceable implementation path: MATLAB float → Simulink → generated
+  Verilog → ZynqSDR.
 - Estimate timing, CFO, SFO, RSSI, and SNR in addition to decoded payloads.
 - Timestamp packet arrivals in programmable logic on multiple synchronized
   receivers.
@@ -26,15 +27,19 @@ implementation.
 
 The first hardware milestone is deliberately narrow:
 
-> Capture an SX1262 transmission with ZynqSDR and use the Python model to detect
-> its preamble, estimate CFO, and recover every LoRa symbol at BW 125 kHz and
-> SF7. Then reproduce dechirp, FFT, and peak detection in PL using the same test
-> vectors.
+> Complete and validate the MATLAB floating-point PHY and ToA/TDoA algorithms,
+> beginning with the receiver at BW 125 kHz and SF7. Then reproduce HDL-bound
+> blocks as a streaming Simulink model and generate dechirp, FFT, peak-detector,
+> and timing Verilog from that model using the same test vectors.
 
 ## Current contents
 
-- `src/zynq_lora_phy/` — NumPy CSS/LoRa primitives, channel impairments, ToA,
-  and TDoA reference functions.
+- `model/matlab/` — authoritative floating-point CSS/LoRa model and MATLAB unit
+  tests.
+- `model/simulink/` — planned streaming and fixed-point implementation used as
+  the HDL Coder source.
+- `src/zynq_lora_phy/` — auxiliary independent NumPy checks for CSS, ToA, and
+  TDoA; not the golden implementation.
 - `tests/` — deterministic unit tests for symbol recovery, impairments, ToA,
   and multilateration.
 - `docs/` — architecture, development roadmap, and test-bench requirements.
@@ -43,7 +48,17 @@ The first hardware milestone is deliberately narrow:
 - `fpga/`, `firmware/`, and `hardware/` — integration boundaries for later
   PL, PS, and board-specific work.
 
-## Quick start
+## MATLAB quick start
+
+MATLAB R2025a is currently used for local validation. From the repository root:
+
+```matlab
+cd model/matlab
+results = run_tests;
+assertSuccess(results);
+```
+
+## Auxiliary Python checks
 
 Python 3.10 or newer is recommended.
 
@@ -62,15 +77,18 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 ```text
 .
 ├── docs/                   Architecture, roadmap, and bench requirements
-├── examples/               Small executable reference-model examples
+├── model/
+│   ├── matlab/             Authoritative floating-point model and tests
+│   └── simulink/           HDL-oriented executable architecture
+├── examples/               Auxiliary Python examples
 ├── experiments/
 │   └── templates/          ToA/TDoA experiment metadata
 ├── captures/               Local raw IQ captures (large data ignored by Git)
 ├── fpga/                   PL/RTL sources, constraints, and verification
 ├── firmware/               Zynq PS software and host control
 ├── hardware/               Board notes, clocking, and calibration data
-├── src/zynq_lora_phy/      Python reference package
-└── tests/                  Automated tests
+├── src/zynq_lora_phy/      Auxiliary Python reference package
+└── tests/                  Auxiliary Python tests
 ```
 
 ## Architecture and plan
@@ -82,8 +100,9 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 
 ## Measurement principles
 
-1. Validate algorithms in simulation before using RF captures.
-2. Compare float, fixed-point, RTL, and hardware with identical test vectors.
+1. Define and validate algorithms in the MATLAB float model.
+2. Compare MATLAB, Simulink, generated Verilog, and hardware with identical test
+   vectors.
 3. Generate precise timestamps in PL, never from Linux or network arrival time.
 4. Treat cable, splitter, RF, ADC, and DSP delays as calibrated quantities.
 5. Record configuration and provenance with every result.

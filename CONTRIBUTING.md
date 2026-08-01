@@ -3,16 +3,25 @@
 ## Development workflow
 
 1. Open an issue or describe the measurable outcome of the change.
-2. Add or update the floating-point reference behavior.
-3. Add deterministic tests, including at least one boundary or impairment case.
-4. If RTL is involved, compare its output against versioned golden vectors.
-5. Update the relevant architecture, experiment, or calibration notes.
+2. Add or update the authoritative MATLAB floating-point behavior.
+3. Add deterministic MATLAB tests, including a boundary or impairment case.
+4. Update the Simulink implementation only after the MATLAB behavior is stable.
+5. Compare generated Verilog against versioned MATLAB/Simulink golden vectors.
+6. Update the relevant architecture, experiment, or calibration notes.
 
 Run the local checks before committing:
 
 ```bash
 python -m pip install -e ".[dev]"
 pytest
+```
+
+For the authoritative model, run in MATLAB:
+
+```matlab
+cd model/matlab
+results = run_tests;
+assertSuccess(results);
 ```
 
 ## Engineering conventions
@@ -25,3 +34,5 @@ pytest
 - Never overwrite raw experiment data. Derived results belong in a new output
   directory with their configuration and software revision.
 - Document fixed-point scaling and rounding for every PL interface.
+- Do not edit HDL Coder output manually; change the Simulink source or its HDL
+  configuration and regenerate Verilog.

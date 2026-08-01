@@ -20,6 +20,13 @@ fpga/.Xil/
 *.log
 *.str
 
+# MATLAB and Simulink generated products
+**/slprj/
+**/*.slxc
+**/codegen/
+**/work/
+*.asv
+
 # Editors and OS files
 .idea/
 .vscode/

@@ -5,47 +5,68 @@ complete only when its acceptance evidence is committed or linked.
 
 ## M0 — Reproducible repository
 
-- [x] Packageable Python project and automated tests.
-- [x] CSS modulation/demodulation, channel impairments, ToA, and TDoA baseline.
+- [x] MATLAB project layout and automated floating-point CSS tests.
+- [x] Auxiliary packageable Python checks for CSS, ToA, and TDoA.
 - [x] Architecture, bench requirements, and experiment templates.
 - [ ] Add a small, redistributable SX1262 IQ capture with provenance.
 
-Acceptance: a clean checkout installs and all tests pass.
+Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 
-## M1 — Offline LoRa symbol receiver
+## M1 — MATLAB floating-point PHY and positioning
 
-- [ ] Capture Heltec SX1262 packets at BW 125 kHz and SF7.
+- [x] CSS upchirp and downchirp generation.
+- [x] Symbol modulation, dechirp/FFT demodulation, AWGN, and CFO baseline.
+- [ ] LoRa packet encode/decode: whitening, interleaving, Hamming code, and CRC.
 - [ ] Detect repeated upchirps without a priori packet start.
 - [ ] Estimate and compensate carrier frequency offset.
 - [ ] Detect the sync-word/downchirp transition and symbol boundary.
-- [ ] Recover all payload symbol indices and compare with a known transmission.
+- [ ] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
+- [ ] Implement coarse/fractional ToA estimators and characterize bias/jitter.
+- [ ] Implement calibrated TDoA observations and 2D multilateration.
+- [ ] Generate versioned golden vectors for every HDL-bound block.
+- [ ] Capture Heltec SX1262 packets at BW 125 kHz and SF7 and recover them with
+  the MATLAB model.
 
-Acceptance: deterministic processing of at least 1,000 captures with a recorded
-detection rate, symbol error rate, CFO error, and false-alarm rate.
+Acceptance: deterministic simulation and processing of at least 1,000 captures
+with recorded detection/symbol/CFO metrics plus ToA bias/jitter and TDoA position
+error for defined geometry and impairments.
 
-## M2 — Complete software PHY
+## M2 — Simulink executable architecture
 
-- [ ] Explicit and implicit header modes.
-- [ ] Whitening, interleaving, Hamming coding, and CRC.
-- [ ] SF7–SF12 and BW 125/250/500 kHz.
-- [ ] CFO/SFO tracking and configurable low-data-rate optimization.
-- [ ] Packet generation compatible with SX1262.
+- [ ] Reproduce the verified MATLAB algorithm in a sample-streaming model.
+- [ ] Define frame/control signals, valid/ready behavior, and rate changes.
+- [ ] Convert arithmetic to explicit fixed-point types with saturation/rounding.
+- [ ] Compare every stage against MATLAB golden vectors.
+- [ ] Establish latency, throughput, and reset behavior.
+- [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
+  timestamp/metadata interface.
 
-Acceptance: bidirectional interoperability with Heltec, plus packet-error-rate
-curves versus SNR and input power for each supported configuration.
+Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
+boundary, and impairment regressions and is accepted by HDL Coder checks.
 
-## M3 — PL receiver datapath
+## M3 — HDL Coder Verilog generation
 
-- [ ] Fixed-point model with documented scaling and saturation.
-- [ ] Streaming dechirp, FFT, peak interpolation, and timestamp unit.
-- [ ] Assertions for AXI-Stream framing and counter behavior.
-- [ ] RTL or HLS regression against shared golden vectors.
+- [ ] Generate Verilog for dechirp, FFT, peak detection, and ToA blocks from
+  Simulink.
+- [ ] Run HDL cosimulation against the same golden vectors.
+- [ ] Add generated-IP packaging and reproducible generation scripts.
+- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers.
 - [ ] Synthesis, timing, resource, and power reports.
 
-Acceptance: PL reports the same symbols and bounded ToA error as the reference
-model for the regression corpus, with no AXI protocol violations.
+Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
+timing, and reports the same symbols as MATLAB/Simulink for the regression set.
 
-## M4 — Single-receiver ToA
+## M4 — ZynqSDR symbol receiver
+
+- [ ] Integrate the generated core in Vivado and connect the AD936x sample path.
+- [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
+- [ ] Extend to the complete packet PHY and bidirectional interoperability.
+- [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
+
+Acceptance: at least 1,000 hardware packets with recorded symbol/PER metrics and
+matching internal MATLAB/Simulink/Verilog test points.
+
+## M5 — Single-receiver ToA
 
 - [ ] Coarse sample counter captured in PL.
 - [ ] Fractional ToA estimator and confidence metric.
@@ -55,7 +76,7 @@ model for the regression corpus, with no AXI protocol violations.
 Acceptance: published bias, standard deviation, and outlier rate over a defined
 input range; all raw-data checksums and configurations are retained.
 
-## M5 — Three-receiver synchronized TDoA
+## M6 — Three-receiver synchronized TDoA
 
 - [ ] Verify external reference and synchronization access on every ZynqSDR.
 - [ ] Distribute a common clock and epoch pulse directly to PL.
@@ -66,11 +87,11 @@ input range; all raw-data checksums and configurations are retained.
 Acceptance: cable test first, then indoor/field results with horizontal error
 CDF, geometry, calibration revision, and uncertainty budget.
 
-## M6 — Research extensions
+## M7 — Research extensions
 
 - [ ] Adaptive chirp/CSS waveforms for joint communication and positioning.
 - [ ] TDoA/FDoA fusion and multipath-robust estimators.
-- [ ] Compare manual RTL and HLS for selected kernels.
+- [ ] Compare generated Verilog with selected manual RTL/HLS alternatives.
 - [ ] Publish a repeatable benchmark and technical report.
 
 ## Core metrics
