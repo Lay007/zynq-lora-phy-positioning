@@ -61,7 +61,11 @@ def reference_chirp(config: CssConfig, *, up: bool = True) -> ComplexArray:
 
     sample_count = config.samples_per_symbol
     n = np.arange(sample_count, dtype=np.float64)
-    phase_cycles = 0.5 * n * n / sample_count - 0.5 * n
+    oversampling = config.samples_per_chip
+    phase_cycles = (
+        0.5 * n * n / (config.symbol_count * oversampling * oversampling)
+        - 0.5 * n / oversampling
+    )
     chirp = np.exp(2j * np.pi * phase_cycles)
     if not up:
         chirp = np.conjugate(chirp)
@@ -115,9 +119,9 @@ def demodulate_symbol(
     n = np.arange(array.size, dtype=np.float64)
     compensation = np.exp(-2j * np.pi * frequency_offset_cycles_per_sample * n)
     dechirped = array * compensation * np.conjugate(reference_chirp(config))
-    peak_bin = int(np.argmax(np.abs(np.fft.fft(dechirped)) ** 2))
-    symbol = int(np.rint(peak_bin / config.samples_per_chip))
-    return symbol % config.symbol_count
+    chip_rate_samples = dechirped[:: config.samples_per_chip]
+    peak_bin = int(np.argmax(np.abs(np.fft.fft(chip_rate_samples)) ** 2))
+    return peak_bin % config.symbol_count
 
 
 def demodulate(

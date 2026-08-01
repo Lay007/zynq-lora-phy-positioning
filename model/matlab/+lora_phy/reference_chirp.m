@@ -7,7 +7,9 @@ end
 
 sampleCount = config.samplesPerSymbol;
 n = (0:sampleCount-1).';
-phaseCycles = 0.5 * n.^2 / sampleCount - 0.5 * n;
+phaseCycles = 0.5 * n.^2 / ...
+    (config.symbolCount * config.samplesPerChip^2) - ...
+    0.5 * n / config.samplesPerChip;
 chirp = exp(2j * pi * phaseCycles);
 
 if direction == "down"

@@ -16,8 +16,9 @@ n = (0:config.samplesPerSymbol-1).';
 compensation = exp(-2j * pi * frequencyOffset * n);
 dechirped = samples .* compensation .* ...
     conj(lora_phy.reference_chirp(config));
-spectrumPower = abs(fft(dechirped)).^2;
+chipRateSamples = dechirped(1:config.samplesPerChip:end);
+spectrumPower = abs(fft(chipRateSamples)).^2;
 [~, peakIndex] = max(spectrumPower);
 peakBin = peakIndex - 1;
-symbol = mod(round(peakBin / config.samplesPerChip), config.symbolCount);
+symbol = mod(peakBin, config.symbolCount);
 end
