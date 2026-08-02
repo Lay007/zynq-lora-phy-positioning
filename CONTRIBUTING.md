@@ -29,8 +29,9 @@ assertSuccess(results);
 - Store SI units in field names where ambiguity is possible (`sample_rate_hz`,
   `toa_s`, `position_m`).
 - Record random seeds for generated signals and noise.
-- Do not commit raw multi-megabyte captures; keep a small curated fixture or
-  publish a checksum and retrieval note.
+- Keep generated runs under ignored `artifacts/`. Promote only reviewed,
+  redistributable IQ evidence to `captures/reference/`; raw `.cf32`, `.cu8`,
+  and `.cfile` data there must use Git LFS and include provenance plus SHA-256.
 - Never overwrite raw experiment data. Derived results belong in a new output
   directory with their configuration and software revision.
 - Document fixed-point scaling and rounding for every PL interface.

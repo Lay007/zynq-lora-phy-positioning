@@ -12,9 +12,11 @@ experiments/runs/2026-08-01_toa_cable_001.yaml
 artifacts/2026-08-01_toa_cable_001/
 ```
 
-Generated `artifacts/` and full IQ captures are ignored by Git. Commit the
-completed run configuration, compact result tables, plots, and checksums for
-external raw data when the experiment contributes project evidence.
+Generated `artifacts/` and unreviewed full IQ captures are ignored by Git.
+Commit the completed run configuration, compact result tables, plots, and
+checksums when an experiment contributes project evidence. A reviewed,
+redistributable reference capture may be promoted to `captures/reference/`;
+raw IQ files in that directory are stored with Git LFS and must have a manifest.
 
 ## Required provenance
 

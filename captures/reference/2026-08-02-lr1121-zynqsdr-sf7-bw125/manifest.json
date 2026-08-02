@@ -1,0 +1,67 @@
+{
+  "schema": "zynq-lora-reference-capture-v1",
+  "capture": {
+    "path": "iq.cf32",
+    "sha256": "7584172e01413e9ba92df41d929b61c3a1b940d25a6c6c202b7ce011d267760d",
+    "bytes": 33554432,
+    "samples": 4194304,
+    "format": "complex-float32-le-iq",
+    "started_utc": "2026-08-02T19:36:10.065404+00:00",
+    "sample_rate_hz": 1000000,
+    "centre_frequency_hz": 868349998,
+    "rf_bandwidth_hz": 1000000,
+    "gain_mode": "manual",
+    "gain_db": 20.0,
+    "contiguous": true
+  },
+  "transmitter": {
+    "board": "LILYGO T3S3 LR1121",
+    "firmware": "zynq-lora-lr1121-tx 0.1.1",
+    "frequency_hz": 868100000,
+    "bandwidth_hz": 125000,
+    "spreading_factor": 7,
+    "coding_rate": "4/5",
+    "sync_word": "0x12",
+    "power_dbm": 0,
+    "preamble_symbols": 12,
+    "payload": "32-byte counter",
+    "crc_enabled": true,
+    "iq_inverted": false,
+    "packets": [
+      {"sequence": 0, "host_utc": "2026-08-02T19:36:16.509328+00:00", "duration_ms": 84, "radio_state": 0},
+      {"sequence": 1, "host_utc": "2026-08-02T19:36:17.203249+00:00", "duration_ms": 84, "radio_state": 0},
+      {"sequence": 2, "host_utc": "2026-08-02T19:36:17.904224+00:00", "duration_ms": 84, "radio_state": 0}
+    ]
+  },
+  "receiver": {
+    "device": "FISH Ball PlutoSDR Rev.A (Z7020-AD9361)",
+    "uri": "ip:192.168.40.1",
+    "firmware_version": "80403-dirty",
+    "role": "receive-only"
+  },
+  "bench": {
+    "connection": "OTA",
+    "rf_path": "LILYGO antenna -> OTA -> ZynqSDR RX antenna",
+    "limitations": "Antenna separation and absolute RF calibration were not recorded."
+  },
+  "analysis": {
+    "tool": "MATLAB R2025a analyze_iq_capture",
+    "report": "inspection.png",
+    "packet_start_seconds": 0.2785,
+    "packet_end_seconds": 0.354999,
+    "estimated_bandwidth_hz": 125000,
+    "measured_occupied_bandwidth_hz": 136749.53316837308,
+    "estimated_spreading_factor": 7,
+    "estimated_symbol_duration_seconds": 0.001024,
+    "estimated_carrier_hz": 868100185.0556769,
+    "cfo_hz": 185.05567693710327,
+    "estimated_snr_db": 53.019230216996945,
+    "preamble_score": 0.97625550095777
+  },
+  "provenance": {
+    "repository_commit_at_acquisition": "94bee876defe3da557ef5e49729519bad3e70fdd",
+    "repository_was_dirty": true,
+    "source_run_id": "20260802T193603Z-first-hw-sf7-bw125",
+    "curation_note": "Raw samples are unchanged; the reference filename is normalized to iq.cf32."
+  }
+}

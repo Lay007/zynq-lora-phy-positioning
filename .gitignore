@@ -22,6 +22,9 @@ captures/*.npz
 captures/**/*.cf32
 captures/**/*.cu8
 captures/**/*.cfile
+!captures/reference/**/*.cf32
+!captures/reference/**/*.cu8
+!captures/reference/**/*.cfile
 fpga/build/
 fpga/.Xil/
 *.jou

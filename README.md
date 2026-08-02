@@ -142,7 +142,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 ├── examples/               Auxiliary Python examples
 ├── experiments/
 │   └── templates/          PHY capture and ToA/TDoA metadata
-├── captures/               Local raw IQ captures (large data ignored by Git)
+├── captures/               Local captures plus curated Git LFS references
 ├── tools/                  Hardware capture helpers
 ├── fpga/                   PL/RTL sources, constraints, and verification
 ├── firmware/               Zynq PS software and host control

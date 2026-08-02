@@ -8,7 +8,7 @@ complete only when its acceptance evidence is committed or linked.
 - [x] MATLAB project layout and automated floating-point CSS tests.
 - [x] Auxiliary packageable Python checks for CSS, ToA, and TDoA.
 - [x] Architecture, bench requirements, and experiment templates.
-- [ ] Add a small, redistributable SX1262 IQ capture with provenance.
+- [x] Add a redistributable LR1121 IQ reference capture with provenance via Git LFS.
 
 Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 
