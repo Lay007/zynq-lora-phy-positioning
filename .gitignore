@@ -9,6 +9,9 @@ venv/
 build/
 dist/
 
+# PlatformIO generated products
+**/.pio/
+
 # Generated measurements and vendor build products
 artifacts/
 captures/*.bin
