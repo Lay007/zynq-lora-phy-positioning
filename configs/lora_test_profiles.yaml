@@ -1,0 +1,76 @@
+schema_version: 1
+transmitter:
+  board: lilygo-t3s3-v1.2
+  radio: lr1121
+  firmware: firmware/lilygo-t3s3-lr1121-tx
+  pa_variant: false
+
+profiles:
+  baseline_sf7_bw125:
+    frequency_hz: 868100000
+    bandwidth_hz: 125000
+    spreading_factor: 7
+    coding_rate: "4/5"
+    sync_word: 0x12
+    preamble_symbols: 12
+    explicit_header: true
+    payload_crc: true
+    iq_inverted: false
+    output_power_dbm: 0
+    interval_ms: 500
+    payload:
+      mode: counter
+      format: zlp1-counter-v1
+      length_bytes: 32
+    serial_commands:
+      - set freq 868.1
+      - set bw 125
+      - set sf 7
+      - set cr 5
+      - set sync 0x12
+      - set preamble 12
+      - set crc on
+      - set iq normal
+      - set power 0
+      - set interval 500
+      - set length 32
+
+  acquisition_sf10_bw125:
+    frequency_hz: 868100000
+    bandwidth_hz: 125000
+    spreading_factor: 10
+    coding_rate: "4/5"
+    sync_word: 0x12
+    preamble_symbols: 12
+    explicit_header: true
+    payload_crc: true
+    iq_inverted: false
+    output_power_dbm: 0
+    interval_ms: 1000
+    payload:
+      mode: counter
+      format: zlp1-counter-v1
+      length_bytes: 32
+    serial_commands:
+      - set freq 868.1
+      - set bw 125
+      - set sf 10
+      - set cr 5
+      - set power 0
+      - set interval 1000
+
+  bandwidth_sweep:
+    base_profile: baseline_sf7_bw125
+    parameter: bandwidth_hz
+    values: [125000, 250000, 500000]
+
+  spreading_factor_sweep:
+    base_profile: baseline_sf7_bw125
+    parameter: spreading_factor
+    values: [7, 8, 9, 10, 11, 12]
+
+bench_notes:
+  - Start periodic transmission only after the antenna or conducted RF path is connected.
+  - Use at least 30 dB attenuation for the initial conducted ZynqSDR test.
+  - Record the exact profile, SDR sample rate, centre frequency, gain, and capture start time with every IQ file.
+  - Confirm local spectrum regulations before radiating over an antenna.
