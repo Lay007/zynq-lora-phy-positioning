@@ -5,7 +5,8 @@
 ## Имеющееся и ожидаемое оборудование
 
 - 3 × ZynqSDR, точную ревизию, RFIC и clock I/O нужно проверить.
-- 1 × Heltec WiFi LoRa 32 V4, ESP32-S3 + SX1262, ожидается; проверить регион.
+- 1 × Heltec WiFi LoRa 32 V4, ESP32-S3 + SX1262, подключена; нужно проверить
+  регион, антенну и маркировку PCB V4.2/V4.3 до первой передачи.
 - 1 × PlutoSDR.
 - 1 × RTL-SDR; записать модель, tuner и тип опорного генератора.
 - 30 dB RF attenuator, DC block, splitter/combiner.

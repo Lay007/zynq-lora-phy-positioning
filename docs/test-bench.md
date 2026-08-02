@@ -3,8 +3,8 @@
 ## Known starting equipment
 
 - 3 × ZynqSDR receivers (exact board revision, RFIC, and clock I/O to verify).
-- 1 × Heltec WiFi LoRa 32 V4 with ESP32-S3 + SX1262 (on order; regional
-  variant and exact board revision to verify on arrival).
+- 1 × Heltec WiFi LoRa 32 V4 with ESP32-S3 + SX1262 (connected; regional
+  variant, antenna, and PCB V4.2/V4.3 marking must be verified before TX).
 - 1 × PlutoSDR receiver.
 - 1 × RTL-SDR receiver (exact model, tuner, and oscillator to record).
 - 30 dB RF attenuator, DC block, and an RF splitter/combiner.
