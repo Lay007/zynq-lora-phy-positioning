@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "firmware/lilygo-t3s3-lr1121-tx/**"
+      - "firmware/heltec-v4-sx1262-tx/**"
       - ".github/workflows/firmware.yml"
   pull_request:
     paths:
       - "firmware/lilygo-t3s3-lr1121-tx/**"
+      - "firmware/heltec-v4-sx1262-tx/**"
       - ".github/workflows/firmware.yml"
 
 permissions:
@@ -27,4 +29,7 @@ jobs:
         run: python -m pip install platformio==6.1.19
       - name: Build LILYGO LR1121 transmitter
         working-directory: firmware/lilygo-t3s3-lr1121-tx
+        run: pio run
+      - name: Build Heltec V4 SX1262 transmitter
+        working-directory: firmware/heltec-v4-sx1262-tx
         run: pio run
