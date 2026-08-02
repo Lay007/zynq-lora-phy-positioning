@@ -14,9 +14,14 @@ dist/
 
 # Generated measurements and vendor build products
 artifacts/
+experiments/runs/
+experiments/configs/*.local.json
 captures/*.bin
 captures/*.npy
 captures/*.npz
+captures/**/*.cf32
+captures/**/*.cu8
+captures/**/*.cfile
 fpga/build/
 fpga/.Xil/
 *.jou

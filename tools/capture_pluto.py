@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--count", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--ready-file",
+        type=Path,
+        help="Create this file after RX configuration and warm-up are complete",
+    )
     return parser.parse_args()
 
 
@@ -65,6 +70,12 @@ def main() -> None:
 
     for _ in range(args.warmup):
         radio.rx()
+
+    if args.ready_file is not None:
+        args.ready_file.parent.mkdir(parents=True, exist_ok=True)
+        args.ready_file.write_text(
+            datetime.now(timezone.utc).isoformat() + "\n", encoding="utf-8"
+        )
 
     files: list[dict[str, object]] = []
     for capture_index in range(args.count):

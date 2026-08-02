@@ -16,6 +16,11 @@ dependencies = [
 dev = [
     "pytest>=7.4",
 ]
+hardware = [
+    "pyserial>=3.5",
+    "pyadi-iio",
+    "pylibiio",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

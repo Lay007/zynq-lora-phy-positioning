@@ -1,0 +1,43 @@
+{
+  "schema": "zynq-lora-one-machine-v1",
+  "run_name": "sf7-bw125-pluto",
+  "bench": {
+    "connection": "OTA",
+    "antenna_or_cable_path": "EDIT BEFORE RUN",
+    "notes": ""
+  },
+  "transmitter": {
+    "board": "LILYGO T3S3 LR1121",
+    "port": "COM7",
+    "baud": 115200,
+    "frequency_hz": 868100000,
+    "bandwidth_hz": 125000,
+    "spreading_factor": 7,
+    "coding_rate_denominator": 5,
+    "power_dbm": 0,
+    "preamble_symbols": 12,
+    "sync_word": "0x12",
+    "crc_enabled": true,
+    "iq_inverted": false,
+    "payload": "counter",
+    "payload_length": 32,
+    "packet_count": 3,
+    "packet_interval_ms": 500
+  },
+  "receiver": {
+    "type": "pluto",
+    "uri": "ip:192.168.2.1",
+    "center_frequency_hz": 868350000,
+    "sample_rate_hz": 1000000,
+    "rf_bandwidth_hz": 1000000,
+    "gain_db": 20,
+    "duration_s": 4.194304,
+    "warmup_buffers": 2,
+    "arm_timeout_s": 15,
+    "post_arm_delay_s": 0.25
+  },
+  "analysis": {
+    "enabled": true,
+    "matlab_command": "matlab"
+  }
+}
