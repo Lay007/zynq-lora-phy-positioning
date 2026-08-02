@@ -27,6 +27,20 @@ addpath examples
 [result, figureHandle] = plot_symbol_demodulation;
 ```
 
+Open the visual IQ packet inspector:
+
+```matlab
+addpath apps
+app = lora_phy_inspector;
+```
+
+It reads headerless RTL-SDR CU8 and Pluto/GNU Radio CF32 files and estimates the
+strongest CSS burst's BW, SF, carrier offset, symbol duration, SNR, DC/IQ
+impairments, and dechirped FFT bins. Generate a deterministic input with
+`generate_inspector_demo_capture` from the `examples` directory. Full usage and
+measurement limits are documented in
+[`docs/lora-phy-inspector.md`](../../docs/lora-phy-inspector.md).
+
 Package functions use column vectors and normalized CFO in cycles per sample.
 For physical rate `Fs`, convert with `cfoNormalized = cfoHz / Fs`.
 

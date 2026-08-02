@@ -66,6 +66,20 @@ Generate the acquisition, uncoded CSS, and coded packet BER/PER figures:
 outputs = run_visualizations;
 ```
 
+Inspect an RTL-SDR CU8 or Pluto/GNU Radio CF32 recording visually and estimate
+its strongest packet's BW, SF, carrier offset, symbol duration, SNR, and
+dechirped FFT bins:
+
+```matlab
+addpath apps
+app = lora_phy_inspector;
+```
+
+![LoRa PHY Inspector](docs/images/lora-phy-inspector.png)
+
+See the **[LoRa PHY Inspector guide](docs/lora-phy-inspector.md)** for input
+formats, interpretation, methodology, and current limits.
+
 The symbol-demodulation view shows how different cyclic shifts become distinct
 dechirped tones and FFT peaks:
 

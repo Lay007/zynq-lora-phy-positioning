@@ -14,6 +14,8 @@
   the uncoded and coded graphs, SNR convention, raw counts, and CSV outputs.
 - **[Whitening, FEC, interleaving, and CRC](lora-phy-coding.md)** — implemented
   TX/RX ordering, equations, bit conventions, and acceptance tests.
+- **[LoRa PHY Inspector](lora-phy-inspector.md)** — visual CU8/CF32 packet
+  inspection, BW/SF/carrier/SNR estimation, and dechirped FFT display.
 
 ## Hardware and experiments
 

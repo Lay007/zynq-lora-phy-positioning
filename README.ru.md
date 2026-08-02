@@ -58,6 +58,19 @@ assertSuccess(results);
 outputs = run_visualizations;
 ```
 
+Для визуального анализа записи RTL-SDR CU8 или Pluto/GNU Radio CF32 и оценки
+BW, SF, смещения несущей, длительности символа, SNR и dechirp FFT запустите:
+
+```matlab
+addpath apps
+app = lora_phy_inspector;
+```
+
+![LoRa PHY Inspector](docs/images/lora-phy-inspector.png)
+
+Форматы входа, методика и ограничения описаны в
+**[руководстве по LoRa PHY Inspector](docs/ru/lora-phy-inspector.md)**.
+
 Демодуляция нескольких CSS-символов:
 
 ![Демодуляция CSS-символов](docs/images/css-symbol-demodulation-sf7.png)

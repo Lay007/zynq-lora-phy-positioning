@@ -14,6 +14,7 @@
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
 - [Запись пакетов SX1262 с RTL-SDR и PlutoSDR](iq-capture-guide.md)
+- [LoRa PHY Inspector: визуальный анализ и оценка параметров](lora-phy-inspector.md)
 
 ## Оборудование и эксперименты
 
