@@ -37,6 +37,23 @@ packet model до timestamp experiments.
 Raw result не редактируется. Если изменился алгоритм обработки, создаётся новый
 analysis output, который ссылается на тот же immutable capture.
 
+## Аппаратные серии режимов
+
+Матрица `experiments/sweeps/lr1121-pluto-modes.json` запускается поверх
+проверенной локальной конфигурации стенда:
+
+```powershell
+python tools/run_phy_sweep.py `
+  --sweep experiments/sweeps/lr1121-pluto-modes.json `
+  --base-config experiments/configs/my-pluto.local.json `
+  --execute
+```
+
+`tools/analyze_phy_sweep.py` обрабатывает основной и repair-прогоны за одну
+MATLAB-сессию. После просмотра отчётов `tools/curate_phy_sweep.py` повторно
+проверяет размер и SHA-256 и переносит в `captures/reference/` только случаи со
+статусом `complete`.
+
 ## Именование
 
 Рекомендуемый ID:

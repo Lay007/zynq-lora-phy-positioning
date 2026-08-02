@@ -65,6 +65,23 @@ classdef TestIqInspector < matlab.unittest.TestCase
                 [numel(result.frequencyHz), numel(result.timeSeconds)]);
             testCase.verifyLessThanOrEqual(numel(result.timeSeconds), 40);
         end
+
+        function completeBurstIsPreferredOverBoundaryFragment(testCase)
+            config = lora_phy.css_config(7, 4);
+            frame = lora_phy.build_css_frame([3; 17; 64], config, 8, 2);
+            fragment = frame(round(end/3):end);
+            capture = [fragment; zeros(3000, 1); frame; zeros(3000, 1)];
+            rng(11, "twister");
+            noise = sqrt(0.0002/2)*(randn(size(capture))+1j*randn(size(capture)));
+
+            result = lora_phy.inspect_iq_capture(capture+noise, 500e3, ...
+                CandidateBandwidthHz=125e3, CandidateSpreadingFactors=7);
+
+            expectedStart = numel(fragment)+3001;
+            testCase.verifyEqual(result.packetStartIndex, expectedStart, ...
+                "AbsTol", 300);
+            testCase.verifyGreaterThan(result.packetStartIndex, numel(fragment));
+        end
     end
 end
 

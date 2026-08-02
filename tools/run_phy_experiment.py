@@ -212,9 +212,19 @@ class SerialTransmitter:
             import serial
         except ImportError as error:
             raise RuntimeError("Install pyserial: python -m pip install pyserial") from error
-        self._serial = serial.Serial(port, baud, timeout=0.1)
+        # Opening ESP32-S3 USB CDC with DTR/RTS asserted can reset the board.
+        # Configure both lines before opening so back-to-back sweep cases keep
+        # the already-running reference firmware alive.
+        self._serial = serial.Serial()
+        self._serial.port = port
+        self._serial.baudrate = baud
+        self._serial.timeout = 0.1
+        self._serial.write_timeout = 1
+        self._serial.dtr = False
+        self._serial.rts = False
+        self._serial.open()
         self._log = log_path.open("w", encoding="utf-8")
-        time.sleep(0.3)
+        time.sleep(0.5)
         self.drain(0.5)
 
     def close(self) -> None:
@@ -363,7 +373,14 @@ def run() -> Path:
             run_directory / "transmitter.log",
         )
         for setup_command in transmitter_commands(config):
-            transmitter.command(setup_command)
+            for attempt in range(3):
+                try:
+                    transmitter.command(setup_command)
+                    break
+                except TimeoutError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(0.5)
 
         receiver_process = subprocess.Popen(
             command,

@@ -41,3 +41,20 @@ MATLAB inspection report. See the
 
 Do not edit raw results after acquisition. If processing changes, create a new
 analysis output that points to the same immutable source capture.
+
+## Hardware mode sweeps
+
+`experiments/sweeps/lr1121-pluto-modes.json` defines the validated 27-mode
+matrix. Apply it to a reviewed machine-local base configuration:
+
+```powershell
+python tools/run_phy_sweep.py `
+  --sweep experiments/sweeps/lr1121-pluto-modes.json `
+  --base-config experiments/configs/my-pluto.local.json `
+  --execute
+```
+
+Use `tools/analyze_phy_sweep.py` to process completed/repair sweep directories
+in one MATLAB session. After reviewing the reports, `tools/curate_phy_sweep.py`
+rechecks every size and SHA-256 and promotes only completed cases to a new
+`captures/reference/` dataset.

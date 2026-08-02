@@ -1,0 +1,39 @@
+{
+  "schema": "zynq-lora-phy-sweep-v1",
+  "name": "lr1121-pluto-modes",
+  "cases": [
+    {"name": "sf5-bw125", "overrides": {"transmitter": {"spreading_factor": 5, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf6-bw125", "overrides": {"transmitter": {"spreading_factor": 6, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-bw125", "overrides": {"transmitter": {"spreading_factor": 7, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf8-bw125", "overrides": {"transmitter": {"spreading_factor": 8, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf9-bw125", "overrides": {"transmitter": {"spreading_factor": 9, "packet_count": 2, "packet_interval_ms": 300}}},
+    {"name": "sf10-bw125", "overrides": {"transmitter": {"spreading_factor": 10, "packet_count": 1, "packet_interval_ms": 300}}},
+    {"name": "sf11-bw125", "overrides": {"transmitter": {"spreading_factor": 11, "packet_count": 1, "packet_interval_ms": 300}}},
+    {"name": "sf12-bw125", "overrides": {"transmitter": {"spreading_factor": 12, "packet_count": 1, "packet_interval_ms": 300}, "receiver": {"duration_s": 4.194304}}},
+
+    {"name": "sf7-bw62k5", "overrides": {"transmitter": {"bandwidth_hz": 62500, "packet_count": 2, "packet_interval_ms": 300}}},
+    {"name": "sf7-bw250", "overrides": {"transmitter": {"bandwidth_hz": 250000, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-bw500", "overrides": {"transmitter": {"bandwidth_hz": 500000, "packet_count": 2, "packet_interval_ms": 100}, "receiver": {"sample_rate_hz": 2000000, "duration_s": 1.048576}}},
+
+    {"name": "sf7-cr46", "overrides": {"transmitter": {"coding_rate_denominator": 6, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-cr47", "overrides": {"transmitter": {"coding_rate_denominator": 7, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-cr48", "overrides": {"transmitter": {"coding_rate_denominator": 8, "packet_count": 3, "packet_interval_ms": 300}}},
+
+    {"name": "sf7-power-m5", "overrides": {"transmitter": {"power_dbm": -5, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-power-m8", "overrides": {"transmitter": {"power_dbm": -8, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-power-m9", "overrides": {"transmitter": {"power_dbm": -9, "packet_count": 3, "packet_interval_ms": 300}}},
+
+    {"name": "sf7-len12", "overrides": {"transmitter": {"payload_length": 12, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-len64", "overrides": {"transmitter": {"payload_length": 64, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-len128", "overrides": {"transmitter": {"payload_length": 128, "packet_count": 2, "packet_interval_ms": 300}}},
+    {"name": "sf7-len220", "overrides": {"transmitter": {"payload_length": 220, "packet_count": 2, "packet_interval_ms": 300}}},
+
+    {"name": "sf7-preamble8", "overrides": {"transmitter": {"preamble_symbols": 8, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-preamble20", "overrides": {"transmitter": {"preamble_symbols": 20, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-preamble32", "overrides": {"transmitter": {"preamble_symbols": 32, "packet_count": 3, "packet_interval_ms": 300}}},
+
+    {"name": "sf7-crc-off", "overrides": {"transmitter": {"crc_enabled": false, "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-sync34", "overrides": {"transmitter": {"sync_word": "0x34", "packet_count": 3, "packet_interval_ms": 300}}},
+    {"name": "sf7-iq-inverted", "overrides": {"transmitter": {"iq_inverted": true, "packet_count": 3, "packet_interval_ms": 300}}}
+  ]
+}

@@ -13,6 +13,13 @@ assert SPEC is not None and SPEC.loader is not None
 RUNNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUNNER)
 
+SWEEP_SPEC = importlib.util.spec_from_file_location(
+    "run_phy_sweep", ROOT / "tools" / "run_phy_sweep.py"
+)
+assert SWEEP_SPEC is not None and SWEEP_SPEC.loader is not None
+SWEEP = importlib.util.module_from_spec(SWEEP_SPEC)
+SWEEP_SPEC.loader.exec_module(SWEEP)
+
 
 def load_example(name: str) -> dict:
     path = ROOT / "experiments" / "configs" / name
@@ -96,3 +103,16 @@ def test_matlab_expression_uses_capture_metadata(tmp_path):
     assert "analyze_iq_capture" in expression
     assert "'cf32'" in expression
     assert "1000000,868350000,868100000" in expression
+
+
+def test_lr1121_sweep_cases_are_unique_and_valid():
+    sweep = load_example("../sweeps/lr1121-pluto-modes.json")
+    base = load_example("one-machine-pluto.example.json")
+    base["bench"]["antenna_or_cable_path"] = "test bench"
+    cases = SWEEP.prepare_cases(sweep, base, execute=True)
+
+    assert len(cases) == 27
+    assert len({name for name, _ in cases}) == len(cases)
+    assert all(config["transmitter"]["power_dbm"] <= 0 for _, config in cases)
+    assert all(config["transmitter"]["power_dbm"] >= -9 for _, config in cases)
+    assert all(config["transmitter"]["frequency_hz"] == 868100000 for _, config in cases)

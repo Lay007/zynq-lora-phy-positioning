@@ -17,8 +17,8 @@ run unattended MATLAB inspection
 write raw data, logs, metadata, JSON, MAT, and PNG reports
 ```
 
-The serial command protocol is already implemented by the LILYGO LR1121
-reference firmware. The future Heltec SX1262 firmware should implement the same
+The serial command protocol is implemented by both the LILYGO LR1121 and
+Heltec SX1262 reference firmware. They expose the same
 `stop`, `set ...`, `show`, and `send` commands, so the host workflow does not
 depend on the transmitter board.
 

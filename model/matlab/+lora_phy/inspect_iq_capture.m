@@ -8,7 +8,7 @@ arguments
     iq (:,1) {mustBeNumeric}
     sampleRateHz (1,1) double {mustBePositive}
     options.CandidateBandwidthHz (1,:) double {mustBePositive} = ...
-        [125e3, 250e3, 500e3]
+        [62.5e3, 125e3, 250e3, 500e3]
     options.CandidateSpreadingFactors (1,:) double = 5:12
     options.MaximumSymbols (1,1) double {mustBeInteger, mustBePositive} = 64
     options.SpectrogramFftLength (1,1) double ...
@@ -132,12 +132,20 @@ if isempty(runStarts)
     runStarts = max(1, peakBlock-2);
     runEnds = min(blockCount, peakBlock+2);
 end
-scores = zeros(size(runStarts));
-for k = 1:numel(runStarts)
-    range = runStarts(k):runEnds(k);
+% A run that touches a capture boundary may be only a packet fragment.  If
+% at least one complete interior run exists, rank only the complete runs.
+eligibleRuns = find(runStarts > 1 & runEnds < blockCount);
+if isempty(eligibleRuns)
+    eligibleRuns = 1:numel(runStarts);
+end
+scores = zeros(size(eligibleRuns));
+for k = 1:numel(eligibleRuns)
+    run = eligibleRuns(k);
+    range = runStarts(run):runEnds(run);
     scores(k) = sum(max(blockPowerDb(range)-noiseDb, 0));
 end
-[~, best] = max(scores);
+[~, bestEligible] = max(scores);
+best = eligibleRuns(bestEligible);
 firstBlock = runStarts(best);
 lastBlock = runEnds(best);
 startIndex = (firstBlock-1)*blockLength+1;

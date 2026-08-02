@@ -1,6 +1,6 @@
 function output = analyze_iq_capture( ...
     filePath, format, sampleRateHz, centreFrequencyHz, ...
-    expectedFrequencyHz, outputDirectory)
+    expectedFrequencyHz, outputDirectory, options)
 %ANALYZE_IQ_CAPTURE Create unattended JSON, MAT, and PNG IQ-analysis reports.
 
 arguments
@@ -10,10 +10,24 @@ arguments
     centreFrequencyHz (1,1) double
     expectedFrequencyHz (1,1) double
     outputDirectory (1,1) string
+    options.ExpectedBandwidthHz (1,1) double {mustBeNonnegative} = 0
+    options.ExpectedSpreadingFactor (1,1) double {mustBeNonnegative} = 0
 end
 
 [iq, fileInfo] = lora_phy.load_iq_capture(filePath, format);
-result = lora_phy.inspect_iq_capture(iq, sampleRateHz);
+if options.ExpectedBandwidthHz > 0 && options.ExpectedSpreadingFactor > 0
+    result = lora_phy.inspect_iq_capture(iq, sampleRateHz, ...
+        CandidateBandwidthHz=options.ExpectedBandwidthHz, ...
+        CandidateSpreadingFactors=options.ExpectedSpreadingFactor);
+elseif options.ExpectedBandwidthHz > 0
+    result = lora_phy.inspect_iq_capture(iq, sampleRateHz, ...
+        CandidateBandwidthHz=options.ExpectedBandwidthHz);
+elseif options.ExpectedSpreadingFactor > 0
+    result = lora_phy.inspect_iq_capture(iq, sampleRateHz, ...
+        CandidateSpreadingFactors=options.ExpectedSpreadingFactor);
+else
+    result = lora_phy.inspect_iq_capture(iq, sampleRateHz);
+end
 if ~isfolder(outputDirectory)
     mkdir(outputDirectory);
 end
@@ -40,6 +54,10 @@ summary.sample_count = fileInfo.sampleCount;
 summary.sample_rate_hz = sampleRateHz;
 summary.centre_frequency_hz = centreFrequencyHz;
 summary.expected_frequency_hz = expectedFrequencyHz;
+summary.expected_bandwidth_hz = options.ExpectedBandwidthHz;
+summary.expected_spreading_factor = options.ExpectedSpreadingFactor;
+summary.profile_constrained = options.ExpectedBandwidthHz > 0 || ...
+    options.ExpectedSpreadingFactor > 0;
 summary.packet_start_seconds = result.packetStartSeconds;
 summary.packet_end_seconds = result.packetEndSeconds;
 summary.estimated_bandwidth_hz = result.estimatedBandwidthHz;
