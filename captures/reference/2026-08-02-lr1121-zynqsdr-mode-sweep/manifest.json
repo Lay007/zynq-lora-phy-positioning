@@ -1,0 +1,2225 @@
+{
+  "schema": "zynq-lora-reference-sweep-v1",
+  "curated_utc": "2026-08-02T21:22:26.128336+00:00",
+  "capture_count": 27,
+  "total_bytes": 469762048,
+  "captures": [
+    {
+      "name": "sf5-bw125",
+      "capture": {
+        "path": "sf5-bw125.cf32",
+        "sha256": "4620939b539fc0da83adb5dc35edf4440e0933f353f4635a0e2df32eb864bb8c",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 5,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:19:48.158843+00:00",
+          "radio_log": "TX seq=2 len=32 state=0 start_ms=984776 duration_ms=32"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:19:48.607815+00:00",
+          "radio_log": "TX seq=3 len=32 state=0 start_ms=985225 duration_ms=32"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:19:49.151770+00:00",
+          "radio_log": "TX seq=4 len=32 state=0 start_ms=985770 duration_ms=32"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.2175,
+        "packet_end_seconds": 1.242499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 120629.70787884327,
+        "estimated_spreading_factor": 5,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868101196.3385178,
+        "cfo_hz": 1196.3385177850723,
+        "estimated_snr_db": 48.72871831818712,
+        "preamble_score": 0.9289141406478503,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 5
+      },
+      "provenance": {
+        "source_run_id": "20260802T201939Z-lr1121-pluto-modes-sf5-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf6-bw125",
+      "capture": {
+        "path": "sf6-bw125.cf32",
+        "sha256": "b0f43642e3d8b8862dc3078615da5c4ce1de172b38a1ef994123087d44791578",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 6,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:19:59.369028+00:00",
+          "radio_log": "TX seq=5 len=32 state=0 start_ms=995988 duration_ms=52"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:19:59.834042+00:00",
+          "radio_log": "TX seq=6 len=32 state=0 start_ms=996452 duration_ms=52"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:20:00.290199+00:00",
+          "radio_log": "TX seq=7 len=32 state=0 start_ms=996909 duration_ms=52"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.705,
+        "packet_end_seconds": 0.749999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128732.65625752766,
+        "estimated_spreading_factor": 6,
+        "estimated_symbol_duration_seconds": 0.000512,
+        "estimated_carrier_hz": 868100469.0884434,
+        "cfo_hz": 469.08844339847565,
+        "estimated_snr_db": 53.041445673768585,
+        "preamble_score": 0.9279798771665935,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 6
+      },
+      "provenance": {
+        "source_run_id": "20260802T201950Z-lr1121-pluto-modes-sf6-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw125",
+      "capture": {
+        "path": "sf7-bw125.cf32",
+        "sha256": "112020f5851502cb269a1f5395dacfe2c1cb83b70085eb089792642c516a29bd",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:20:09.531668+00:00",
+          "radio_log": "TX seq=8 len=32 state=0 start_ms=1006177 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:20:10.053653+00:00",
+          "radio_log": "TX seq=9 len=32 state=0 start_ms=1006673 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:20:10.554257+00:00",
+          "radio_log": "TX seq=10 len=32 state=0 start_ms=1007172 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.285,
+        "packet_end_seconds": 0.361499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 126982.50841897959,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100201.3108369,
+        "cfo_hz": 201.31083691120148,
+        "estimated_snr_db": 53.307965656864184,
+        "preamble_score": 0.9875114560970134,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202001Z-lr1121-pluto-modes-sf7-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf8-bw125",
+      "capture": {
+        "path": "sf8-bw125.cf32",
+        "sha256": "d3d2671d467c5f417a52f5587c3cd5017dda9d2c01805b0143fc95833151c0d7",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 8,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:20:19.873315+00:00",
+          "radio_log": "TX seq=11 len=32 state=0 start_ms=1016492 duration_ms=149"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:20:20.435283+00:00",
+          "radio_log": "TX seq=12 len=32 state=0 start_ms=1017054 duration_ms=149"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:20:21.002071+00:00",
+          "radio_log": "TX seq=13 len=32 state=0 start_ms=1017622 duration_ms=149"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.3825,
+        "packet_end_seconds": 1.524999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128758.7413940321,
+        "estimated_spreading_factor": 8,
+        "estimated_symbol_duration_seconds": 0.002048,
+        "estimated_carrier_hz": 868100064.8857622,
+        "cfo_hz": 64.88576221466064,
+        "estimated_snr_db": 53.363835184227284,
+        "preamble_score": 0.9809918995855736,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 8
+      },
+      "provenance": {
+        "source_run_id": "20260802T202012Z-lr1121-pluto-modes-sf8-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf10-bw125",
+      "capture": {
+        "path": "sf10-bw125.cf32",
+        "sha256": "6fe64cc4b198f3ec12fec91a1b234d3919ae8ccaef2fb55ac507eab036476673",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 10,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:20:32.560369+00:00",
+          "radio_log": "TX seq=14 len=32 state=0 start_ms=1029179 duration_ms=493"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2485,
+        "packet_end_seconds": 0.734499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125372.20245020269,
+        "estimated_spreading_factor": 10,
+        "estimated_symbol_duration_seconds": 0.008192,
+        "estimated_carrier_hz": 868099952.4212874,
+        "cfo_hz": -47.578712582588196,
+        "estimated_snr_db": 53.321525499605656,
+        "preamble_score": 0.8627000315428551,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 10
+      },
+      "provenance": {
+        "source_run_id": "20260802T202025Z-lr1121-pluto-modes-sf10-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf11-bw125",
+      "capture": {
+        "path": "sf11-bw125.cf32",
+        "sha256": "7ca9e3677f7c4c8afe98618fb7d43a6a7e0087a37f6c81660eb640adfcf07057",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 11,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:20:42.804764+00:00",
+          "radio_log": "TX seq=15 len=32 state=0 start_ms=1039424 duration_ms=1060"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.249,
+        "packet_end_seconds": 1.302499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128624.02149977819,
+        "estimated_spreading_factor": 11,
+        "estimated_symbol_duration_seconds": 0.016384,
+        "estimated_carrier_hz": 868099961.9724219,
+        "cfo_hz": -38.02757811546326,
+        "estimated_snr_db": 48.84407125269274,
+        "preamble_score": 0.6416669115482605,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 11
+      },
+      "provenance": {
+        "source_run_id": "20260802T202035Z-lr1121-pluto-modes-sf11-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf12-bw125",
+      "capture": {
+        "path": "sf12-bw125.cf32",
+        "sha256": "b9400275d1eab60e771b01ea36bbd0fc249b228e010f6294470e27b9e2f0f54b",
+        "bytes": 33554432,
+        "samples": 4194304,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 12,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 4.194304,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:20:52.886183+00:00",
+          "radio_log": "TX seq=16 len=32 state=0 start_ms=1049507 duration_ms=1949"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2,
+        "packet_end_seconds": 2.141999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125472.12406722803,
+        "estimated_spreading_factor": 12,
+        "estimated_symbol_duration_seconds": 0.032768,
+        "estimated_carrier_hz": 868099907.181166,
+        "cfo_hz": -92.8188339471817,
+        "estimated_snr_db": 53.20199136543277,
+        "preamble_score": 0.5155532618570604,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 12
+      },
+      "provenance": {
+        "source_run_id": "20260802T202045Z-lr1121-pluto-modes-sf12-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw62k5",
+      "capture": {
+        "path": "sf7-bw62k5.cf32",
+        "sha256": "036322dc285f0db105f07be56d47278429a72aff73fe3a90eb8a2fd2c3e7f13d",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 62500,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:05.975082+00:00",
+          "radio_log": "TX seq=17 len=32 state=0 start_ms=1062597 duration_ms=160"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:06.549170+00:00",
+          "radio_log": "TX seq=18 len=32 state=0 start_ms=1063171 duration_ms=160"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2595,
+        "packet_end_seconds": 0.412499,
+        "estimated_bandwidth_hz": 62500,
+        "measured_occupied_bandwidth_hz": 67915.54169730925,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.002048,
+        "estimated_carrier_hz": 868100031.8407867,
+        "cfo_hz": 31.840786695480347,
+        "estimated_snr_db": 53.34653940264265,
+        "preamble_score": 0.9809660299589814,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 62500,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202058Z-lr1121-pluto-modes-sf7-bw62k5",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw250",
+      "capture": {
+        "path": "sf7-bw250.cf32",
+        "sha256": "f6e187a7453f91f5e240394c05eda04ee7ec88e4d1d07e051956c6a20afdc47e",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 250000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:16.295870+00:00",
+          "radio_log": "TX seq=19 len=32 state=0 start_ms=1072917 duration_ms=46"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:16.754863+00:00",
+          "radio_log": "TX seq=20 len=32 state=0 start_ms=1073377 duration_ms=46"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:21:17.207861+00:00",
+          "radio_log": "TX seq=21 len=32 state=0 start_ms=1073830 duration_ms=46"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.6855,
+        "packet_end_seconds": 0.723999,
+        "estimated_bandwidth_hz": 250000,
+        "measured_occupied_bandwidth_hz": 245774.22247135677,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.000512,
+        "estimated_carrier_hz": 868100829.1521064,
+        "cfo_hz": 829.1521064043045,
+        "estimated_snr_db": 53.253416381384795,
+        "preamble_score": 0.9750305158128428,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 250000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202108Z-lr1121-pluto-modes-sf7-bw250",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw500",
+      "capture": {
+        "path": "sf7-bw500.cf32",
+        "sha256": "ad8a2cd4b68708398df2667008f8a5af00a89d450b9783a40ca312ef9b734e8b",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 500000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 100
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 2000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 1.048576,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:26.449552+00:00",
+          "radio_log": "TX seq=22 len=32 state=0 start_ms=1083072 duration_ms=27"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:26.694538+00:00",
+          "radio_log": "TX seq=23 len=32 state=0 start_ms=1083317 duration_ms=27"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.4705,
+        "packet_end_seconds": 0.4949995,
+        "estimated_bandwidth_hz": 500000,
+        "measured_occupied_bandwidth_hz": 625800.843325886,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868152031.9775531,
+        "cfo_hz": 52031.977553129196,
+        "estimated_snr_db": 50.9995365560208,
+        "preamble_score": 0.9186186193436467,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 500000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202118Z-lr1121-pluto-modes-sf7-bw500",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr46",
+      "capture": {
+        "path": "sf7-cr46.cf32",
+        "sha256": "408f9acbb8f400d630c875329a106013bba99db5baf998348c2af719fed1cbd2",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 6,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:36.711303+00:00",
+          "radio_log": "TX seq=24 len=32 state=0 start_ms=1093334 duration_ms=94"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:37.359316+00:00",
+          "radio_log": "TX seq=25 len=32 state=0 start_ms=1093982 duration_ms=94"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:21:37.860353+00:00",
+          "radio_log": "TX seq=26 len=32 state=0 start_ms=1094483 duration_ms=94"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.3795,
+        "packet_end_seconds": 1.465999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128039.53036455836,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100239.9277879,
+        "cfo_hz": 239.927787899971,
+        "estimated_snr_db": 52.54510519935841,
+        "preamble_score": 0.9917635525914653,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202128Z-lr1121-pluto-modes-sf7-cr46",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr47",
+      "capture": {
+        "path": "sf7-cr47.cf32",
+        "sha256": "c1bc0f70bd1d6247695395c67a7c2d0a718575d5c902d11926caa61df4c88b20",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 7,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:48.620323+00:00",
+          "radio_log": "TX seq=27 len=32 state=0 start_ms=1105243 duration_ms=104"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:49.133295+00:00",
+          "radio_log": "TX seq=28 len=32 state=0 start_ms=1105757 duration_ms=104"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:21:49.647991+00:00",
+          "radio_log": "TX seq=29 len=32 state=0 start_ms=1106272 duration_ms=104"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.295,
+        "packet_end_seconds": 1.391999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125479.67142478917,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100239.2768298,
+        "cfo_hz": 239.27682983875275,
+        "estimated_snr_db": 52.794279215294324,
+        "preamble_score": 0.9925495470104827,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202139Z-lr1121-pluto-modes-sf7-cr47",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr48",
+      "capture": {
+        "path": "sf7-cr48.cf32",
+        "sha256": "584ae46696513737fa9778decb6ba97a9090ff88cde1b5eee31a4b370c991f32",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 8,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:21:58.837017+00:00",
+          "radio_log": "TX seq=30 len=32 state=0 start_ms=1115460 duration_ms=114"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:21:59.357631+00:00",
+          "radio_log": "TX seq=31 len=32 state=0 start_ms=1115981 duration_ms=114"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:21:59.875400+00:00",
+          "radio_log": "TX seq=32 len=32 state=0 start_ms=1116498 duration_ms=114"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.7665,
+        "packet_end_seconds": 0.873999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 130404.87888731975,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100156.6125401,
+        "cfo_hz": 156.61254012584686,
+        "estimated_snr_db": 53.15065274278869,
+        "preamble_score": 0.973743886848013,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202151Z-lr1121-pluto-modes-sf7-cr48",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m5",
+      "capture": {
+        "path": "sf7-power-m5.cf32",
+        "sha256": "5a6c2c2b1726a178ec2a3ef7201279665dc4b4589b02ba3e7b452fe8ff08d75b",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -5,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:22:10.044047+00:00",
+          "radio_log": "TX seq=33 len=32 state=0 start_ms=1126667 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:22:10.534608+00:00",
+          "radio_log": "TX seq=34 len=32 state=0 start_ms=1127159 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:22:11.036605+00:00",
+          "radio_log": "TX seq=35 len=32 state=0 start_ms=1127660 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.215,
+        "packet_end_seconds": 1.291499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 131556.25343496611,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100108.2773095,
+        "cfo_hz": 108.2773095369339,
+        "estimated_snr_db": 48.55315517416749,
+        "preamble_score": 0.970782761012175,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202202Z-lr1121-pluto-modes-sf7-power-m5",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len12",
+      "capture": {
+        "path": "sf7-len12.cf32",
+        "sha256": "753d4666c636bd8fc9526ada3412f321b73ea7c5a06f2b5141df5f3fbb5af363",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 12,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:22:28.692508+00:00",
+          "radio_log": "TX seq=36 len=12 state=0 start_ms=1145317 duration_ms=53"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:22:29.149569+00:00",
+          "radio_log": "TX seq=37 len=12 state=0 start_ms=1145774 duration_ms=53"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:22:29.712312+00:00",
+          "radio_log": "TX seq=38 len=12 state=0 start_ms=1146338 duration_ms=53"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.671,
+        "packet_end_seconds": 0.716999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 136825.88359885276,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100195.4774556,
+        "cfo_hz": 195.47745561599731,
+        "estimated_snr_db": 52.986010413024374,
+        "preamble_score": 0.9606037875465508,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202220Z-lr1121-pluto-modes-sf7-len12",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len64",
+      "capture": {
+        "path": "sf7-len64.cf32",
+        "sha256": "9d5d91409c5253dfd751ce7a8315c599c09c5219a8cd32cb361d4321807251de",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 64,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:22:39.007310+00:00",
+          "radio_log": "TX seq=39 len=64 state=0 start_ms=1155632 duration_ms=130"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:22:39.544297+00:00",
+          "radio_log": "TX seq=40 len=64 state=0 start_ms=1156170 duration_ms=130"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:22:40.092289+00:00",
+          "radio_log": "TX seq=41 len=64 state=0 start_ms=1156717 duration_ms=130"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.23,
+        "packet_end_seconds": 0.352999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 126520.2241337636,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100210.0795211,
+        "cfo_hz": 210.07952105998993,
+        "estimated_snr_db": 52.97802991057388,
+        "preamble_score": 0.9691762182727102,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202231Z-lr1121-pluto-modes-sf7-len64",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len128",
+      "capture": {
+        "path": "sf7-len128.cf32",
+        "sha256": "b6a7c735be764d27ec2141d6ab0ef4e230533f3482d3a3ed759984750c42494e",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 128,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:22:49.344215+00:00",
+          "radio_log": "TX seq=42 len=128 state=0 start_ms=1165969 duration_ms=228"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:22:49.983551+00:00",
+          "radio_log": "TX seq=43 len=128 state=0 start_ms=1166609 duration_ms=228"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.8765,
+        "packet_end_seconds": 1.096499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 123081.13201663685,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100316.6165799,
+        "cfo_hz": 316.61657989025116,
+        "estimated_snr_db": 53.115183710385026,
+        "preamble_score": 0.9728991124101039,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202241Z-lr1121-pluto-modes-sf7-len128",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len220",
+      "capture": {
+        "path": "sf7-len220.cf32",
+        "sha256": "d60f7467fc66243f10374352c4a9c45043ecf166c00535c499c6db015e3c3219",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 220,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:22:59.527349+00:00",
+          "radio_log": "TX seq=44 len=220 state=0 start_ms=1176154 duration_ms=361"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:00.305384+00:00",
+          "radio_log": "TX seq=45 len=220 state=0 start_ms=1176932 duration_ms=361"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2405,
+        "packet_end_seconds": 0.593999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 132290.93953923526,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100119.555302,
+        "cfo_hz": 119.55530202388763,
+        "estimated_snr_db": 52.59742523441443,
+        "preamble_score": 0.9610596619293028,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202251Z-lr1121-pluto-modes-sf7-len220",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble8",
+      "capture": {
+        "path": "sf7-preamble8.cf32",
+        "sha256": "fad5c924de9ea7eb749a480e1476781457ff880c2bbc941d6370951ef1e7e221",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 8,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:23:09.713550+00:00",
+          "radio_log": "TX seq=46 len=32 state=0 start_ms=1186340 duration_ms=79"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:10.198533+00:00",
+          "radio_log": "TX seq=47 len=32 state=0 start_ms=1186826 duration_ms=79"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:23:10.688112+00:00",
+          "radio_log": "TX seq=48 len=32 state=0 start_ms=1187315 duration_ms=79"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.236,
+        "packet_end_seconds": 1.308499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 123035.64939296061,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100286.2671707,
+        "cfo_hz": 286.2671706676483,
+        "estimated_snr_db": 53.060715927790305,
+        "preamble_score": 0.8788147887531766,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202302Z-lr1121-pluto-modes-sf7-preamble8",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble20",
+      "capture": {
+        "path": "sf7-preamble20.cf32",
+        "sha256": "9c8957669561ffeb5c59644ae48e3ec53c0150b6a1d3c4b7f1505c0a518e0d6b",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 20,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:23:20.419040+00:00",
+          "radio_log": "TX seq=49 len=32 state=0 start_ms=1197046 duration_ms=92"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:20.919884+00:00",
+          "radio_log": "TX seq=50 len=32 state=0 start_ms=1197634 duration_ms=92"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:23:21.509543+00:00",
+          "radio_log": "TX seq=51 len=32 state=0 start_ms=1198137 duration_ms=92"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.322,
+        "packet_end_seconds": 1.406999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 131748.80461702344,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100108.9070013,
+        "cfo_hz": 108.90700125694275,
+        "estimated_snr_db": 53.081815522438774,
+        "preamble_score": 0.9677549370398875,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202312Z-lr1121-pluto-modes-sf7-preamble20",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble32",
+      "capture": {
+        "path": "sf7-preamble32.cf32",
+        "sha256": "174820ed7a0209a3236fe073762d62f5333d61977c259c5bebf3a7ba5a463a26",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 32,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:23:31.763533+00:00",
+          "radio_log": "TX seq=52 len=32 state=0 start_ms=1208391 duration_ms=104"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:32.272498+00:00",
+          "radio_log": "TX seq=53 len=32 state=0 start_ms=1208901 duration_ms=104"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:23:32.786540+00:00",
+          "radio_log": "TX seq=54 len=32 state=0 start_ms=1209414 duration_ms=104"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.7175,
+        "packet_end_seconds": 0.814499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 134322.82635998735,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100170.031568,
+        "cfo_hz": 170.03156805038452,
+        "estimated_snr_db": 53.10353843132019,
+        "preamble_score": 0.9731232829626709,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202323Z-lr1121-pluto-modes-sf7-preamble32",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-crc-off",
+      "capture": {
+        "path": "sf7-crc-off.cf32",
+        "sha256": "a74494e22005c17bfef33e4442e65393ac890f4b23c6e0d2ddd5bc81a2351c32",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": false,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:23:42.518387+00:00",
+          "radio_log": "TX seq=55 len=32 state=0 start_ms=1219146 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:43.011327+00:00",
+          "radio_log": "TX seq=56 len=32 state=0 start_ms=1219640 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:23:43.510380+00:00",
+          "radio_log": "TX seq=57 len=32 state=0 start_ms=1220139 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.7195,
+        "packet_end_seconds": 0.796499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 129157.0370764623,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100229.1570853,
+        "cfo_hz": 229.15708529949188,
+        "estimated_snr_db": 48.594309111506945,
+        "preamble_score": 0.963726276057393,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202334Z-lr1121-pluto-modes-sf7-crc-off",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-sync34",
+      "capture": {
+        "path": "sf7-sync34.cf32",
+        "sha256": "9f70f2c36c5d5cd560d7fd0cf060f569b3a969f9fd0ebbedd466a239251c3a98",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x34",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:23:53.029640+00:00",
+          "radio_log": "TX seq=58 len=32 state=0 start_ms=1229659 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:23:53.531604+00:00",
+          "radio_log": "TX seq=59 len=32 state=0 start_ms=1230161 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:23:54.029342+00:00",
+          "radio_log": "TX seq=60 len=32 state=0 start_ms=1230658 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.268,
+        "packet_end_seconds": 0.344499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 144794.86602630722,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100213.1073253,
+        "cfo_hz": 213.10732531547546,
+        "estimated_snr_db": 52.84548440707067,
+        "preamble_score": 0.9783570576979159,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202345Z-lr1121-pluto-modes-sf7-sync34",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-iq-inverted",
+      "capture": {
+        "path": "sf7-iq-inverted.cf32",
+        "sha256": "381472b834f223b5a3fdf4877e3f361fcac1440043f438c5d119599e378ba452",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": true,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:24:04.690903+00:00",
+          "radio_log": "TX seq=61 len=32 state=0 start_ms=1241320 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:24:05.178917+00:00",
+          "radio_log": "TX seq=62 len=32 state=0 start_ms=1241808 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:24:05.676891+00:00",
+          "radio_log": "TX seq=63 len=32 state=0 start_ms=1242305 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.229,
+        "packet_end_seconds": 1.305499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 136987.29500062665,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868099607.392204,
+        "cfo_hz": -392.6077959537506,
+        "estimated_snr_db": 53.050319738960425,
+        "preamble_score": 0.9721636203962971,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202356Z-lr1121-pluto-modes-sf7-iq-inverted",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf9-bw125",
+      "capture": {
+        "path": "sf9-bw125.cf32",
+        "sha256": "34c462244c4b8dc0a3594a8af0d4374ad04fe269e7dd1a2715c59529d366f0ef",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 9,
+        "coding_rate_denominator": 5,
+        "power_dbm": 0,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:24:46.822935+00:00",
+          "radio_log": "TX seq=64 len=32 state=0 start_ms=1283454 duration_ms=271"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:24:47.498959+00:00",
+          "radio_log": "TX seq=65 len=32 state=0 start_ms=1284129 duration_ms=271"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.922,
+        "packet_end_seconds": 1.185999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125676.98447355191,
+        "estimated_spreading_factor": 9,
+        "estimated_symbol_duration_seconds": 0.004096,
+        "estimated_carrier_hz": 868100015.0892096,
+        "cfo_hz": 15.08920955657959,
+        "estimated_snr_db": 52.936678296738236,
+        "preamble_score": 0.9679347552724166,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 9
+      },
+      "provenance": {
+        "source_run_id": "20260802T202438Z-lr1121-pluto-repair-sf9-bw125",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m8",
+      "capture": {
+        "path": "sf7-power-m8.cf32",
+        "sha256": "2a01cb6fde08a6ebec2c7f52ac5edea648c78cd8ed9e0e6f1a40d9ff512fb628",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -8,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:24:57.367433+00:00",
+          "radio_log": "TX seq=66 len=32 state=0 start_ms=1293999 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:24:57.857398+00:00",
+          "radio_log": "TX seq=67 len=32 state=0 start_ms=1294489 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:24:58.359431+00:00",
+          "radio_log": "TX seq=68 len=32 state=0 start_ms=1294990 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2595,
+        "packet_end_seconds": 0.335999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 135041.50737195835,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100184.1211672,
+        "cfo_hz": 184.12116718292236,
+        "estimated_snr_db": 45.17974378324841,
+        "preamble_score": 0.9834426601152207,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202449Z-lr1121-pluto-repair-sf7-power-m8",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m9",
+      "capture": {
+        "path": "sf7-power-m9.cf32",
+        "sha256": "13b814352dc89fd677fc786b4cc96e6f9e9e1a71edc48d1d5200dcd9f7191e95",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "LILYGO T3S3 LR1121",
+        "port": "COM9",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "LILYGO T3S3 LR1121 antenna -> OTA -> ZynqSDR RX antenna; RF setup confirmed by the user on 2026-08-02",
+        "notes": "First automated hardware run; LILYGO at 0 dBm; ZynqSDR is receive-only"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T20:25:07.965543+00:00",
+          "radio_log": "TX seq=69 len=32 state=0 start_ms=1304597 duration_ms=84"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T20:25:08.453532+00:00",
+          "radio_log": "TX seq=70 len=32 state=0 start_ms=1305085 duration_ms=84"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T20:25:08.954559+00:00",
+          "radio_log": "TX seq=71 len=32 state=0 start_ms=1305586 duration_ms=84"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.218,
+        "packet_end_seconds": 1.294499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 133403.34063267853,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100294.3426428,
+        "cfo_hz": 294.34264278411865,
+        "estimated_snr_db": 43.78074487738013,
+        "preamble_score": 0.9909820889555498,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T202459Z-lr1121-pluto-repair-sf7-power-m9",
+        "repository_commit_at_acquisition": "4b17e038e6452d64cb5486e88780ff813e2a3c91",
+        "repository_was_dirty": true
+      }
+    }
+  ],
+  "notes": [
+    "Raw IQ samples are byte-identical to the source experiment captures.",
+    "This is an OTA engineering dataset, not a calibrated RF measurement."
+  ]
+}

@@ -9,6 +9,10 @@ complete only when its acceptance evidence is committed or linked.
 - [x] Auxiliary packageable Python checks for CSS, ToA, and TDoA.
 - [x] Architecture, bench requirements, and experiment templates.
 - [x] Add a redistributable LR1121 IQ reference capture with provenance via Git LFS.
+- [x] Record and checksum a 27-mode LR1121-to-ZynqSDR IQ sweep covering
+  SF, BW, CR, power, payload, preamble, CRC, sync word, and IQ polarity.
+- [x] Build and safely initialize stopped-by-default Heltec V4/SX1262 firmware;
+  RF validation remains gated on PCB-revision and antenna confirmation.
 
 Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 
