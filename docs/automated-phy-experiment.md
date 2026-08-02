@@ -32,8 +32,11 @@ python -m venv .venv
 python -m pip install -e ".[hardware,dev]"
 ```
 
-PlutoSDR additionally requires the Analog Devices IIO runtime and a working
-`iio_info -s`. RTL-SDR requires `rtl_sdr.exe` on `PATH`. MATLAB must be
+The Pluto-compatible ZynqSDR is reachable over Ethernet at `ip:192.168.40.1`
+with the installed firmware. Pluto/IIO capture additionally requires a libiio
+runtime matching the `pylibiio` binding. The official libiio v0.25 Windows
+runtime was validated with this firmware. RTL-SDR requires `rtl_sdr.exe` on
+`PATH`. MATLAB must be
 available as `matlab`, or `analysis.matlab_command` must contain its executable
 path.
 

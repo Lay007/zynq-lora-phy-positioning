@@ -30,8 +30,10 @@ python -m venv .venv
 python -m pip install -e ".[hardware,dev]"
 ```
 
-Для PlutoSDR дополнительно нужны Analog Devices IIO runtime и работающая
-команда `iio_info -s`. Для RTL-SDR программа `rtl_sdr.exe` должна находиться в
+ZynqSDR с установленной Pluto-совместимой прошивкой доступна по Ethernet как
+`ip:192.168.40.1`. Для записи также нужна версия libiio, совместимая с Python
+binding `pylibiio`; с этой прошивкой проверен официальный Windows runtime
+libiio v0.25. Для RTL-SDR программа `rtl_sdr.exe` должна находиться в
 `PATH`. MATLAB должен запускаться командой `matlab`; другой полный путь можно
 указать в `analysis.matlab_command`.
 
