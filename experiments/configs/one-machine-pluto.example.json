@@ -26,7 +26,8 @@
   },
   "receiver": {
     "type": "pluto",
-    "uri": "ip:192.168.2.1",
+    "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+    "uri": "ip:192.168.40.1",
     "center_frequency_hz": 868350000,
     "sample_rate_hz": 1000000,
     "rf_bandwidth_hz": 1000000,

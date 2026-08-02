@@ -9,10 +9,32 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
+
+_dll_directory_handle = None
+
+
+def prepare_windows_libiio() -> None:
+    """Prefer a venv-local libiio over unrelated SDR applications on PATH."""
+    global _dll_directory_handle
+    if os.name != "nt":
+        return
+    candidates = []
+    if os.environ.get("LIBIIO_DLL_DIR"):
+        candidates.append(Path(os.environ["LIBIIO_DLL_DIR"]))
+    candidates.append(Path(sys.executable).resolve().parent)
+    for directory in candidates:
+        if (directory / "libiio.dll").is_file():
+            os.environ["PATH"] = str(directory) + os.pathsep + os.environ["PATH"]
+            if hasattr(os, "add_dll_directory"):
+                _dll_directory_handle = os.add_dll_directory(str(directory))
+            return
 
 
 def sha256(path: Path) -> str:
@@ -45,6 +67,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    prepare_windows_libiio()
     try:
         import adi
     except ImportError as error:
@@ -63,6 +86,7 @@ def main() -> None:
     radio.gain_control_mode_chan0 = "manual"
     radio.rx_hardwaregain_chan0 = args.gain
     radio.rx_buffer_size = args.samples
+    context_attributes = dict(getattr(radio._ctx, "attrs", {}))
 
     # A single kernel buffer avoids returning stale buffers after reconfiguration.
     if hasattr(radio, "_rxadc"):
@@ -97,14 +121,13 @@ def main() -> None:
     metadata = {
         "schema": "zynq-lora-phy-capture-v1",
         "started_utc": started.isoformat(),
-        "device": "ADALM-Pluto",
+        "device": context_attributes.get("hw_model", "Pluto-compatible IIO SDR"),
+        "firmware_version": context_attributes.get("fw_version"),
         "uri": args.uri,
         "sample_format": "complex-float32-le-iq",
         "signal_frequency_hz": args.signal_frequency,
         "center_frequency_hz": int(radio.rx_lo),
-        "digital_shift_to_baseband_hz": int(
-            args.center_frequency - args.signal_frequency
-        ),
+        "digital_shift_to_baseband_hz": int(radio.rx_lo) - args.signal_frequency,
         "sample_rate_hz": int(radio.sample_rate),
         "rf_bandwidth_hz": int(radio.rx_rf_bandwidth),
         "gain_mode": "manual",
