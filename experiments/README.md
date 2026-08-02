@@ -30,5 +30,12 @@ external raw data when the experiment contributes project evidence.
 Use `phy-capture.yaml` for raw RTL-SDR or PlutoSDR recordings made to validate
 the MATLAB LoRa packet model before starting timestamp experiments.
 
+For a synchronized host-controlled PHY run, copy one of the JSON files in
+`configs/` to a machine-local `*.local.json` file and use
+`tools/run_phy_experiment.py`. It configures the serial transmitter, arms the
+SDR, sends acknowledged packets, records checksums and logs, and launches the
+MATLAB inspection report. See the
+[one-machine workflow](../docs/automated-phy-experiment.md).
+
 Do not edit raw results after acquisition. If processing changes, create a new
 analysis output that points to the same immutable source capture.

@@ -21,4 +21,5 @@
 
 - [Hardware test bench](test-bench.md)
 - **[SX1262 packet capture with RTL-SDR and PlutoSDR](iq-capture-guide.md)**
+- **[One-machine transmit, capture, and analysis](automated-phy-experiment.md)**
 - [Experiment workflow and provenance](../experiments/README.md)

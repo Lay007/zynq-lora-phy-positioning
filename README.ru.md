@@ -71,6 +71,12 @@ app = lora_phy_inspector;
 Форматы входа, методика и ограничения описаны в
 **[руководстве по LoRa PHY Inspector](docs/ru/lora-phy-inspector.md)**.
 
+Если serial-передатчик и PlutoSDR либо RTL-SDR подключены к одному компьютеру,
+скрипт [`tools/run_phy_experiment.py`](tools/run_phy_experiment.py) выполняет
+всю последовательность «передать → записать → проанализировать». Начинать
+следует с безопасного `--dry-run`; подробности приведены в
+[русском руководстве](docs/ru/automated-phy-experiment.md).
+
 Демодуляция нескольких CSS-символов:
 
 ![Демодуляция CSS-символов](docs/images/css-symbol-demodulation-sf7.png)

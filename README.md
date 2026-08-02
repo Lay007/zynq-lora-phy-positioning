@@ -80,6 +80,12 @@ app = lora_phy_inspector;
 See the **[LoRa PHY Inspector guide](docs/lora-phy-inspector.md)** for input
 formats, interpretation, methodology, and current limits.
 
+With a serial-controlled transmitter and PlutoSDR or RTL-SDR connected to the
+same computer, the complete transmit → record → analyze sequence can be run by
+[`tools/run_phy_experiment.py`](tools/run_phy_experiment.py). Start with a
+hardware-free `--dry-run`; the full workflow is documented in
+[One-machine transmit, capture, and analysis](docs/automated-phy-experiment.md).
+
 The symbol-demodulation view shows how different cyclic shifts become distinct
 dechirped tones and FFT peaks:
 
