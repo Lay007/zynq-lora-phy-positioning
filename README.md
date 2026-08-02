@@ -1,5 +1,7 @@
 # Zynq LoRa PHY and Positioning
 
+[Русская версия документации](README.ru.md)
+
 FPGA/SDR implementation of LoRa communication, precise time-of-arrival (ToA)
 estimation, and time-difference-of-arrival (TDoA) positioning.
 

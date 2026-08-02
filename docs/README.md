@@ -1,5 +1,7 @@
 # Documentation index
 
+[Русская документация](ru/README.md)
+
 ## Start here
 
 - [System architecture](architecture.md)
