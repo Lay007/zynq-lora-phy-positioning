@@ -13,10 +13,11 @@
 
 namespace {
 
-constexpr char kFirmwareVersion[] = "0.1.0";
+constexpr char kFirmwareVersion[] = "0.1.1";
 constexpr size_t kMaxPayloadLength = 220;
 constexpr size_t kCounterHeaderLength = 12;
 constexpr uint32_t kButtonDebounceMs = 50;
+constexpr uint32_t kRadioPowerUpDelayMs = 1500;
 
 struct RadioProfile {
   float frequencyMhz = 868.1F;
@@ -37,11 +38,18 @@ enum class PayloadMode {
   FixedHex,
 };
 
-LR1121 radio = new Module(
+class LilygoLR1121 : public LR1121 {
+ public:
+  explicit LilygoLR1121(Module* module) : LR1121(module) {
+    chipType = board::kRadioDeviceId;
+  }
+};
+
+LilygoLR1121 radio(new Module(
     board::kRadioCs,
     board::kRadioDio9,
     board::kRadioReset,
-    board::kRadioBusy);
+    board::kRadioBusy));
 SSD1306Wire display(board::kOledAddress, board::kI2cSda, board::kI2cScl);
 
 RadioProfile profile;
@@ -53,6 +61,7 @@ uint32_t lastTransmitMs = 0;
 uint32_t lastButtonChangeMs = 0;
 bool transmitterRunning = false;
 bool previousButtonState = HIGH;
+bool displayReady = false;
 int16_t lastRadioState = RADIOLIB_ERR_NONE;
 String serialLine;
 
@@ -266,6 +275,9 @@ void transmitOnce() {
 }
 
 void updateDisplay(const char* status) {
+  if (!displayReady) {
+    return;
+  }
   char line[32];
   display.clear();
   display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -619,16 +631,14 @@ void setup() {
     delay(10);
   }
 
-  Wire.begin(board::kI2cSda, board::kI2cScl);
-  display.init();
-  display.flipScreenVertically();
-  updateDisplay("BOOT");
-
   SPI.begin(
       board::kRadioSclk,
       board::kRadioMiso,
-      board::kRadioMosi,
-      board::kRadioCs);
+      board::kRadioMosi);
+
+  // LR1121 needs time for its power and TCXO rails to settle after board boot.
+  // LILYGO's reference examples wait 1500 ms before the first radio command.
+  delay(kRadioPowerUpDelayMs);
 
   Serial.printf(
       "Initializing LILYGO T3S3 V1.2 LR1121 transmitter firmware %s...\n",
@@ -664,6 +674,13 @@ void setup() {
       delay(100);
     }
   }
+
+  // Initialize I2C peripherals only after the radio is known-good. This keeps
+  // ESP32-S3 GPIO-matrix changes away from the first LR1121 SPI transaction.
+  Wire.begin(board::kI2cSda, board::kI2cScl);
+  display.init();
+  display.flipScreenVertically();
+  displayReady = true;
 
   Serial.println("READY type help for commands; transmitter is stopped by default");
   printProfile();

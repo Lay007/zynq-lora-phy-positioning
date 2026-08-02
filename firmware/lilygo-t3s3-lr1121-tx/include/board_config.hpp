@@ -11,6 +11,9 @@ constexpr int kRadioCs = 7;
 constexpr int kRadioReset = 8;
 constexpr int kRadioBusy = 34;
 constexpr int kRadioDio9 = 36;
+// This T3-S3 LR1121 hardware reports use-case 0xF3. The low nibble is the
+// documented LR1121 ID (0x03); the original diagnostic firmware accepts it.
+constexpr uint8_t kRadioDeviceId = 0xF3;
 
 constexpr int kI2cSda = 18;
 constexpr int kI2cScl = 17;

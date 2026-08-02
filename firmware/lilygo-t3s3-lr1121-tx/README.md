@@ -41,6 +41,13 @@ photos. For the external-PA board variant, add
 `-DLILYGO_LR1121_PA_VERSION=1` to `build_flags`. The firmware then uses the
 LILYGO PA RF-switch tables and limits high-band output power to 0 dBm.
 
+The tested T3-S3 LR1121 unit reports the radio use-case byte as `0xF3` while
+the documented LR1121 identifier is its low nibble, `0x03`. RadioLib otherwise
+rejects the chip with error `-2`. The small `LilygoLR1121` adapter accepts this
+board-specific value without modifying the RadioLib package. For a unit that
+reports the standard value, change `kRadioDeviceId` in `include/board_config.hpp`
+to `0x03`.
+
 ## Build and flash
 
 Install PlatformIO Core or use the PlatformIO extension in VS Code:
@@ -51,6 +58,10 @@ pio run
 pio run --target upload
 pio device monitor
 ```
+
+The first radio transaction is delayed by 1500 ms, matching LILYGO's reference
+startup sequence. OLED/I2C initialization is performed only after LR1121 has
+responded successfully.
 
 If automatic upload does not start, hold **BOOT**, press and release **RESET**,
 start the upload, then release **BOOT**.
