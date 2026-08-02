@@ -8,11 +8,13 @@ addpath(fullfile(rootDirectory, "examples"));
 [berResults, berFigure] = plot_ber_curve;
 [frameResult, frameFigure] = plot_frame_acquisition;
 [codedCr1, codedCr4, codedFigure] = plot_coded_ber;
+[symbolResult, symbolFigure] = plot_symbol_demodulation;
 
 outputs = struct;
 outputs.berResults = berResults;
 outputs.frameResult = frameResult;
 outputs.codedCr1 = codedCr1;
 outputs.codedCr4 = codedCr4;
-outputs.figures = [berFigure, frameFigure, codedFigure];
+outputs.symbolResult = symbolResult;
+outputs.figures = [berFigure, frameFigure, codedFigure, symbolFigure];
 end

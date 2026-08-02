@@ -19,6 +19,14 @@ Generate acquisition, uncoded CSS, and coded packet figures plus CSV tables:
 outputs = run_visualizations;
 ```
 
+The symbol-demodulation figure can also be generated independently without
+regenerating the Monte Carlo plots:
+
+```matlab
+addpath examples
+[result, figureHandle] = plot_symbol_demodulation;
+```
+
 Package functions use column vectors and normalized CFO in cycles per sample.
 For physical rate `Fs`, convert with `cfoNormalized = cfoHz / Fs`.
 
