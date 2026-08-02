@@ -148,6 +148,8 @@ def receiver_command(
             "1",
             "--warmup",
             str(receiver.get("warmup_buffers", 2)),
+            "--timeout-ms",
+            str(receiver.get("iio_timeout_ms", 30_000)),
             "--output",
             str(capture_directory),
             "--ready-file",

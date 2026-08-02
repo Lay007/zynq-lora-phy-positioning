@@ -56,6 +56,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--samples", type=int, default=2**22)
     parser.add_argument("--count", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=2)
+    parser.add_argument(
+        "--timeout-ms",
+        type=int,
+        default=30_000,
+        help="IIO operation timeout; must exceed a full buffer acquisition",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--ready-file",
@@ -79,7 +85,11 @@ def main() -> None:
     started = datetime.now(timezone.utc)
     run_id = started.strftime("%Y%m%dT%H%M%S.%fZ")
 
+    if args.timeout_ms <= 0:
+        raise SystemExit("--timeout-ms must be positive")
+
     radio = adi.Pluto(uri=args.uri)
+    radio._ctx.set_timeout(args.timeout_ms)
     radio.sample_rate = args.sample_rate
     radio.rx_lo = args.center_frequency
     radio.rx_rf_bandwidth = args.rf_bandwidth
@@ -132,6 +142,7 @@ def main() -> None:
         "rf_bandwidth_hz": int(radio.rx_rf_bandwidth),
         "gain_mode": "manual",
         "gain_db": float(radio.rx_hardwaregain_chan0),
+        "iio_timeout_ms": args.timeout_ms,
         "buffer_samples": args.samples,
         "buffers_are_individually_contiguous": True,
         "gaps_may_exist_between_files": True,

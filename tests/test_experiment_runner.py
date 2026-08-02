@@ -35,6 +35,7 @@ def test_pluto_plan_contains_arm_handshake_and_known_profile(tmp_path):
     assert "--ready-file" in receiver
     assert receiver[receiver.index("--samples") + 1] == "4194304"
     assert receiver[receiver.index("--count") + 1] == "1"
+    assert receiver[receiver.index("--timeout-ms") + 1] == "30000"
 
 
 def test_rtl_plan_has_finite_capture(tmp_path):

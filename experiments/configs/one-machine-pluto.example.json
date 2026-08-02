@@ -33,8 +33,9 @@
     "rf_bandwidth_hz": 1000000,
     "gain_db": 20,
     "duration_s": 4.194304,
-    "warmup_buffers": 2,
-    "arm_timeout_s": 15,
+    "warmup_buffers": 1,
+    "iio_timeout_ms": 30000,
+    "arm_timeout_s": 45,
     "post_arm_delay_s": 0.25
   },
   "analysis": {

@@ -167,6 +167,7 @@ python tools/capture_pluto.py `
   --rf-bandwidth 1000000 `
   --gain 20 `
   --samples 4194304 `
+  --timeout-ms 30000 `
   --count 5 `
   --output captures/heltec-sf7-cr1-pluto
 ```
@@ -175,6 +176,10 @@ Each file contains about 4.19 seconds of contiguous complex samples in
 little-endian float32 `I,Q` order. Gaps may exist between files. The script
 discards warm-up buffers, uses manual gain, writes the actual read-back settings,
 and computes SHA-256 for every `.cf32` file.
+
+The IIO timeout must exceed the time needed to acquire and transfer one buffer.
+At 1 MS/s, a 4,194,304-sample buffer alone takes more than four seconds to
+acquire, so the recorder defaults to a 30-second timeout.
 
 Load one Pluto file in MATLAB:
 
