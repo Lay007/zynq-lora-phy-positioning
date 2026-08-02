@@ -1,10 +1,18 @@
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 
 import pytest
 
-from tools.curate_phy_sweep import completed_cases, curate
+
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "curate_phy_sweep", ROOT / "tools" / "curate_phy_sweep.py"
+)
+assert SPEC is not None and SPEC.loader is not None
+CURATOR = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(CURATOR)
 
 
 def make_sweep(root: Path, name: str = "sf7-bw125") -> Path:
@@ -60,7 +68,7 @@ def test_curate_verifies_and_copies_capture(tmp_path: Path) -> None:
     sweep = make_sweep(tmp_path)
     output = tmp_path / "reference"
 
-    manifest = curate(completed_cases([sweep]), output)
+    manifest = CURATOR.curate(CURATOR.completed_cases([sweep]), output)
 
     assert manifest["capture_count"] == 1
     assert manifest["total_bytes"] == 64
@@ -75,4 +83,4 @@ def test_duplicate_completed_case_is_rejected(tmp_path: Path) -> None:
     second = make_sweep(tmp_path / "second")
 
     with pytest.raises(ValueError, match="Duplicate completed case"):
-        completed_cases([first, second])
+        CURATOR.completed_cases([first, second])
