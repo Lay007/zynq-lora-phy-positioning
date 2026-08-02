@@ -3,14 +3,19 @@
 ## Known starting equipment
 
 - 3 × ZynqSDR receivers (exact board revision, RFIC, and clock I/O to verify).
-- 2 × Heltec WiFi LoRa 32 V4 with ESP32-S3 + SX1262 (expected).
+- 1 × Heltec WiFi LoRa 32 V4 with ESP32-S3 + SX1262 (on order; regional
+  variant and exact board revision to verify on arrival).
+- 1 × PlutoSDR receiver.
+- 1 × RTL-SDR receiver (exact model, tuner, and oscillator to record).
 - 30 dB RF attenuator, DC block, and an RF splitter/combiner.
 - NanoVNA H4 for cable, antenna, filter, and path comparison measurements.
 
-Do not connect a LoRa transmitter directly to an SDR input. Start cable tests
-with approximately 50–60 dB total attenuation, confirm the transmitter's actual
-configured output power and the SDR input limit, then reduce attenuation while
-watching for clipping.
+Do not connect a LoRa transmitter directly to an SDR input. Heltec advertises
+`28 +/- 1 dBm` maximum LoRa TX power for V4; 30 dB attenuation alone could
+therefore leave approximately -1 dBm before cable losses and is not an approved
+cable path. Confirm the actual configured output power and both SDR input
+limits, calculate the full power budget, then begin with the highest safe
+attenuation and reduce it while watching for clipping.
 
 ## Verify before buying clock hardware
 

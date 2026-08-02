@@ -1,0 +1,61 @@
+schema_version: 1
+experiment:
+  id: "YYYY-MM-DD_phy_capture_001"
+  objective: "Capture deterministic SX1262 packets for MATLAB compatibility"
+  operator: null
+  started_utc: null
+  repository_commit: null
+  repository_dirty: false
+
+transmitter:
+  board: "Heltec WiFi LoRa 32 V4"
+  board_revision: null
+  radio: "SX1262"
+  firmware_repository: null
+  firmware_commit: null
+  regional_variant: null
+  antenna_or_cable_path: null
+  tx_power_setting_dbm: null
+  measured_tx_power_dbm: null
+  packet_period_ms: null
+  packet_count: null
+
+waveform:
+  center_frequency_hz: null
+  bandwidth_hz: 125000
+  spreading_factor: 7
+  coding_rate: "4/5"
+  preamble_symbols: 8
+  explicit_header: true
+  payload_crc: true
+  iq_inversion: false
+  sync_word: null
+  payload_layout: "5a4c 01 00 sequence_u32_le tick_us_u32_le a55a3cc3"
+
+receiver:
+  device: null
+  serial: null
+  center_frequency_hz: null
+  sample_rate_hz: null
+  rf_bandwidth_hz: null
+  gain_mode: "manual"
+  gain_db: null
+  frequency_correction_ppm: null
+  warmup_discarded_buffers: null
+
+acquisition:
+  sample_format: null
+  samples_per_file: null
+  raw_capture_paths: []
+  raw_capture_sha256: []
+  metadata_sidecar_path: null
+  clipping_observed: null
+  packets_visible: null
+  notes: null
+
+analysis:
+  digital_shift_to_baseband_hz: null
+  expected_packets: null
+  recovered_packets: null
+  median_cfo_hz: null
+  output_directory: "artifacts/YYYY-MM-DD_phy_capture_001"

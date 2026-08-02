@@ -64,6 +64,11 @@ Generate the acquisition, uncoded CSS, and coded packet BER/PER figures:
 outputs = run_visualizations;
 ```
 
+The symbol-demodulation view shows how different cyclic shifts become distinct
+dechirped tones and FFT peaks:
+
+![CSS symbol demodulation](docs/images/css-symbol-demodulation-sf7.png)
+
 The acquisition receiver detects a research `8 upchirp + 2 downchirp`
 preamble, estimates CFO, and recovers aligned payload symbols. It is an
 algorithm-development frame. Separately, `encode_packet` and `decode_packet`
@@ -114,8 +119,9 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 │   └── simulink/           HDL-oriented executable architecture
 ├── examples/               Auxiliary Python examples
 ├── experiments/
-│   └── templates/          ToA/TDoA experiment metadata
+│   └── templates/          PHY capture and ToA/TDoA metadata
 ├── captures/               Local raw IQ captures (large data ignored by Git)
+├── tools/                  Hardware capture helpers
 ├── fpga/                   PL/RTL sources, constraints, and verification
 ├── firmware/               Zynq PS software and host control
 ├── hardware/               Board notes, clocking, and calibration data
@@ -128,6 +134,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 - [System architecture](docs/architecture.md)
 - [Roadmap and acceptance criteria](docs/roadmap.md)
 - [Hardware test bench](docs/test-bench.md)
+- [RTL-SDR and PlutoSDR packet-capture guide](docs/iq-capture-guide.md)
 - [Experiment workflow](experiments/README.md)
 - **[BER/SER methodology](docs/ber-methodology.md)**
 - **[Whitening, FEC, interleaving, and CRC](docs/lora-phy-coding.md)**

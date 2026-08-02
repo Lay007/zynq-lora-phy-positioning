@@ -5,6 +5,7 @@ Create one immutable configuration per run by copying the relevant template:
 ```text
 experiments/templates/toa.yaml
 experiments/templates/tdoa.yaml
+experiments/templates/phy-capture.yaml
         ↓ copy and fill
 experiments/runs/2026-08-01_toa_cable_001.yaml
         ↓ execute
@@ -25,6 +26,9 @@ external raw data when the experiment contributes project evidence.
 - random seed for simulations;
 - raw-data paths and SHA-256 checksums;
 - acceptance criterion chosen before the run.
+
+Use `phy-capture.yaml` for raw RTL-SDR or PlutoSDR recordings made to validate
+the MATLAB LoRa packet model before starting timestamp experiments.
 
 Do not edit raw results after acquisition. If processing changes, create a new
 analysis output that points to the same immutable source capture.

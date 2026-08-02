@@ -16,4 +16,5 @@
 ## Hardware and experiments
 
 - [Hardware test bench](test-bench.md)
+- **[SX1262 packet capture with RTL-SDR and PlutoSDR](iq-capture-guide.md)**
 - [Experiment workflow and provenance](../experiments/README.md)
