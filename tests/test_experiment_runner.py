@@ -116,3 +116,26 @@ def test_lr1121_sweep_cases_are_unique_and_valid():
     assert all(config["transmitter"]["power_dbm"] <= 0 for _, config in cases)
     assert all(config["transmitter"]["power_dbm"] >= -9 for _, config in cases)
     assert all(config["transmitter"]["frequency_hz"] == 868100000 for _, config in cases)
+
+
+def test_heltec_v43_sweep_cases_are_unique_and_safe():
+    sweep = load_example("../sweeps/heltec-v43-pluto-modes.json")
+    base = load_example("one-machine-pluto.example.json")
+    base["bench"]["antenna_or_cable_path"] = "test bench"
+    base["transmitter"]["board"] = "Heltec WiFi LoRa 32 V4.3"
+    base["transmitter"]["power_dbm"] = -9
+    cases = SWEEP.prepare_cases(sweep, base, execute=True)
+
+    assert len(cases) == 27
+    assert len({name for name, _ in cases}) == len(cases)
+    assert all(-9 <= config["transmitter"]["power_dbm"] <= -5 for _, config in cases)
+    assert all(config["transmitter"]["frequency_hz"] == 868100000 for _, config in cases)
+    assert {config["transmitter"]["spreading_factor"] for _, config in cases} >= set(
+        range(5, 13)
+    )
+    assert {config["transmitter"]["bandwidth_hz"] for _, config in cases} >= {
+        62500,
+        125000,
+        250000,
+        500000,
+    }

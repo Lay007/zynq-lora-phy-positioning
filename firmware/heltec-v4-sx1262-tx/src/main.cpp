@@ -13,7 +13,7 @@
 
 namespace {
 
-constexpr char kFirmwareVersion[] = "0.1.1";
+constexpr char kFirmwareVersion[] = "0.2.0";
 constexpr size_t kMaxPayloadLength = 220;
 constexpr size_t kCounterHeaderLength = 12;
 constexpr uint32_t kButtonDebounceMs = 50;
@@ -57,6 +57,7 @@ bool previousButtonState = HIGH;
 bool displayReady = false;
 int16_t lastRadioState = RADIOLIB_ERR_NONE;
 String serialLine;
+board::RevisionProbe revisionProbe{board::Revision::Unknown, 0, 0};
 
 void printHelp();
 void printProfile();
@@ -76,7 +77,7 @@ bool radioOk(int16_t state, const char* operation) {
 }
 
 bool isOutputPowerValid(const RadioProfile& requestedProfile) {
-  constexpr int minimumPower = -17;
+  constexpr int minimumPower = -9;
   constexpr int maximumPower = 0;
 
   if (requestedProfile.outputPowerDbm < minimumPower ||
@@ -171,13 +172,23 @@ size_t buildPayload(std::array<uint8_t, kMaxPayloadLength>& payload) {
 }
 
 void transmitOnce() {
+  if (revisionProbe.revision == board::Revision::Unknown) {
+    transmitterRunning = false;
+    Serial.println("ERR board revision unresolved; RF is blocked");
+    updateDisplay("RF BLOCKED");
+    return;
+  }
+
   std::array<uint8_t, kMaxPayloadLength> payload{};
   const size_t payloadLength = buildPayload(payload);
   const uint32_t transmitStartMs = millis();
 
+  board::setTransmitBypass(revisionProbe.revision, true);
+  delayMicroseconds(10);
   board::setLed(true);
   const int16_t state = radio.transmit(payload.data(), payloadLength);
   board::setLed(false);
+  board::setTransmitBypass(revisionProbe.revision, false);
 
   lastRadioState = state;
   Serial.printf(
@@ -425,7 +436,8 @@ void printProfile() {
   Serial.printf(
       "PROFILE freq_mhz=%.3f bw_khz=%.1f sf=%u cr=4/%u sync=0x%02X "
       "power_dbm=%d preamble=%u crc=%s iq=%s interval_ms=%lu "
-      "payload=%s length=%u running=%s fem=bypass firmware=%s\n",
+      "payload=%s length=%u running=%s board_revision=%s fem=%s "
+      "revision_probe=%u/%u firmware=%s\n",
       profile.frequencyMhz,
       profile.bandwidthKhz,
       profile.spreadingFactor,
@@ -440,6 +452,10 @@ void printProfile() {
       static_cast<unsigned int>(
           payloadMode == PayloadMode::Counter ? profile.payloadLength : fixedPayloadLength),
       transmitterRunning ? "yes" : "no",
+      board::revisionName(revisionProbe.revision),
+      board::femModeName(revisionProbe.revision),
+      revisionProbe.highSamples,
+      revisionProbe.sampleCount,
       kFirmwareVersion);
 }
 
@@ -482,6 +498,10 @@ void handleCommand(String line) {
   } else if (command == "version") {
     Serial.printf("zynq-lora-heltec-v4-sx1262-tx %s\n", kFirmwareVersion);
   } else if (command == "start") {
+    if (revisionProbe.revision == board::Revision::Unknown) {
+      Serial.println("ERR board revision unresolved; RF is blocked");
+      return;
+    }
     transmitterRunning = true;
     lastTransmitMs = millis() - profile.intervalMs;
     Serial.println("OK transmitter started");
@@ -536,6 +556,7 @@ void serviceButton() {
 }  // namespace
 
 void setup() {
+  revisionProbe = board::detectRevision();
   board::preparePowerAndRfFrontend();
   pinMode(board::kLed, OUTPUT);
   board::setLed(false);
@@ -558,6 +579,12 @@ void setup() {
   Serial.printf(
       "Initializing Heltec WiFi LoRa 32 V4 SX1262 transmitter firmware %s...\n",
       kFirmwareVersion);
+  Serial.printf(
+      "BOARD revision=%s probe_gpio5_high=%u/%u fem=%s\n",
+      board::revisionName(revisionProbe.revision),
+      revisionProbe.highSamples,
+      revisionProbe.sampleCount,
+      board::femModeName(revisionProbe.revision));
 
   const int16_t beginState = radio.begin(
       profile.frequencyMhz,
