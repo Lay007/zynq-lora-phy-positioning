@@ -12,7 +12,10 @@ complete only when its acceptance evidence is committed or linked.
 - [x] Record and checksum a 27-mode LR1121-to-ZynqSDR IQ sweep covering
   SF, BW, CR, power, payload, preamble, CRC, sync word, and IQ polarity.
 - [x] Build and safely initialize stopped-by-default Heltec V4/SX1262 firmware;
-  RF validation remains gated on PCB-revision and antenna confirmation.
+  electrically identify the connected board as V4.3 and validate the
+  KCT8103L transmit-bypass path.
+- [x] Record, checksum, and publish a 27-mode Heltec V4.3/SX1262-to-ZynqSDR IQ
+  sweep through Git LFS.
 
 Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 
@@ -32,8 +35,10 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 - [ ] Implement calibrated TDoA observations and 2D multilateration.
 - [x] Generate a versioned SF7/CR1 golden packet vector with intermediate
   values for the current HDL-bound bit-processing blocks.
-- [ ] Capture Heltec SX1262 packets at BW 125 kHz and SF7 and recover them with
-  the MATLAB model.
+- [x] Capture Heltec SX1262 packets at BW 125 kHz/SF7 and estimate their packet
+  interval, bandwidth, SF, carrier/CFO, SNR, and preamble score in MATLAB.
+- [ ] Decode standard on-air SX1262 packet symbols and payload bytes with the
+  MATLAB model.
 
 Acceptance: deterministic simulation and processing of at least 1,000 captures
 with recorded detection/symbol/CFO metrics plus ToA bias/jitter and TDoA position

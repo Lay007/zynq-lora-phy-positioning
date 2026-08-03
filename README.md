@@ -158,6 +158,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 - [Hardware test bench](docs/test-bench.md)
 - [RTL-SDR and PlutoSDR packet-capture guide](docs/iq-capture-guide.md)
 - [Experiment workflow](experiments/README.md)
+- [Heltec V4.3/SX1262 to ZynqSDR hardware sweep](docs/hardware-sweep-2026-08-03-heltec-v43.md)
 - **[BER/SER methodology](docs/ber-methodology.md)**
 - **[Whitening, FEC, interleaving, and CRC](docs/lora-phy-coding.md)**
 - [Documentation index](docs/README.md)

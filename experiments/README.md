@@ -44,8 +44,13 @@ analysis output that points to the same immutable source capture.
 
 ## Hardware mode sweeps
 
-`experiments/sweeps/lr1121-pluto-modes.json` defines the validated 27-mode
-matrix. Apply it to a reviewed machine-local base configuration:
+The repository contains matching 27-mode matrices for both reference
+transmitters:
+
+- `experiments/sweeps/lr1121-pluto-modes.json`;
+- `experiments/sweeps/heltec-v43-pluto-modes.json`.
+
+Apply the required matrix to a reviewed machine-local base configuration:
 
 ```powershell
 python tools/run_phy_sweep.py `
@@ -53,6 +58,10 @@ python tools/run_phy_sweep.py `
   --base-config experiments/configs/my-pluto.local.json `
   --execute
 ```
+
+For Heltec V4.3, substitute `heltec-v43-pluto-modes.json`. Its base profile and
+all overrides keep the SX1262 setting between -9 and -5 dBm while the external
+KCT8103L PA remains disabled in transmit-bypass mode.
 
 Use `tools/analyze_phy_sweep.py` to process completed/repair sweep directories
 in one MATLAB session. After reviewing the reports, `tools/curate_phy_sweep.py`

@@ -17,3 +17,6 @@ Use `tools/run_phy_sweep.py` to acquire the matrix,
 `tools/curate_phy_sweep.py` to verify SHA-256 and create the reference dataset.
 The complete procedure, limitations, Heltec backup provenance, and next BER
 step are documented in the [Russian report](ru/hardware-sweep-2026-08-02.md).
+
+The subsequently completed Heltec V4.3/SX1262 capture matrix is documented in
+the [3 August hardware report](hardware-sweep-2026-08-03-heltec-v43.md).

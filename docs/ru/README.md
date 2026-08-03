@@ -21,6 +21,7 @@
 
 - [Требования к стенду](test-bench.md)
 - [Воспроизводимые эксперименты](experiments.md)
+- [Аппаратная серия Heltec V4.3/SX1262 → ZynqSDR от 3 августа 2026 года](hardware-sweep-2026-08-03-heltec-v43.md)
 - [Аппаратная серия LR1121 → ZynqSDR от 2 августа 2026 года](hardware-sweep-2026-08-02.md)
 - [Как вносить изменения](../../CONTRIBUTING.ru.md)
 

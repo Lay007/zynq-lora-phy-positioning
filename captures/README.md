@@ -9,3 +9,8 @@ vector, include a small sample or a retrieval location plus:
 - radio configuration and gain mode;
 - transmitter packet configuration and payload;
 - capture time, setup identifier, and known impairments.
+
+Reviewed hardware reference datasets are stored under `captures/reference/`.
+Their raw IQ files use Git LFS; each dataset includes a manifest with SHA-256,
+capture metadata, transmitter acknowledgements, analysis results, and source
+commit provenance.

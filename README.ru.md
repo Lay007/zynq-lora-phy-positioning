@@ -128,6 +128,7 @@ hardware/               сведения о платах, тактировани
 - [Требования к стенду](docs/ru/test-bench.md)
 - [MATLAB-модель](docs/ru/matlab-model.md)
 - [Проведение экспериментов](docs/ru/experiments.md)
+- [Аппаратная серия Heltec V4.3/SX1262 → ZynqSDR](docs/ru/hardware-sweep-2026-08-03-heltec-v43.md)
 - [Simulink и путь к Verilog](docs/ru/simulink.md)
 
 ## Принципы измерений

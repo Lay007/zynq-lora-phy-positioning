@@ -39,8 +39,12 @@ analysis output, который ссылается на тот же immutable ca
 
 ## Аппаратные серии режимов
 
-Матрица `experiments/sweeps/lr1121-pluto-modes.json` запускается поверх
-проверенной локальной конфигурации стенда:
+В репозитории есть одинаковые по структуре матрицы из 27 режимов:
+
+- `experiments/sweeps/lr1121-pluto-modes.json` для LILYGO/LR1121;
+- `experiments/sweeps/heltec-v43-pluto-modes.json` для Heltec V4.3/SX1262.
+
+Нужная матрица запускается поверх проверенной локальной конфигурации стенда:
 
 ```powershell
 python tools/run_phy_sweep.py `
@@ -48,6 +52,10 @@ python tools/run_phy_sweep.py `
   --base-config experiments/configs/my-pluto.local.json `
   --execute
 ```
+
+Для Heltec следует подставить `heltec-v43-pluto-modes.json`. Базовый профиль и
+все варианты ограничены настройками SX1262 от −9 до −5 dBm; внешний усилитель
+KCT8103L остаётся отключённым, используется transmit bypass.
 
 `tools/analyze_phy_sweep.py` обрабатывает основной и repair-прогоны за одну
 MATLAB-сессию. После просмотра отчётов `tools/curate_phy_sweep.py` повторно

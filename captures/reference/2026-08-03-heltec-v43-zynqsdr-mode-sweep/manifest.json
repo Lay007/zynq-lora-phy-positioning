@@ -1,0 +1,2225 @@
+{
+  "schema": "zynq-lora-reference-sweep-v1",
+  "curated_utc": "2026-08-03T22:32:06.207784+00:00",
+  "capture_count": 27,
+  "total_bytes": 469762048,
+  "captures": [
+    {
+      "name": "sf5-bw125",
+      "capture": {
+        "path": "sf5-bw125.cf32",
+        "sha256": "27fa3d5b3b845d63928ae45c7510f2dd391b96c1054fda18bba78f3b3a29c2cf",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 5,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:28:11.686129+00:00",
+          "radio_log": "TX seq=1 len=32 state=0 start_ms=360669 duration_ms=31"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:28:12.134123+00:00",
+          "radio_log": "TX seq=2 len=32 state=0 start_ms=361118 duration_ms=31"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:28:12.577702+00:00",
+          "radio_log": "TX seq=3 len=32 state=0 start_ms=361561 duration_ms=31"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.166,
+        "packet_end_seconds": 1.191499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 114645.15708417963,
+        "estimated_spreading_factor": 5,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868102270.2500794,
+        "cfo_hz": 2270.250079393387,
+        "estimated_snr_db": 52.16245861439617,
+        "preamble_score": 0.8883958967623087,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 5
+      },
+      "provenance": {
+        "source_run_id": "20260802T222802Z-heltec-v43-pluto-modes-sf5-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf6-bw125",
+      "capture": {
+        "path": "sf6-bw125.cf32",
+        "sha256": "733a16a1e4636b3cbd7636359a49d8b6b634fa91594554955d0f594cdc091408",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 6,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:28:23.418766+00:00",
+          "radio_log": "TX seq=4 len=32 state=0 start_ms=372403 duration_ms=51"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:28:23.876613+00:00",
+          "radio_log": "TX seq=5 len=32 state=0 start_ms=372861 duration_ms=51"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:28:24.343222+00:00",
+          "radio_log": "TX seq=6 len=32 state=0 start_ms=373328 duration_ms=51"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.235,
+        "packet_end_seconds": 0.279999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 137107.56078770873,
+        "estimated_spreading_factor": 6,
+        "estimated_symbol_duration_seconds": 0.000512,
+        "estimated_carrier_hz": 868101043.4359488,
+        "cfo_hz": 1043.4359488487244,
+        "estimated_snr_db": 41.60974555433392,
+        "preamble_score": 0.9352095151479948,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 6
+      },
+      "provenance": {
+        "source_run_id": "20260802T222815Z-heltec-v43-pluto-modes-sf6-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw125",
+      "capture": {
+        "path": "sf7-bw125.cf32",
+        "sha256": "6c4a8963ec59ebf931554f427456246920ce9c192145f7605bd20762fce45733",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:28:34.451970+00:00",
+          "radio_log": "TX seq=7 len=32 state=0 start_ms=383435 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:28:34.947126+00:00",
+          "radio_log": "TX seq=8 len=32 state=0 start_ms=383931 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:28:35.436518+00:00",
+          "radio_log": "TX seq=9 len=32 state=0 start_ms=384421 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.252,
+        "packet_end_seconds": 0.328999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125000.57339156853,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100800.7406259,
+        "cfo_hz": 800.7406258583069,
+        "estimated_snr_db": 55.659459063278625,
+        "preamble_score": 0.9633884417266637,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T222826Z-heltec-v43-pluto-modes-sf7-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf8-bw125",
+      "capture": {
+        "path": "sf8-bw125.cf32",
+        "sha256": "0d6d1a35cc52e56c3c845865aba6bd533e66ac0321877a01cb2e96cefec1b70d",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 8,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:28:45.132170+00:00",
+          "radio_log": "TX seq=10 len=32 state=0 start_ms=394117 duration_ms=149"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:28:45.686796+00:00",
+          "radio_log": "TX seq=11 len=32 state=0 start_ms=394671 duration_ms=149"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:28:46.246802+00:00",
+          "radio_log": "TX seq=12 len=32 state=0 start_ms=395231 duration_ms=149"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.3565,
+        "packet_end_seconds": 1.499499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128099.62635149453,
+        "estimated_spreading_factor": 8,
+        "estimated_symbol_duration_seconds": 0.002048,
+        "estimated_carrier_hz": 868100602.7414993,
+        "cfo_hz": 602.7414993047714,
+        "estimated_snr_db": 56.072817951446766,
+        "preamble_score": 0.9732177921304884,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 8
+      },
+      "provenance": {
+        "source_run_id": "20260802T222837Z-heltec-v43-pluto-modes-sf8-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf9-bw125",
+      "capture": {
+        "path": "sf9-bw125.cf32",
+        "sha256": "591f234eaca349155a72ddae604bf323c9969785db59cd878c25ad0b7d0ce015",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 9,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:28:56.204341+00:00",
+          "radio_log": "TX seq=13 len=32 state=0 start_ms=405189 duration_ms=270"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:28:56.986846+00:00",
+          "radio_log": "TX seq=14 len=32 state=0 start_ms=405970 duration_ms=270"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2735,
+        "packet_end_seconds": 0.537499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 131036.43584308057,
+        "estimated_spreading_factor": 9,
+        "estimated_symbol_duration_seconds": 0.004096,
+        "estimated_carrier_hz": 868100455.2095015,
+        "cfo_hz": 455.20950150489807,
+        "estimated_snr_db": 55.98487861757876,
+        "preamble_score": 0.9800437496434764,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 9
+      },
+      "provenance": {
+        "source_run_id": "20260802T222847Z-heltec-v43-pluto-modes-sf9-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf10-bw125",
+      "capture": {
+        "path": "sf10-bw125.cf32",
+        "sha256": "4b200a6833d8174f799ab6b4ae67fb5657b22279cab2e29d3754308168d2c4c7",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 10,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:29:06.483121+00:00",
+          "radio_log": "TX seq=15 len=32 state=0 start_ms=415468 duration_ms=492"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2205,
+        "packet_end_seconds": 0.706999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125787.1603852402,
+        "estimated_spreading_factor": 10,
+        "estimated_symbol_duration_seconds": 0.008192,
+        "estimated_carrier_hz": 868100450.5412548,
+        "cfo_hz": 450.54125475883484,
+        "estimated_snr_db": 52.543021337593004,
+        "preamble_score": 0.9534676283815839,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 10
+      },
+      "provenance": {
+        "source_run_id": "20260802T222858Z-heltec-v43-pluto-modes-sf10-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf11-bw125",
+      "capture": {
+        "path": "sf11-bw125.cf32",
+        "sha256": "6cce2a6b82600edd634d779beae576dc12f613330e71d1039c1f0863719ff0a9",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 11,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:29:17.285287+00:00",
+          "radio_log": "TX seq=16 len=32 state=0 start_ms=426269 duration_ms=1059"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.229,
+        "packet_end_seconds": 1.282999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 129648.90196114445,
+        "estimated_spreading_factor": 11,
+        "estimated_symbol_duration_seconds": 0.016384,
+        "estimated_carrier_hz": 868100392.2182641,
+        "cfo_hz": 392.2182641029358,
+        "estimated_snr_db": 48.486246829913725,
+        "preamble_score": 0.8568023669275736,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 11
+      },
+      "provenance": {
+        "source_run_id": "20260802T222909Z-heltec-v43-pluto-modes-sf11-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf12-bw125",
+      "capture": {
+        "path": "sf12-bw125.cf32",
+        "sha256": "66ef6cbef9e43878ae075ff29af7b3a056df88504f059dd6a18010d3950bde2d",
+        "bytes": 33554432,
+        "samples": 4194304,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 12,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 1,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 4.194304,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:29:28.241008+00:00",
+          "radio_log": "TX seq=17 len=32 state=0 start_ms=437226 duration_ms=1948"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.194,
+        "packet_end_seconds": 2.136499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 128308.82333615128,
+        "estimated_spreading_factor": 12,
+        "estimated_symbol_duration_seconds": 0.032768,
+        "estimated_carrier_hz": 868100421.3921402,
+        "cfo_hz": 421.3921401500702,
+        "estimated_snr_db": 55.34531442209456,
+        "preamble_score": 0.5919490036881425,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 12
+      },
+      "provenance": {
+        "source_run_id": "20260802T222920Z-heltec-v43-pluto-modes-sf12-bw125",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw250",
+      "capture": {
+        "path": "sf7-bw250.cf32",
+        "sha256": "9117bcc389794c7f067d1d073d3a910bb33d4c59bd8820d351be0bf19a01a380",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 250000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:05.198492+00:00",
+          "radio_log": "TX seq=19 len=32 state=0 start_ms=474183 duration_ms=45"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:05.657494+00:00",
+          "radio_log": "TX seq=20 len=32 state=0 start_ms=474641 duration_ms=45"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:30:06.113495+00:00",
+          "radio_log": "TX seq=21 len=32 state=0 start_ms=475097 duration_ms=45"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2315,
+        "packet_end_seconds": 0.270499,
+        "estimated_bandwidth_hz": 250000,
+        "measured_occupied_bandwidth_hz": 253883.99734022084,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.000512,
+        "estimated_carrier_hz": 868098189.1547269,
+        "cfo_hz": -1810.8452731370926,
+        "estimated_snr_db": 56.040611950250835,
+        "preamble_score": 0.9135024650587535,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 250000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T222956Z-heltec-v43-pluto-modes-sf7-bw250",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw500",
+      "capture": {
+        "path": "sf7-bw500.cf32",
+        "sha256": "2df3f31a304080a7f3bb1d1c1a9ac65beefead52449b38246f3b3cec79c992c0",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 500000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 100
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 2000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 1.048576,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:15.679814+00:00",
+          "radio_log": "TX seq=22 len=32 state=0 start_ms=484665 duration_ms=26"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:15.912779+00:00",
+          "radio_log": "TX seq=23 len=32 state=0 start_ms=484898 duration_ms=26"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0,
+        "packet_end_seconds": 0.7074995,
+        "estimated_bandwidth_hz": 500000,
+        "measured_occupied_bandwidth_hz": 437054.0284024925,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868140214.0663668,
+        "cfo_hz": 40214.066366791725,
+        "estimated_snr_db": 41.84281052200389,
+        "preamble_score": 0.054139333667148085,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 500000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223007Z-heltec-v43-pluto-modes-sf7-bw500",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr46",
+      "capture": {
+        "path": "sf7-cr46.cf32",
+        "sha256": "2a81a78502d14cb935fb80712da62b73d70a3a3b5c03a7f5f4df3b90a64d4abe",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 6,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:25.384720+00:00",
+          "radio_log": "TX seq=24 len=32 state=0 start_ms=494369 duration_ms=93"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:25.888684+00:00",
+          "radio_log": "TX seq=25 len=32 state=0 start_ms=494873 duration_ms=93"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:30:26.390210+00:00",
+          "radio_log": "TX seq=26 len=32 state=0 start_ms=495374 duration_ms=93"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2775,
+        "packet_end_seconds": 0.364499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 136132.82131207085,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100705.6428875,
+        "cfo_hz": 705.6428874731064,
+        "estimated_snr_db": 55.433782193690675,
+        "preamble_score": 0.9590345685625656,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223017Z-heltec-v43-pluto-modes-sf7-cr46",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr47",
+      "capture": {
+        "path": "sf7-cr47.cf32",
+        "sha256": "f61f5e86950c0911d31ba8fafba16fdff3b7cae94234d68fffe1e7fe9c044331",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 7,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:36.419620+00:00",
+          "radio_log": "TX seq=27 len=32 state=0 start_ms=505404 duration_ms=103"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:36.937424+00:00",
+          "radio_log": "TX seq=28 len=32 state=0 start_ms=505921 duration_ms=103"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:30:37.453898+00:00",
+          "radio_log": "TX seq=29 len=32 state=0 start_ms=506438 duration_ms=103"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.2685,
+        "packet_end_seconds": 1.365999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 122032.05572936068,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100873.37132,
+        "cfo_hz": 873.3713200092316,
+        "estimated_snr_db": 56.02295364288914,
+        "preamble_score": 0.9709384577295515,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223027Z-heltec-v43-pluto-modes-sf7-cr47",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-cr48",
+      "capture": {
+        "path": "sf7-cr48.cf32",
+        "sha256": "096d65cf79fb87e7b9f4b848dd24819714ac379b74ad710c792b4bcb5d884cc5",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 8,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:47.008240+00:00",
+          "radio_log": "TX seq=30 len=32 state=0 start_ms=515992 duration_ms=114"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:47.534207+00:00",
+          "radio_log": "TX seq=31 len=32 state=0 start_ms=516519 duration_ms=113"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:30:48.057193+00:00",
+          "radio_log": "TX seq=32 len=32 state=0 start_ms=517042 duration_ms=113"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2685,
+        "packet_end_seconds": 0.375999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 137571.36736318606,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100688.6514359,
+        "cfo_hz": 688.6514358520508,
+        "estimated_snr_db": 56.11917323553499,
+        "preamble_score": 0.9670484831910195,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223039Z-heltec-v43-pluto-modes-sf7-cr48",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m5",
+      "capture": {
+        "path": "sf7-power-m5.cf32",
+        "sha256": "19ec56a9da48bb894b8c8a1b47faac6e3847aca9a27a4b24306df398b83bc2f0",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -5,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:30:58.523113+00:00",
+          "radio_log": "TX seq=33 len=32 state=0 start_ms=527508 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:30:59.019098+00:00",
+          "radio_log": "TX seq=34 len=32 state=0 start_ms=528004 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:30:59.509101+00:00",
+          "radio_log": "TX seq=35 len=32 state=0 start_ms=528494 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.7535,
+        "packet_end_seconds": 0.830499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 122305.57931874425,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100902.4394605,
+        "cfo_hz": 902.439460515976,
+        "estimated_snr_db": 59.35353764403831,
+        "preamble_score": 0.9564947398261743,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223049Z-heltec-v43-pluto-modes-sf7-power-m5",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m8",
+      "capture": {
+        "path": "sf7-power-m8.cf32",
+        "sha256": "5a78c10db6b7e1dfa42ad18777ae9d851b50d1305260db156e7b65c8902e4b9f",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -8,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:31:09.114656+00:00",
+          "radio_log": "TX seq=36 len=32 state=0 start_ms=538099 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:31:09.614578+00:00",
+          "radio_log": "TX seq=37 len=32 state=0 start_ms=538599 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:31:10.111593+00:00",
+          "radio_log": "TX seq=38 len=32 state=0 start_ms=539095 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2485,
+        "packet_end_seconds": 0.325499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 141822.7148440915,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100726.9123716,
+        "cfo_hz": 726.912371635437,
+        "estimated_snr_db": 43.21126495356398,
+        "preamble_score": 0.9686632766931318,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223101Z-heltec-v43-pluto-modes-sf7-power-m8",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-power-m9",
+      "capture": {
+        "path": "sf7-power-m9.cf32",
+        "sha256": "017f0b8d013143dcfd7b2d96adec244be37528a805ec7ffbe364b939fa705d9e",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:31:20.072093+00:00",
+          "radio_log": "TX seq=39 len=32 state=0 start_ms=549057 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:31:20.566083+00:00",
+          "radio_log": "TX seq=40 len=32 state=0 start_ms=549551 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:31:21.062071+00:00",
+          "radio_log": "TX seq=41 len=32 state=0 start_ms=550047 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.25,
+        "packet_end_seconds": 1.326999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 134325.99981014236,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100697.428989,
+        "cfo_hz": 697.4289890527725,
+        "estimated_snr_db": 55.77350309814762,
+        "preamble_score": 0.9507496895199901,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223111Z-heltec-v43-pluto-modes-sf7-power-m9",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len12",
+      "capture": {
+        "path": "sf7-len12.cf32",
+        "sha256": "3c0bfac864893a2b4209db7f2d7f883fc91405ec745fbd2662927ed21da6155f",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 12,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:31:31.006138+00:00",
+          "radio_log": "TX seq=42 len=12 state=0 start_ms=559990 duration_ms=52"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:31:31.475115+00:00",
+          "radio_log": "TX seq=43 len=12 state=0 start_ms=560459 duration_ms=52"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:31:31.930121+00:00",
+          "radio_log": "TX seq=44 len=12 state=0 start_ms=560915 duration_ms=52"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2775,
+        "packet_end_seconds": 0.323499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 130759.53235103826,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100716.4313719,
+        "cfo_hz": 716.4313719272614,
+        "estimated_snr_db": 54.53227088115284,
+        "preamble_score": 0.9617402931418485,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223122Z-heltec-v43-pluto-modes-sf7-len12",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len64",
+      "capture": {
+        "path": "sf7-len64.cf32",
+        "sha256": "399938fe547109af97f3da316abc727e8da3bc2399ff4e52f8b8bce9da432909",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 64,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:31:41.427654+00:00",
+          "radio_log": "TX seq=45 len=64 state=0 start_ms=570412 duration_ms=129"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:31:41.973644+00:00",
+          "radio_log": "TX seq=46 len=64 state=0 start_ms=570958 duration_ms=129"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:31:42.518171+00:00",
+          "radio_log": "TX seq=47 len=64 state=0 start_ms=571503 duration_ms=129"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.252,
+        "packet_end_seconds": 0.374999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 131729.0173541779,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100719.2245106,
+        "cfo_hz": 719.224510550499,
+        "estimated_snr_db": 54.41343075686113,
+        "preamble_score": 0.9562341885539047,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223133Z-heltec-v43-pluto-modes-sf7-len64",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len128",
+      "capture": {
+        "path": "sf7-len128.cf32",
+        "sha256": "2778563174d30b5d1a425a6c95ea09416c0bddc8ac188992b4e4c28095d2f1c5",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 128,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:31:52.420273+00:00",
+          "radio_log": "TX seq=48 len=128 state=0 start_ms=581404 duration_ms=227"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:31:53.057221+00:00",
+          "radio_log": "TX seq=49 len=128 state=0 start_ms=582042 duration_ms=227"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.8875,
+        "packet_end_seconds": 1.107499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125644.68300764199,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100883.2872909,
+        "cfo_hz": 883.287290930748,
+        "estimated_snr_db": 54.98326602514251,
+        "preamble_score": 0.9701822506308186,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223143Z-heltec-v43-pluto-modes-sf7-len128",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-len220",
+      "capture": {
+        "path": "sf7-len220.cf32",
+        "sha256": "4898ba862f0fdbf0d13d4f883687da15f9fd85f9bec22a9c81a489e6f7e12ab3",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 220,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:32:03.841476+00:00",
+          "radio_log": "TX seq=50 len=220 state=0 start_ms=592827 duration_ms=360"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:32:04.606996+00:00",
+          "radio_log": "TX seq=51 len=220 state=0 start_ms=593591 duration_ms=360"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.266,
+        "packet_end_seconds": 0.618999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 123587.217440788,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100879.3815747,
+        "cfo_hz": 879.3815747499466,
+        "estimated_snr_db": 43.01005319541589,
+        "preamble_score": 0.9769146835195818,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223155Z-heltec-v43-pluto-modes-sf7-len220",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble20",
+      "capture": {
+        "path": "sf7-preamble20.cf32",
+        "sha256": "400df07a59ab867cc6c511d8208ba685626b978cfe2d4fea0f94a5e6e3399f9d",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 20,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:32:37.338406+00:00",
+          "radio_log": "TX seq=53 len=32 state=0 start_ms=626324 duration_ms=91"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:32:37.834401+00:00",
+          "radio_log": "TX seq=54 len=32 state=0 start_ms=626820 duration_ms=91"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:32:38.332434+00:00",
+          "radio_log": "TX seq=55 len=32 state=0 start_ms=627317 duration_ms=91"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.2285,
+        "packet_end_seconds": 1.313499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 123324.27555507002,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100872.6786902,
+        "cfo_hz": 872.6786901950836,
+        "estimated_snr_db": 56.18247704586479,
+        "preamble_score": 0.9594450903925694,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223229Z-heltec-v43-pluto-modes-sf7-preamble20",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble32",
+      "capture": {
+        "path": "sf7-preamble32.cf32",
+        "sha256": "89dee58c5fb40bf94d52deb16fe70907dfdab40b81bc417fc78acd7c814f6eab",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 32,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:32:47.863442+00:00",
+          "radio_log": "TX seq=56 len=32 state=0 start_ms=636849 duration_ms=103"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:32:48.373457+00:00",
+          "radio_log": "TX seq=57 len=32 state=0 start_ms=637358 duration_ms=103"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:32:48.889459+00:00",
+          "radio_log": "TX seq=58 len=32 state=0 start_ms=637875 duration_ms=103"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.2785,
+        "packet_end_seconds": 1.375999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 126257.93711612669,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100765.9069563,
+        "cfo_hz": 765.9069563150406,
+        "estimated_snr_db": 55.947547269925685,
+        "preamble_score": 0.9561360537852379,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223240Z-heltec-v43-pluto-modes-sf7-preamble32",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-crc-off",
+      "capture": {
+        "path": "sf7-crc-off.cf32",
+        "sha256": "b8d5939e3b8461bf85d9248907fa592326db8e04fd09794af99b021cf8dd10ff",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": false,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:32:58.222183+00:00",
+          "radio_log": "TX seq=59 len=32 state=0 start_ms=647207 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:32:58.717129+00:00",
+          "radio_log": "TX seq=60 len=32 state=0 start_ms=647701 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:32:59.214138+00:00",
+          "radio_log": "TX seq=61 len=32 state=0 start_ms=648199 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2515,
+        "packet_end_seconds": 0.328499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 136165.57403060043,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100649.5755697,
+        "cfo_hz": 649.5755697488785,
+        "estimated_snr_db": 43.13731093076748,
+        "preamble_score": 0.9669896939729474,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223250Z-heltec-v43-pluto-modes-sf7-crc-off",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-sync34",
+      "capture": {
+        "path": "sf7-sync34.cf32",
+        "sha256": "76286a53fd45bfdd85322247f2406425fa98ac03be44eda121222ef1dca836b8",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x34",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:33:08.340552+00:00",
+          "radio_log": "TX seq=62 len=32 state=0 start_ms=657326 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:33:08.829541+00:00",
+          "radio_log": "TX seq=63 len=32 state=0 start_ms=657814 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:33:09.328521+00:00",
+          "radio_log": "TX seq=64 len=32 state=0 start_ms=658314 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.244,
+        "packet_end_seconds": 0.320999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 133475.35184467272,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100699.068434,
+        "cfo_hz": 699.0684340000153,
+        "estimated_snr_db": 56.09476391136929,
+        "preamble_score": 0.9482687878522318,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223300Z-heltec-v43-pluto-modes-sf7-sync34",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-iq-inverted",
+      "capture": {
+        "path": "sf7-iq-inverted.cf32",
+        "sha256": "e7d188fffc13b6f3da6c5a1f4dd29f337001ba9092219d5025390c4d074929f3",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": true,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:33:19.705735+00:00",
+          "radio_log": "TX seq=65 len=32 state=0 start_ms=668691 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:33:20.192238+00:00",
+          "radio_log": "TX seq=66 len=32 state=0 start_ms=669177 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:33:20.691764+00:00",
+          "radio_log": "TX seq=67 len=32 state=0 start_ms=669677 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2745,
+        "packet_end_seconds": 0.351499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 125962.51282353867,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868099882.2647344,
+        "cfo_hz": -117.73526561260223,
+        "estimated_snr_db": 56.199009005197745,
+        "preamble_score": 0.9600303783573606,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223312Z-heltec-v43-pluto-modes-sf7-iq-inverted",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-bw62k5",
+      "capture": {
+        "path": "sf7-bw62k5.cf32",
+        "sha256": "dfecc75e3e5bb6c29d231b1db9be1bc35666eeeb6a39ca97991e131a20996897",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 62500,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 2,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:34:48.129218+00:00",
+          "radio_log": "TX seq=68 len=32 state=0 start_ms=757114 duration_ms=159"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:34:48.705679+00:00",
+          "radio_log": "TX seq=69 len=32 state=0 start_ms=757692 duration_ms=159"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.824,
+        "packet_end_seconds": 0.976999,
+        "estimated_bandwidth_hz": 62500,
+        "measured_occupied_bandwidth_hz": 67152.96260531207,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.002048,
+        "estimated_carrier_hz": 868100693.2383149,
+        "cfo_hz": 693.2383148670197,
+        "estimated_snr_db": 43.20513705926647,
+        "preamble_score": 0.9730688778601438,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 62500,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223440Z-heltec-v43-pluto-modes-sf7-bw62k5",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    },
+    {
+      "name": "sf7-preamble8",
+      "capture": {
+        "path": "sf7-preamble8.cf32",
+        "sha256": "b47db753e97020ada9dfcf991b82a680f3d71427ffb7d27da7e70771278f8de8",
+        "bytes": 16777216,
+        "samples": 2097152,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 8,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 3,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 2.097152,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 30,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> OTA -> ZynqSDR RX antenna; antenna connection confirmed by the user on 2026-08-03",
+        "notes": "First KCT8103L bypass-mode control packet; external PA disabled"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-02T22:34:58.902561+00:00",
+          "radio_log": "TX seq=70 len=32 state=0 start_ms=767888 duration_ms=79"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-02T22:34:59.395553+00:00",
+          "radio_log": "TX seq=71 len=32 state=0 start_ms=768380 duration_ms=79"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-02T22:34:59.886551+00:00",
+          "radio_log": "TX seq=72 len=32 state=0 start_ms=768872 duration_ms=79"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.2305,
+        "packet_end_seconds": 0.303499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 141414.1952668149,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100778.6321586,
+        "cfo_hz": 778.6321586370468,
+        "estimated_snr_db": 56.100977691927824,
+        "preamble_score": 0.8850050803489278,
+        "profile_constrained": true,
+        "expected_bandwidth_hz": 125000,
+        "expected_spreading_factor": 7
+      },
+      "provenance": {
+        "source_run_id": "20260802T223451Z-heltec-v43-pluto-modes-sf7-preamble8",
+        "repository_commit_at_acquisition": "c5635911829e88f5e42f2e25c72936653c8b6bca",
+        "repository_was_dirty": true
+      }
+    }
+  ],
+  "notes": [
+    "Raw IQ samples are byte-identical to the source experiment captures.",
+    "This is an OTA engineering dataset, not a calibrated RF measurement."
+  ]
+}
