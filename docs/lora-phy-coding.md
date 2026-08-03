@@ -31,10 +31,11 @@ hard CSS symbol decisions
   -> accept or reject packet
 ```
 
-The first block is a special case: it contains `SF-2` codewords, always uses
-CR 4/8, and produces eight reduced-rate symbols. At SF7 the five explicit
-header nibbles exactly fill that block. Subsequent blocks use the payload CR;
-with low-data-rate optimization they also use `SF-2` codewords per block.
+The first block always uses CR 4/8 and produces eight symbols. At SF7 through
+SF12 it contains `SF-2` codewords and uses reduced-rate mapping. SX126x SF5/SF6
+explicit-header packets instead use `SF` codewords in the first block and add
+two upchirps after the 2.25-downchirp SFD. Subsequent blocks use the payload CR;
+with low-data-rate optimization they use `SF-2` codewords per block.
 
 ## Whitening
 
@@ -67,17 +68,18 @@ Each four-bit nibble becomes a systematic codeword of `4 + CR` bits:
 | 3 | 4/7 | 7 | more protection |
 | 4 | 4/8 | 8 | strongest supported hard code |
 
-For CR 2 through 4, with MSB-first data bits `[d0 d1 d2 d3]`, parity bits are
-selected from:
+For a nibble `[b3 b2 b1 b0]`, where `b0` is least significant, the on-air
+systematic prefix is LSB-first: `[b0 b1 b2 b3]`. For CR 2 through 4 the parity
+bits are selected from:
 
 ```text
-p0 = d0 xor d1 xor d2
-p1 = d1 xor d2 xor d3
-p2 = d0 xor d1 xor d3
-p3 = d0 xor d2 xor d3
+p0 = b0 xor b1 xor b2
+p1 = b1 xor b2 xor b3
+p2 = b0 xor b1 xor b3
+p3 = b0 xor b2 xor b3
 ```
 
-CR 1 uses the single parity `d0 xor d1 xor d2 xor d3`. The MATLAB decoder
+CR 1 uses the single parity `b0 xor b1 xor b2 xor b3`. The MATLAB decoder
 compares a received hard codeword with all 16 valid codewords and chooses the
 minimum Hamming-distance candidate. This makes tie behavior explicit and gives
 the distance needed for diagnostics. Soft-decision decoding is not implemented
@@ -93,7 +95,8 @@ selects codeword row:
 source = mod(i - j - 1, effectiveSF)
 ```
 
-where `effectiveSF` is `SF` normally and `SF-2` for the first block or LDRO.
+where `effectiveSF` is `SF` normally and `SF-2` for LDRO and for the first
+block at SF7 through SF12. SX126x SF5/SF6 headers use `effectiveSF = SF`.
 The reduced-rate transmitter adds one parity bit and one zero bit to make a
 full-SF label. The receiver removes the two reduced-rate label bits before the
 inverse permutation.
@@ -119,7 +122,7 @@ and has its own five-bit checksum.
 ## Bit ordering and mapping
 
 - Payload bytes split into low nibble then high nibble.
-- Codeword rows are represented MSB first.
+- Codeword rows use on-air order: `[b0 b1 b2 b3 parity...]`.
 - Interleaved labels are converted from Gray to binary and incremented modulo
   `2^SF` to obtain the CSS cyclic-shift index.
 - The receiver subtracts that offset, applies binary-to-Gray conversion, and
@@ -143,8 +146,10 @@ or Gray convention can still produce plausible chirps while every packet fails.
 
 The machine-readable vector is
 [`model/matlab/golden/lora-phy-sf7-cr1.json`](../model/matlab/golden/lora-phy-sf7-cr1.json).
-It is a deterministic internal regression vector. Final over-the-air
-compatibility still requires comparison with SX1262 IQ captures.
+It is a deterministic internal regression vector. `TestOnAirReceiver` also
+covers standard preamble/sync/SFD framing, SF5/SF6, and inverted IQ. End-to-end
+compatibility is confirmed against real SX1262 captures with both header
+checksum and payload CRC validation.
 
 ## References
 

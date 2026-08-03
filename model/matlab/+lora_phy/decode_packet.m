@@ -8,10 +8,11 @@ if numel(symbols) < 8
     return;
 end
 
+headerReducedRate = config.spreadingFactor >= 7;
 headerLabels = lora_phy.unmap_symbols_to_labels( ...
-    symbols(1:8), config.spreadingFactor, true);
+    symbols(1:8), config.spreadingFactor, headerReducedRate);
 headerCodewords = lora_phy.diagonal_deinterleave( ...
-    headerLabels, config.spreadingFactor, 4, true);
+    headerLabels, config.spreadingFactor, 4, headerReducedRate);
 [firstNibbles, headerDistances] = lora_phy.hamming_decode(headerCodewords, 4);
 decoded.receivedHeaderCodewords = headerCodewords;
 decoded.headerDecoderDistances = headerDistances;
@@ -41,7 +42,7 @@ else
 end
 
 dataNibbleCount = 2*payloadLength + 4*payloadCrcPresent;
-firstCount = config.spreadingFactor - 2;
+firstCount = config.spreadingFactor - 2*headerReducedRate;
 firstDataAvailable = max(0, firstCount-headerNibbleCount);
 firstDataCount = min(dataNibbleCount, firstDataAvailable);
 dataNibbles = firstNibbles(headerNibbleCount+(1:firstDataCount));

@@ -33,10 +33,12 @@ RX
   → принять или отклонить пакет
 ```
 
-Первый блок особый: содержит `SF-2` codeword, всегда использует CR 4/8 и
-формирует восемь reduced-rate символов. При SF7 пять nibble explicit header
-точно заполняют этот блок. Последующие блоки используют payload CR; при LDRO в
-них также находится `SF-2` codeword.
+Первый блок особый: всегда использует CR 4/8 и формирует восемь символов. Для
+SF7…SF12 он содержит `SF-2` codeword и использует reduced-rate mapping. У
+SX126x при SF5/SF6 reduced-rate для header не применяется: первый блок содержит
+`SF` codeword, а после SFD перед ним передаются два дополнительных upchirp.
+Последующие блоки используют payload CR; при LDRO в них находится `SF-2`
+codeword.
 
 ## Whitening
 
@@ -78,19 +80,21 @@ Whitening не добавляет избыточность и не исправ�
 | 3 | 4/7 | 7 | усиленная защита |
 | 4 | 4/8 | 8 | максимальная защита hard-кода |
 
-Для CR 2…4 и MSB-first data bits `[d0 d1 d2 d3]` используются:
+Пусть nibble записан как `[b3 b2 b1 b0]`, где `b0` — младший бит. В эфирном
+codeword систематическая часть идёт **LSB-first**: `[b0 b1 b2 b3]`. За ней для
+CR 2…4 выбираются parity bits:
 
 ```text
-p0 = d0 xor d1 xor d2
-p1 = d1 xor d2 xor d3
-p2 = d0 xor d1 xor d3
-p3 = d0 xor d2 xor d3
+p0 = b0 xor b1 xor b2
+p1 = b1 xor b2 xor b3
+p2 = b0 xor b1 xor b3
+p3 = b0 xor b2 xor b3
 ```
 
 CR 1 использует один parity bit:
 
 ```text
-d0 xor d1 xor d2 xor d3
+b0 xor b1 xor b2 xor b3
 ```
 
 MATLAB-декодер сравнивает принятый hard codeword со всеми 16 допустимыми и
@@ -106,7 +110,8 @@ Interleaver переставляет кодированные биты, но н�
 source = mod(i - j - 1, effectiveSF)
 ```
 
-`effectiveSF` равен `SF` в обычном блоке и `SF-2` для первого блока или LDRO.
+`effectiveSF` равен `SF` в обычном блоке, `SF-2` для LDRO и для первого блока
+при SF7…SF12. У SX126x при SF5/SF6 первый блок использует `effectiveSF = SF`.
 Reduced-rate TX добавляет parity bit и ноль до полной ширины SF. RX удаляет два
 служебных label bits перед обратной перестановкой.
 
@@ -129,7 +134,7 @@ CRC обнаруживает остаточные ошибки после FEC, �
 ## Порядок битов и mapping
 
 - Payload byte разделяется на младший nibble, затем старший.
-- Строка codeword представляется MSB first.
+- Строка codeword хранится в эфирном порядке: `[b0 b1 b2 b3 parity…]`.
 - Interleaved label преобразуется Gray → binary и увеличивается на 1 по модулю
   `2^SF`, образуя индекс циклического сдвига CSS.
 - RX вычитает это смещение, применяет binary → Gray и deinterleaving.
@@ -142,7 +147,7 @@ CRC обнаруживает остаточные ошибки после FEC, �
 `TestPacketCoding` проверяет:
 
 1. Известный префикс whitening и самобратимость.
-2. Все 16 codeword CR 4/8.
+2. Все 16 эфирно-совместимых LSB-first codeword CR 4/8.
 3. Исправление одиночной ошибки в каждой позиции CR 4/8.
 4. Обратимость normal/reduced interleaver и mapping.
 5. Фиксированные header и payload CRC vectors.
@@ -153,8 +158,10 @@ CRC обнаруживает остаточные ошибки после FEC, �
 Машиночитаемый вектор:
 [`model/matlab/golden/lora-phy-sf7-cr1.json`](../../model/matlab/golden/lora-phy-sf7-cr1.json).
 
-Это внутренний regression vector. Окончательная совместимость требует
-сравнения с IQ-записями реального SX1262.
+Это внутренний regression vector. Дополнительно `TestOnAirReceiver` проверяет
+стандартные preamble/sync/SFD, SF5/SF6 и inverted IQ. Совместимость подтверждена
+сквозным декодированием записей реального SX1262 с проверкой header checksum и
+payload CRC.
 
 ## Источники
 

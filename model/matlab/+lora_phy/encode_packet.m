@@ -28,13 +28,14 @@ else
 end
 frameNibbles = [headerNibbles; dataNibbles];
 
-firstCount = config.spreadingFactor - 2;
+headerReducedRate = config.spreadingFactor >= 7;
+firstCount = config.spreadingFactor - 2*headerReducedRate;
 firstPadded = zeros(firstCount, 1, "uint8");
 firstUsed = min(firstCount, numel(frameNibbles));
 firstPadded(1:firstUsed) = frameNibbles(1:firstUsed);
 headerCodewords = lora_phy.hamming_encode(firstPadded, 4);
 headerLabels = lora_phy.diagonal_interleave( ...
-    headerCodewords, config.spreadingFactor, true);
+    headerCodewords, config.spreadingFactor, headerReducedRate);
 headerSymbols = lora_phy.map_labels_to_symbols( ...
     headerLabels, config.spreadingFactor);
 
