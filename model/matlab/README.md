@@ -60,12 +60,29 @@ integer-sample start candidates, estimates CFO from the first upchirp, and
 demodulates the requested payload length. This deliberately tests acquisition
 independently of the packet-coding path and exact LoRa sync-word waveform.
 
-## Packet model boundary
+## Standard on-air packet receiver
 
 `encode_packet` produces CSS symbol indices and exposes every intermediate
-vector. `decode_packet` accepts hard symbol decisions. Standard LoRa preamble,
-sync-word waveform, soft decoding, and SX1262 IQ-capture interoperability are
-the next compatibility boundary; the current coded BER uses known timing.
+vector. `decode_packet` accepts hard symbol decisions. `receive_lora_packet`
+adds acquisition of a standard LoRa preamble, two sync-word symbols, the
+2.25-downchirp SFD, CFO correction, timing search, explicit-header decoding,
+deinterleaving, FEC, dewhitening, and payload CRC validation. SX126x SF5/SF6
+explicit-header framing and inverted IQ are supported.
+
+Decode and visualize the committed Heltec/SX1262 reference capture:
+
+```matlab
+d = "../../captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep";
+[iq, ~] = lora_phy.load_iq_capture(fullfile(d, "sf7-bw125.cf32"), "cf32");
+rx = lora_phy.receive_lora_packet(iq, 1e6, 125e3, 7, ...
+    PreambleSymbols=12, SyncWord=hex2dec("12"), ...
+    ExpectedCarrierOffsetHz=-250e3);
+lora_phy.visualize_lora_packet(iq, 1e6, rx);
+```
+
+Run the entire hardware matrix with `decode_reference_sweep` from `examples`.
+The current receiver selects one strongest packet per file. Soft decisions and
+multi-packet enumeration are the next receiver boundary.
 
 ## BER definitions
 

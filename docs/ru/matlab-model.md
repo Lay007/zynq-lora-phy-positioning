@@ -40,13 +40,29 @@ vector = export_golden_vectors;
 cfoNormalized = cfoHz / Fs
 ```
 
-## Граница packet-модели
+## Декодирование реальной LoRa-посылки
 
 `encode_packet` формирует индексы CSS-символов и сохраняет промежуточные
-векторы. `decode_packet` принимает жёсткие решения по символам. Стандартная
-LoRa-преамбула/sync word, soft decoding и проверка по IQ-записям SX1262 —
-следующая граница совместимости. Текущий coded BER предполагает известное
-начало пакета.
+векторы. `decode_packet` принимает жёсткие решения по символам.
+`receive_lora_packet` выполняет сквозной приём стандартной эфирной посылки:
+находит преамбулу, проверяет sync word, учитывает SFD из 2,25 downchirp,
+компенсирует CFO, выбирает границу символа и декодирует header/FEC/whitening/CRC.
+Поддержаны особенности SX126x для SF5/SF6 и inverted IQ.
+
+```matlab
+addpath examples
+d = "../../captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep";
+[iq, ~] = lora_phy.load_iq_capture(fullfile(d, "sf7-bw125.cf32"), "cf32");
+rx = lora_phy.receive_lora_packet(iq, 1e6, 125e3, 7, ...
+    PreambleSymbols=12, SyncWord=hex2dec("12"), ...
+    ExpectedCarrierOffsetHz=-250e3);
+lora_phy.visualize_lora_packet(iq, 1e6, rx);
+```
+
+![Демодуляция реального SX1262-пакета](../images/lora-packet-demodulation-sx1262.png)
+
+Пакетный прогон всего набора выполняет `decode_reference_sweep`. Подробнее:
+[методика и результаты декодирования](lora-packet-decoder.md).
 
 ## Определения BER
 

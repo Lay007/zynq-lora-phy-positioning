@@ -96,6 +96,9 @@ result = lora_phy.inspect_iq_capture(iq, 1e6);
 
 - Only the strongest burst is analyzed; multi-packet browsing is not yet
   implemented.
+- The GUI remains an estimator for an unknown capture. For a known BW/SF
+  profile, `receive_lora_packet` now performs standard sync/header/payload
+  decoding and CRC validation on real SX1262 recordings.
 - Signal power is relative to the stored sample scale. It is not calibrated
   RSSI or received power in dBm.
 - Bandwidth and SF estimation assume a LoRa-like CSS preamble and the standard
