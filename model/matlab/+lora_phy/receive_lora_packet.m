@@ -17,6 +17,7 @@ arguments
     options.IqInverted (1,1) logical = false
     options.LowDataRateOptimization (1,1) double = NaN
     options.ExpectedCarrierOffsetHz (1,1) double = NaN
+    options.SoftDecoding (1,1) logical = true
     options.MaximumPayloadSymbols (1,1) double {mustBeInteger, mustBePositive} = 1024
 end
 
@@ -123,39 +124,53 @@ sx126xLowSfPadding = 2*(spreadingFactor < 7);
 nominalPayloadStart = preambleStart + round( ...
     (options.PreambleSymbols+2+2.25+sx126xLowSfPadding)*symbolSamples);
 searchOffsets = (-samplesPerChip:samplesPerChip).';
-candidateRecords = repmat(struct( ...
-    "offset", 0, "symbols", zeros(0,1), "confidence", zeros(0,1), ...
-    "decoded", struct, "score", -inf), numel(searchOffsets), 1);
+bestCandidate = struct("offset", 0, "symbols", zeros(0,1), ...
+    "confidence", zeros(0,1), "metrics", zeros(0, 2^spreadingFactor), ...
+    "hardDecoded", struct, "softDecoded", struct, ...
+    "decoded", struct, "score", -inf);
 for candidate = 1:numel(searchOffsets)
     candidateStart = nominalPayloadStart+searchOffsets(candidate);
     candidateSymbolCount = floor( ...
         (effectivePacketEnd-candidateStart+1)/symbolSamples);
     candidateSymbolCount = max(0, min( ...
         options.MaximumPayloadSymbols, candidateSymbolCount));
-    [symbols, confidence] = demodulate_windows( ...
+    [symbols, confidence, metrics] = demodulate_windows( ...
         workingIq, candidateStart, candidateSymbolCount, preambleStart, ...
         sampleRateHz, bandwidthHz, spreadingFactor, ...
         demodulationCentreHz, demodulationResidualCfoHz);
-    decoded = lora_phy.decode_packet(symbols, config);
-    score = mean(confidence);
-    if decoded.headerValid
-        score = score+10-0.01*sum(decoded.headerDecoderDistances);
+    hardDecoded = lora_phy.decode_packet(symbols, config);
+    softDecoded = lora_phy.decode_packet_soft(metrics, config);
+    decoded = hardDecoded;
+    if options.SoftDecoding
+        decoded = softDecoded;
     end
-    if decoded.success
+    score = mean(confidence);
+    if hardDecoded.headerValid || softDecoded.headerValid
+        score = score+10;
+    end
+    if hardDecoded.success
         score = score+100;
     end
-    candidateRecords(candidate).offset = searchOffsets(candidate);
-    candidateRecords(candidate).symbols = symbols;
-    candidateRecords(candidate).confidence = confidence;
-    candidateRecords(candidate).decoded = decoded;
-    candidateRecords(candidate).score = score;
+    if softDecoded.success
+        score = score+120;
+    end
+    if score > bestCandidate.score
+        bestCandidate.offset = searchOffsets(candidate);
+        bestCandidate.symbols = symbols;
+        bestCandidate.confidence = confidence;
+        bestCandidate.metrics = metrics;
+        bestCandidate.hardDecoded = hardDecoded;
+        bestCandidate.softDecoded = softDecoded;
+        bestCandidate.decoded = decoded;
+        bestCandidate.score = score;
+    end
 end
-[~, selectedCandidate] = max([candidateRecords.score]);
-timingOffset = candidateRecords(selectedCandidate).offset;
+timingOffset = bestCandidate.offset;
 payloadStart = nominalPayloadStart+timingOffset;
-symbols = candidateRecords(selectedCandidate).symbols;
-symbolConfidence = candidateRecords(selectedCandidate).confidence;
-decoded = candidateRecords(selectedCandidate).decoded;
+symbols = bestCandidate.symbols;
+symbolConfidence = bestCandidate.confidence;
+symbolMetrics = bestCandidate.metrics;
+decoded = bestCandidate.decoded;
 
 result = struct;
 result.success = preambleValid && syncValid && decoded.success;
@@ -172,7 +187,10 @@ result.payloadStartSeconds = (payloadStart-1)/sampleRateHz;
 result.timingOffsetSamples = timingOffset;
 result.symbols = symbols;
 result.symbolConfidence = symbolConfidence;
+result.symbolMetrics = symbolMetrics;
 result.decoded = decoded;
+result.hardDecoded = bestCandidate.hardDecoded;
+result.softDecoded = bestCandidate.softDecoded;
 result.inspection = inspection;
 result.inspection.estimatedCarrierOffsetHz = ...
     inspection.estimatedCarrierOffsetHz+frontEndShiftHz;
@@ -183,6 +201,7 @@ result.iqInverted = options.IqInverted;
 result.lowSfPaddingSymbols = sx126xLowSfPadding;
 result.frontEndFrequencyShiftHz = frontEndShiftHz;
 result.usedChirpPreambleSearch = usedChirpSearch;
+result.softDecoding = options.SoftDecoding;
 result.packetEndIndex = min(numel(iq), payloadStart + ...
     decoded.consumedSymbolCount*symbolSamples-1);
 result.packetEndSeconds = (result.packetEndIndex-1)/sampleRateHz;
@@ -217,7 +236,7 @@ end
 startIndex = starts(best);
 end
 
-function [symbols, confidence] = demodulate_windows( ...
+function [symbols, confidence, metrics] = demodulate_windows( ...
     iq, startIndex, symbolCount, phaseOrigin, fs, bw, sf, centre, residualCfo)
 samplesPerChip = round(fs/bw);
 symbolSamples = samplesPerChip*2^sf;
@@ -225,6 +244,7 @@ if symbolCount < 1 || startIndex < 1 || ...
         startIndex+symbolCount*symbolSamples-1 > numel(iq)
     symbols = zeros(0, 1);
     confidence = zeros(0, 1);
+    metrics = zeros(0, 2^sf);
     return
 end
 config = lora_phy.css_config(sf, samplesPerChip);
@@ -233,6 +253,7 @@ localTime = (0:symbolSamples-1).'/fs;
 residualCorrection = exp(-2j*pi*residualCfo*localTime);
 symbols = zeros(symbolCount, 1);
 confidence = zeros(symbolCount, 1);
+metrics = zeros(symbolCount, 2^sf);
 for symbol = 1:symbolCount
     indices = startIndex+(symbol-1)*symbolSamples+(0:symbolSamples-1);
     carrierTime = (indices(:)-phaseOrigin)/fs;
@@ -242,6 +263,8 @@ for symbol = 1:symbolCount
     [peak, peakIndex] = max(spectrum);
     symbols(symbol) = peakIndex-1;
     confidence(symbol) = peak/max(sum(spectrum), eps);
+    noisePower = max(median(spectrum)/log(2), eps);
+    metrics(symbol, :) = min((spectrum/noisePower).', 1e6);
 end
 end
 

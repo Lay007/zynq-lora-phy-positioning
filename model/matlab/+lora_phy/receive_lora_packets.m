@@ -14,6 +14,7 @@ arguments
     options.IqInverted (1,1) logical = false
     options.LowDataRateOptimization (1,1) double = NaN
     options.ExpectedCarrierOffsetHz (1,1) double = NaN
+    options.SoftDecoding (1,1) logical = true
     options.MaximumPayloadSymbols (1,1) double {mustBeInteger, mustBePositive} = 1024
     options.MaximumCandidates (1,1) double {mustBeInteger, mustBePositive} = 128
 end
@@ -55,6 +56,7 @@ for candidate = 1:size(runs, 1)
             SyncWord=options.SyncWord, IqInverted=options.IqInverted, ...
             LowDataRateOptimization=options.LowDataRateOptimization, ...
             ExpectedCarrierOffsetHz=options.ExpectedCarrierOffsetHz, ...
+            SoftDecoding=options.SoftDecoding, ...
             MaximumPayloadSymbols=options.MaximumPayloadSymbols);
         reception = shift_reception_indices(reception, segmentStart-1, sampleRateHz);
         reception.activityStartIndex = runs(candidate, 1);
