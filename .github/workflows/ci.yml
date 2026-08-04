@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   test:
+    name: Auxiliary Python checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,3 +27,20 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Run tests
         run: pytest
+
+  matlab:
+    name: Authoritative MATLAB model tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # The tests build their own signals and write to tempname, so the Git LFS
+      # reference captures are deliberately not fetched here.
+      - uses: actions/checkout@v5
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2025a
+      - name: Run floating-point model regression suite
+        uses: matlab-actions/run-command@v2
+        with:
+          command: cd('model/matlab'); results = run_tests; assertSuccess(results);
