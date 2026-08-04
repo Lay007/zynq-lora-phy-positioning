@@ -27,9 +27,15 @@ captures/**/*.cfile
 !captures/reference/**/*.cfile
 fpga/build/
 fpga/.Xil/
-*.jou
-*.log
-*.str
+
+# Vivado journal, log, and strategy files. Deliberately scoped instead of a
+# repository-wide *.log so that a published run log stays committable.
+vivado*.jou
+vivado*.log
+vivado*.str
+fpga/**/*.jou
+fpga/**/*.log
+fpga/**/*.str
 
 # MATLAB and Simulink generated products
 **/slprj/
@@ -38,8 +44,9 @@ fpga/.Xil/
 **/work/
 *.asv
 
-# Editors and OS files
+# Editors, scratch, and OS files
 .idea/
 .vscode/
+tmp/
 .DS_Store
 Thumbs.db
