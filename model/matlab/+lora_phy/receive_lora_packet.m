@@ -106,6 +106,16 @@ for candidateStart = preambleCandidates.'
         acquisitionConfidence = candidateConfidence;
     end
 end
+% Every candidate offset is rejected when the segment cannot hold a complete
+% preamble and sync word, which happens for short activity runs near the end
+% of a capture. Report it as an identified failure instead of indexing an
+% empty acquisition.
+if numel(acquisitionSymbols) ~= acquisitionCount
+    error("lora_phy:AcquisitionWindowTooShort", ...
+        "No candidate offset yielded %d complete acquisition symbols; " + ...
+        "the segment is too short to validate the preamble and sync word", ...
+        acquisitionCount);
+end
 preambleBins = acquisitionSymbols(1:options.PreambleSymbols);
 syncBins = acquisitionSymbols(options.PreambleSymbols+(1:2));
 preambleValid = all(circular_distance(preambleBins, 0, 2^spreadingFactor) <= 1);

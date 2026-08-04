@@ -30,5 +30,30 @@ classdef TestPerformanceEvaluation < matlab.unittest.TestCase
             testCase.verifyEqual(report.summary.ComparedPayloadBER, 0);
             testCase.verifyEqual(report.summary.PreFecBER, 0);
         end
+
+        function payloadWithoutMagicCannotClaimAnotherSequenceSlot(testCase)
+            config = lora_phy.phy_config(7, 2, 1);
+            expected = {lora_phy.counter_payload(1, 100, 16); ...
+                lora_phy.counter_payload(2, 200, 16)};
+            % Keep the sequence bytes of transmission two but destroy the
+            % magic, as a corrupted payload that still passes the header
+            % check would. Association must fall back to time order instead
+            % of stealing the second slot.
+            corrupted = lora_phy.counter_payload(2, 200, 16);
+            corrupted(1:4) = uint8(0);
+            encoded = lora_phy.encode_packet(corrupted, config);
+            reception = struct;
+            reception.preambleStartIndex = 100;
+            reception.preambleValid = true;
+            reception.syncValid = true;
+            reception.decoded = lora_phy.decode_packet(encoded.symbols, config);
+
+            report = lora_phy.evaluate_packet_receptions( ...
+                reception, expected, config);
+
+            testCase.verifyEqual(report.packets.CandidatePresent, ...
+                [true; false]);
+            testCase.verifyEqual(report.summary.PacketErrors, 2);
+        end
     end
 end

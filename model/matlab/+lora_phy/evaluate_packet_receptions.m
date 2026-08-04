@@ -100,20 +100,19 @@ pairing = zeros(packetCount, 1);
 used = false(numel(receptions), 1);
 expectedSequences = nan(packetCount, 1);
 for packet = 1:packetCount
-    payload = uint8(expectedPayloads{packet}(:));
-    if numel(payload) >= 8
-        expectedSequences(packet) = double(typecast(payload(5:8), "uint32"));
-    end
+    expectedSequences(packet) = sequence_key(expectedPayloads{packet});
 end
 
 % Sequence is the strongest association key and remains usable even when
 % the final payload CRC fails because it is carried inside the payload.
 for candidate = 1:numel(receptions)
-    payload = uint8(receptions(candidate).decoded.payload(:));
-    if ~receptions(candidate).decoded.headerValid || numel(payload) < 8
+    if ~receptions(candidate).decoded.headerValid
         continue
     end
-    sequence = double(typecast(payload(5:8), "uint32"));
+    sequence = sequence_key(receptions(candidate).decoded.payload);
+    if isnan(sequence)
+        continue
+    end
     packet = find(expectedSequences == sequence & pairing == 0, 1);
     if ~isempty(packet)
         pairing(packet) = candidate;
@@ -126,14 +125,26 @@ end
 % unrelated energy runs are deliberately ignored.
 plausible = false(numel(receptions), 1);
 for candidate = 1:numel(receptions)
-    plausible(candidate) = receptions(candidate).preambleValid && ...
-        receptions(candidate).syncValid || receptions(candidate).decoded.headerValid;
+    plausible(candidate) = (receptions(candidate).preambleValid && ...
+        receptions(candidate).syncValid) || receptions(candidate).decoded.headerValid;
 end
 remainingCandidates = find(plausible & ~used);
 remainingPackets = find(pairing == 0);
 pairCount = min(numel(remainingCandidates), numel(remainingPackets));
 for index = 1:pairCount
     pairing(remainingPackets(index)) = remainingCandidates(index);
+end
+end
+
+function sequence = sequence_key(payload)
+% Read the counter-payload sequence, or NaN when the layout is not recognized.
+% counter_payload writes the 'ZLP1' magic ahead of the sequence. Requiring it
+% keeps a corrupted payload that still passes the header check from claiming
+% another transmission's slot and biasing the paired BER and PER counters.
+payload = uint8(payload(:));
+sequence = NaN;
+if numel(payload) >= 8 && isequal(payload(1:4), uint8('ZLP1').')
+    sequence = double(typecast(payload(5:8), "uint32"));
 end
 end
 

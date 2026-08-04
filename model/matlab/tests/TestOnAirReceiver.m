@@ -38,6 +38,19 @@ classdef TestOnAirReceiver < matlab.unittest.TestCase
                 testCase.verifyEqual(result.lowSfPaddingSymbols, 2);
             end
         end
+
+        function truncatedSegmentReportsIdentifiedAcquisitionFailure(testCase)
+            [capture, ~, sampleRateHz, bandwidthHz] = synthetic_capture(false);
+            % 14 acquisition symbols need 7168 samples at SF7 and Fs/BW = 4.
+            % A shorter segment, as produced for a burst near the end of a
+            % capture, must not index an empty acquisition result.
+            truncated = capture(1:4096);
+
+            testCase.verifyError(@() lora_phy.receive_lora_packet( ...
+                truncated, sampleRateHz, bandwidthHz, 7, ...
+                PreambleSymbols=12, SyncWord=hex2dec("12")), ...
+                "lora_phy:AcquisitionWindowTooShort");
+        end
     end
 end
 
