@@ -81,9 +81,10 @@ p3 = b0 xor b2 xor b3
 
 CR 1 uses the single parity `b0 xor b1 xor b2 xor b3`. The MATLAB decoder
 compares a received hard codeword with all 16 valid codewords and chooses the
-minimum Hamming-distance candidate. This makes tie behavior explicit and gives
-the distance needed for diagnostics. Soft-decision decoding is not implemented
-yet.
+minimum Hamming-distance candidate. The soft decoder propagates max-log bit
+LLRs from FFT bins through Gray mapping and diagonal deinterleaving, then
+maximizes the weighted likelihood over the same 16-entry codebook. It also
+returns the margin between the two best candidates.
 
 ## Diagonal interleaving
 

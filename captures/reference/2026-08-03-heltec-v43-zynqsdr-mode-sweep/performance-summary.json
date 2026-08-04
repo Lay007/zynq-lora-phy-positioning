@@ -1,0 +1,23 @@
+{
+  "Schema": "zynq-lora-packet-performance-v1",
+  "Transmissions": 70,
+  "AcquiredPackets": 67,
+  "HeaderValidPackets": 66,
+  "CrcCheckedPackets": 67,
+  "CrcValidPackets": 57,
+  "PayloadMatchedPackets": 59,
+  "HardSuccessPackets": 58,
+  "SoftSuccessPackets": 60,
+  "SoftRecoveredPackets": 2,
+  "PacketErrors": 11,
+  "PER": 0.15714285714285714,
+  "PreFecBitErrors": 707,
+  "PreFecBits": 30505,
+  "PreFecBER": 0.023176528437960989,
+  "PayloadBitErrors": 1118,
+  "PayloadBits": 22752,
+  "PayloadBER": 0.049138537271448665,
+  "ComparedPayloadBitErrors": 94,
+  "ComparedPayloadBits": 21728,
+  "ComparedPayloadBER": 0.004326215022091311
+}

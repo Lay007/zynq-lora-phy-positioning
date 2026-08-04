@@ -18,8 +18,11 @@ payload. В отличие от общего Inspector, функция полу�
    Для SX126x SF5/SF6 учитываются ещё два upchirp после SFD.
 6. В окрестности границы перебираются sample offsets. Предпочитается кандидат
    с валидными header checksum и payload CRC.
-7. Жёсткие FFT-решения проходят Gray mapping, deinterleaving, Hamming decode,
-   dewhitening и CRC.
+7. Для каждого символа сохраняются метрики всех FFT bins. Max-log разность
+   лучших гипотез `bit=0`/`bit=1` образует LLR, который проходит Gray mapping и
+   diagonal deinterleaving.
+8. Выполняются параллельные hard и soft FEC decode. Soft-результат выбирается,
+   если он проходит CRC или hard-результат уже неуспешен.
 
 ## Один файл
 
@@ -43,20 +46,57 @@ CR 4/5 и включённый payload CRC. Header checksum и payload CRC ва�
 
 ![Реальный SX1262-пакет после демодуляции](../images/lora-packet-demodulation-sx1262.png)
 
-## Весь набор
+## Все пакеты в одной записи
+
+```matlab
+set = lora_phy.receive_lora_packets(iq, 1e6, 125e3, 7, ...
+    PreambleSymbols=12, SyncWord=hex2dec("12"), ...
+    ExpectedCarrierOffsetHz=-250e3);
+
+for k = 1:numel(set.packets)
+    fprintf("t=%.6f s, sequence=%u\n", ...
+        set.packets(k).preambleStartSeconds, ...
+        typecast(set.packets(k).decoded.payload(5:8), "uint32"));
+end
+```
+
+Activity detector разделяет передачи по паузам, а каждый сегмент проходит
+полный packet receiver. На контрольной записи находятся все три пакета:
+sequence 7, 8 и 9.
+
+## BER/PER по всему набору
 
 ```matlab
 addpath examples
-results = decode_reference_sweep(d, ...
-    OutputCsv=fullfile(d, "decode-summary.csv"));
+report = evaluate_reference_sweep(d, OutputDirectory=d);
 ```
 
-В текущем наборе сквозной decode успешен для 24 из 27 автоматически выбранных
-посылок, включая SF5, SF7…SF12, BW 62,5/125/250 кГц, CR 4/5…4/8, длины
-12…220 байт, CRC off, sync word `0x34` и inverted IQ. Два файла дают валидный
-header, но не проходят payload CRC (`sf6-bw125`, `sf7-power-m9`); они нужны для
-разработки soft decisions. У BW500 пока неустойчив первичный поиск, потому что
-сигнал занимает практически всю полезную полосу записи при Fs=1 Мвыб/с.
+Функция читает `manifest.json`, восстанавливает ожидаемый counter payload из
+`TX seq/len/start_ms`, сопоставляет его с приёмами сначала по sequence, затем по
+времени, и создаёт:
+
+- `packet-performance.csv` — одна строка на передачу;
+- `case-performance.csv` — одна строка на режим;
+- `performance-summary.json` — агрегированные счётчики.
+
+Текущий воспроизводимый результат для 70 передач:
+
+| Метрика | Результат |
+|---|---:|
+| Acquisition valid | 67/70 |
+| Header valid | 66/70 |
+| Payload совпал | 59/70 |
+| Hard success | 58/70 |
+| Soft success | 60/70 |
+| Дополнительно восстановлено soft decoder | 2 |
+| PER | 15,71% |
+| Pre-FEC BER по доступным codeword bits | 707/30505 = 2,32% |
+| BER среди сравнимых payload | 94/21728 = 0,43% |
+| Консервативный payload BER | 1118/22752 = 4,91% |
+
+Основные оставшиеся acquisition-проблемы — SF5 в нарезанных сегментах и
+BW500 при Fs=1 Мвыб/с. В нескольких слабых/коротких режимах отдельные пакеты
+доходят до header, но отклоняются CRC или сравнением с TX payload.
 
 ## Что показывает график
 
@@ -68,17 +108,18 @@ header, но не проходят payload CRC (`sf6-bw125`, `sf7-power-m9`); о
 
 ## Связь с BER/PER
 
-Эта функция анализирует один пакет и не подменяет BER-эксперимент. Для
-эфирного BER нужен известный payload sequence, декодирование **всех** пакетов и
-раздельные счётчики:
+Отчёт использует известный payload и декодирует все найденные пакеты. Метрики
+определены раздельно:
 
 ```text
-pre-FEC BER = ошибочные codeword bits / все принятые codeword bits
-payload BER = ошибочные payload bits / все переданные payload bits
-PER         = пакеты с acquisition/header/CRC failure / все передачи
+pre-FEC BER = ошибочные raw codeword bits / доступные raw codeword bits
+compared payload BER = ошибки / bits у payload правильной длины
+conservative payload BER = ошибки с полным штрафом за недекодированный пакет
+PER = acquisition/header/CRC/payload mismatch / все подтверждённые TX
 ```
 
 Пакет с невалидным CRC учитывается в PER даже если часть байтов выглядит
-правдоподобно. Следующий этап — multi-packet detector, soft FFT metrics и
-автоматическое сопоставление payload с TX-журналом; после этого сохранённый
-sweep можно использовать как воспроизводимый PER-регрессионный набор.
+правдоподобно. При `CRC off` packet error всё равно обнаруживается сравнением с
+известным TX payload. Это регрессионная характеристика конкретного смешанного
+sweep, а не калиброванная sensitivity-кривая: для неё потребуется отдельная
+серия с контролируемым SNR/мощностью и значительно большим числом пакетов.

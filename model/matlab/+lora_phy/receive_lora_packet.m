@@ -56,6 +56,9 @@ coarsePreambleStart = inspection.alignedStartIndex;
 effectivePacketEnd = inspection.packetEndIndex;
 usedChirpSearch = inspection.packetStartIndex == 1 && ...
     inspection.packetEndIndex > 0.5*numel(workingIq);
+usedChirpSearch = usedChirpSearch || ...
+    (~isnan(options.ExpectedCarrierOffsetHz) && ...
+    bandwidthHz >= 0.45*sampleRateHz);
 if usedChirpSearch
     coarsePreambleStart = locate_repeated_upchirps(workingIq, ...
         spreadingFactor, samplesPerChip, options.PreambleSymbols);
@@ -141,7 +144,7 @@ for candidate = 1:numel(searchOffsets)
     hardDecoded = lora_phy.decode_packet(symbols, config);
     softDecoded = lora_phy.decode_packet_soft(metrics, config);
     decoded = hardDecoded;
-    if options.SoftDecoding
+    if options.SoftDecoding && (softDecoded.success || ~hardDecoded.success)
         decoded = softDecoded;
     end
     score = mean(confidence);
@@ -201,7 +204,13 @@ result.iqInverted = options.IqInverted;
 result.lowSfPaddingSymbols = sx126xLowSfPadding;
 result.frontEndFrequencyShiftHz = frontEndShiftHz;
 result.usedChirpPreambleSearch = usedChirpSearch;
+result.residualCfoHz = demodulationResidualCfoHz;
 result.softDecoding = options.SoftDecoding;
+result.decodingMethod = "hard";
+if options.SoftDecoding && isequaln(decoded, bestCandidate.softDecoded)
+    result.decodingMethod = "soft";
+end
+
 result.packetEndIndex = min(numel(iq), payloadStart + ...
     decoded.consumedSymbolCount*symbolSamples-1);
 result.packetEndSeconds = (result.packetEndIndex-1)/sampleRateHz;

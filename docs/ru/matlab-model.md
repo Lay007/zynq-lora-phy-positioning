@@ -61,7 +61,11 @@ lora_phy.visualize_lora_packet(iq, 1e6, rx);
 
 ![Демодуляция реального SX1262-пакета](../images/lora-packet-demodulation-sx1262.png)
 
-Пакетный прогон всего набора выполняет `decode_reference_sweep`. Подробнее:
+`receive_lora_packets` находит все разделённые паузами передачи. Для каждого
+символа сохраняются FFT metrics, из которых soft decoder получает max-log LLR.
+Полный прогон с сопоставлением TX-журналу и BER/PER выполняет
+`evaluate_reference_sweep`; `decode_reference_sweep` остаётся кратким
+single-packet отчётом. Подробнее:
 [методика и результаты декодирования](lora-packet-decoder.md).
 
 ## Определения BER

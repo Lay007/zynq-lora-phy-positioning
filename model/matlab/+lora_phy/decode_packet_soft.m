@@ -22,7 +22,8 @@ headerCodewordLlrs = lora_phy.diagonal_deinterleave_soft( ...
     lora_phy.hamming_decode_soft(headerCodewordLlrs, 4);
 decoded.headerCodewordLlrs = headerCodewordLlrs;
 decoded.headerDecoderMargins = headerMargins;
-decoded.receivedHeaderCodewords = headerCodewords;
+decoded.receivedHeaderCodewords = headerCodewordLlrs < 0;
+decoded.correctedHeaderCodewords = headerCodewords;
 
 if config.explicitHeader
     header = lora_phy.explicit_header_decode(firstNibbles(1:5));
@@ -109,7 +110,8 @@ decoded.failureReason = "";
 if ~crcValid
     decoded.failureReason = "payload CRC invalid";
 end
-decoded.receivedPayloadCodewords = payloadCodewords;
+decoded.receivedPayloadCodewords = payloadCodewordLlrs < 0;
+decoded.correctedPayloadCodewords = payloadCodewords;
 decoded.payloadCodewordLlrs = payloadCodewordLlrs;
 decoded.payloadDecoderMargins = payloadMargins;
 decoded.dataNibbles = dataNibbles;
@@ -130,6 +132,8 @@ decoded.header = struct;
 decoded.hardSymbols = zeros(0, 1);
 decoded.receivedHeaderCodewords = false(0, 8);
 decoded.receivedPayloadCodewords = false(0, 0);
+decoded.correctedHeaderCodewords = false(0, 8);
+decoded.correctedPayloadCodewords = false(0, 0);
 decoded.headerCodewordLlrs = zeros(0, 8);
 decoded.payloadCodewordLlrs = zeros(0, 0);
 decoded.headerDecoderMargins = zeros(0, 1);

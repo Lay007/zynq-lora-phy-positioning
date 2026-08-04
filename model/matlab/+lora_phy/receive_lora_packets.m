@@ -25,7 +25,13 @@ if abs(samplesPerChip-round(samplesPerChip)) > 1e-9
     error("lora_phy:NonIntegerOversampling", ...
         "On-air decoding currently requires an integer Fs/BW ratio");
 end
+symbolSamples = round(samplesPerChip)*2^spreadingFactor;
 [runs, detector] = detect_activity_runs(iq, sampleRateHz);
+minimumRunSamples = max(detector.blockLength, ...
+    round(0.5*options.PreambleSymbols*symbolSamples));
+longEnough = runs(:, 2)-runs(:, 1)+1 >= minimumRunSamples;
+runs = runs(longEnough, :);
+detector.runExcessPower = detector.runExcessPower(longEnough);
 if size(runs, 1) > options.MaximumCandidates
     runPower = detector.runExcessPower;
     [~, order] = sort(runPower, "descend");

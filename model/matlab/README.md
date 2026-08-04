@@ -81,8 +81,19 @@ lora_phy.visualize_lora_packet(iq, 1e6, rx);
 ```
 
 Run the entire hardware matrix with `decode_reference_sweep` from `examples`.
-The current receiver selects one strongest packet per file. Soft decisions and
-multi-packet enumeration are the next receiver boundary.
+For every packet plus BER/PER counters, run:
+
+```matlab
+addpath examples
+report = evaluate_reference_sweep(d, OutputDirectory=d);
+```
+
+`receive_lora_packets` enumerates energy-separated transmissions in time
+order. Each packet exposes hard decisions, per-bin FFT metrics, max-log bit
+LLRs, hard and soft FEC results, and the selected CRC-valid decode. The
+reference-sweep evaluator rebuilds the deterministic firmware payload from the
+TX log and reports acquisition, header, CRC, pre-FEC BER, payload BER, and PER
+separately.
 
 ## BER definitions
 
