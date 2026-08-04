@@ -165,6 +165,8 @@ result.preambleBins = preambleBins;
 result.syncBins = syncBins;
 result.expectedSyncBins = double(expectedSyncBins);
 result.acquisitionConfidence = acquisitionConfidence;
+result.preambleStartIndex = preambleStart;
+result.preambleStartSeconds = (preambleStart-1)/sampleRateHz;
 result.payloadStartIndex = payloadStart;
 result.payloadStartSeconds = (payloadStart-1)/sampleRateHz;
 result.timingOffsetSamples = timingOffset;
@@ -181,6 +183,9 @@ result.iqInverted = options.IqInverted;
 result.lowSfPaddingSymbols = sx126xLowSfPadding;
 result.frontEndFrequencyShiftHz = frontEndShiftHz;
 result.usedChirpPreambleSearch = usedChirpSearch;
+result.packetEndIndex = min(numel(iq), payloadStart + ...
+    decoded.consumedSymbolCount*symbolSamples-1);
+result.packetEndSeconds = (result.packetEndIndex-1)/sampleRateHz;
 end
 
 function startIndex = locate_repeated_upchirps(iq, sf, samplesPerChip, preambleSymbols)
