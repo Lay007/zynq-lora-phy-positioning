@@ -11,9 +11,10 @@ PHY processing chain, make internal measurements observable, and provide a
 repeatable path from a MATLAB floating-point reference model through Simulink
 and generated Verilog to a ZynqSDR implementation.
 
-> Status: executable MATLAB floating-point CSS and hard-decision LoRa packet
-> model. The Simulink architecture, generated Verilog, and board support are
-> planned; the repository does not yet contain a hardware LoRa receiver.
+> Status: executable MATLAB floating-point CSS model with hard- and
+> soft-decision LoRa packet decoding, validated against recorded on-air SX1262
+> transmissions. The Simulink architecture, generated Verilog, and board support
+> are planned; the repository does not yet contain a hardware LoRa receiver.
 
 ## Project goals
 
@@ -177,3 +178,8 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 Keep changes small and measurable. New DSP blocks should include a reference
 model, deterministic tests, numerical tolerances, and a documented hardware
 mapping. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
+Contributions are accepted under the same license.

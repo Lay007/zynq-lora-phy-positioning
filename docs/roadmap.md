@@ -28,8 +28,9 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 - [x] Detect the research 8-up/2-down preamble without a priori frame start.
 - [x] Estimate and compensate carrier frequency offset on synthetic frames.
 - [x] Produce reproducible uncoded BER/SER versus sample SNR results.
-- [ ] Implement the standard LoRa sync-word/downchirp transition and packet
-  boundary conventions.
+- [x] Implement the standard LoRa sync-word/downchirp transition and packet
+  boundary conventions, including the 2.25-downchirp SFD and the SX126x
+  low-spreading-factor padding.
 - [ ] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
 - [ ] Implement coarse/fractional ToA estimators and characterize bias/jitter.
 - [ ] Implement calibrated TDoA observations and 2D multilateration.
@@ -37,8 +38,12 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
   values for the current HDL-bound bit-processing blocks.
 - [x] Capture Heltec SX1262 packets at BW 125 kHz/SF7 and estimate their packet
   interval, bandwidth, SF, carrier/CFO, SNR, and preamble score in MATLAB.
-- [ ] Decode standard on-air SX1262 packet symbols and payload bytes with the
+- [x] Decode standard on-air SX1262 packet symbols and payload bytes with the
   MATLAB model.
+- [x] Decode every energy-separated burst in one capture and pair the results
+  with the transmitter log to report packet BER and PER.
+- [x] Add max-log soft-decision symbol, deinterleaver, and Hamming decoding and
+  record how many packets it recovers beyond hard decisions.
 
 Acceptance: deterministic simulation and processing of at least 1,000 captures
 with recorded detection/symbol/CFO metrics plus ToA bias/jitter and TDoA position
