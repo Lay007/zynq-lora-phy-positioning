@@ -35,9 +35,9 @@ MATLAB создал 27 отчётов. Для 26 режимов границы �
 занимающей половину Fs. Этот исторический результат относится к одной
 автоматически выбранной посылке; полный soft/multi-packet отчёт приведён ниже.
 
-Multi-packet/soft evaluation анализирует все 70 передач: 67 acquisition,
-66 valid header, 59 побитно совпавших payload; soft decoder восстановил два
-пакета сверх hard decoder. Консервативный PER равен 11/70 = 15,71%. Подробные
+Multi-packet/soft evaluation анализирует все 70 передач: 68 acquisition,
+66 valid header, 60 побитно совпавших payload; soft decoder восстановил два
+пакета сверх hard decoder. Консервативный PER равен 10/70 = 14,29%. Подробные
 определения находятся в
 [`docs/ru/lora-packet-decoder.md`](../../../docs/ru/lora-packet-decoder.md).
 

@@ -83,20 +83,22 @@ report = evaluate_reference_sweep(d, OutputDirectory=d);
 
 | Метрика | Результат |
 |---|---:|
-| Acquisition valid | 67/70 |
+| Acquisition valid | 68/70 |
 | Header valid | 66/70 |
-| Payload совпал | 59/70 |
-| Hard success | 58/70 |
-| Soft success | 60/70 |
+| Payload совпал | 60/70 |
+| Hard success | 59/70 |
+| Soft success | 61/70 |
 | Дополнительно восстановлено soft decoder | 2 |
-| PER | 15,71% |
-| Pre-FEC BER по доступным codeword bits | 707/30505 = 2,32% |
-| BER среди сравнимых payload | 94/21728 = 0,43% |
-| Консервативный payload BER | 1118/22752 = 4,91% |
+| PER | 14,29% |
+| Pre-FEC BER по доступным codeword bits | 711/30505 = 2,33% |
+| BER среди сравнимых payload | 85/21728 = 0,39% |
+| Консервативный payload BER | 1109/22752 = 4,87% |
 
-Основные оставшиеся acquisition-проблемы — SF5 в нарезанных сегментах и
-BW500 при Fs=1 Мвыб/с. В нескольких слабых/коротких режимах отдельные пакеты
-доходят до header, но отклоняются CRC или сравнением с TX payload.
+Локальное окно вокруг каждого activity-run устранило ложный захват третьего
+SF5-сегмента: acquisition теперь 3/3, один payload проходит CRC и совпадает с
+TX. Оставшаяся acquisition-проблема — BW500 при Fs=1 Мвыб/с. Для двух SF5 и
+нескольких слабых/коротких режимов пакет находится, но отклоняется header, CRC
+или сравнением с TX payload.
 
 ## Что показывает график
 
