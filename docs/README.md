@@ -16,6 +16,9 @@
   TX/RX ordering, equations, bit conventions, and acceptance tests.
 - **[LoRa PHY Inspector](lora-phy-inspector.md)** — visual CU8/CF32 packet
   inspection, BW/SF/carrier/SNR estimation, and dechirped FFT display.
+- **[Fractional ToA methodology](toa-methodology.md)** — normalized matched
+  filtering, sub-sample interpolation, reproducible AWGN metrics, and the
+  hardware calibration sequence.
 
 ## Hardware and experiments
 

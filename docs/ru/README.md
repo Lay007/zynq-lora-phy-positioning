@@ -13,6 +13,7 @@
 
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
+- [Методика дробного ToA и будущей аппаратной калибровки](toa-methodology.md)
 - [Запись пакетов SX1262 с RTL-SDR и PlutoSDR](iq-capture-guide.md)
 - [LoRa PHY Inspector: визуальный анализ и оценка параметров](lora-phy-inspector.md)
 - [Передача, запись и анализ с одного компьютера](automated-phy-experiment.md)
