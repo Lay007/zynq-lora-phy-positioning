@@ -40,6 +40,29 @@ vector = export_golden_vectors;
 cfoNormalized = cfoHz / Fs
 ```
 
+## Воспроизводимая модель канала и аналогового тракта
+
+`lora_phy.apply_channel_impairments` позволяет проверять приёмник без стенда и
+без дополнительных MATLAB toolbox. За один вызов она моделирует:
+
+- дробную задержку и многолучёвость;
+- рассогласование частот дискретизации SFO в ppm;
+- частотную отстройку CFO в герцах;
+- дисбаланс усиления и фазы I/Q, а также DC offset;
+- комплексный AWGN с фиксированным seed.
+
+```matlab
+rx = lora_phy.apply_channel_impairments(tx, Fs, ...
+    FractionalDelaySamples=2.25, SampleRateOffsetPpm=20, ...
+    MultipathDelaysSamples=[0; 3.5], MultipathGains=[1; 0.3j], ...
+    FrequencyOffsetHz=1800, IqGainImbalanceDb=0.5, ...
+    IqPhaseImbalanceDegrees=2, SnrDb=-8, RandomSeed=42);
+```
+
+Положительный SFO означает более быстрое продвижение по отсчётам переданного
+сигнала, а положительная дробная задержка сдвигает принятый сигнал вправо.
+Длина результата совпадает с длиной входа; за его границами подставляются нули.
+
 ## Декодирование реальной LoRa-посылки
 
 `encode_packet` формирует индексы CSS-символов и сохраняет промежуточные

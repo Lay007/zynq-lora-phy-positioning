@@ -44,6 +44,23 @@ measurement limits are documented in
 Package functions use column vectors and normalized CFO in cycles per sample.
 For physical rate `Fs`, convert with `cfoNormalized = cfoHz / Fs`.
 
+`lora_phy.apply_channel_impairments` provides a deterministic, toolbox-free
+channel/front-end model for offline verification. It combines fractional
+delay, multipath, sample-rate offset (SFO), carrier offset, I/Q gain and phase
+imbalance, DC offset, and seeded complex AWGN:
+
+```matlab
+rx = lora_phy.apply_channel_impairments(tx, Fs, ...
+    FractionalDelaySamples=2.25, SampleRateOffsetPpm=20, ...
+    MultipathDelaysSamples=[0; 3.5], MultipathGains=[1; 0.3j], ...
+    FrequencyOffsetHz=1800, IqGainImbalanceDb=0.5, ...
+    IqPhaseImbalanceDegrees=2, SnrDb=-8, RandomSeed=42);
+```
+
+Positive SFO advances through the nominal transmit samples faster; positive
+fractional delay moves the received waveform later. The output length is
+always equal to the input length, with zeros outside the interpolated range.
+
 Export the committed deterministic packet vector after changing a coding block:
 
 ```matlab
