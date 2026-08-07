@@ -1,0 +1,1007 @@
+{
+  "schema": "zynq-lora-reference-sweep-v1",
+  "curated_utc": "2026-08-07T20:58:24.951138+00:00",
+  "capture_count": 5,
+  "total_bytes": 552000000,
+  "captures": [
+    {
+      "name": "baseline-sf7-bw125",
+      "capture": {
+        "path": "baseline-sf7-bw125.cf32",
+        "sha256": "8acb4e822737743f613902b6766132a820042d4f6df5618ac23ecc6df8a802da",
+        "bytes": 48000000,
+        "samples": 6000000,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 10,
+        "packet_interval_ms": 300
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 6.0,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 45,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> fixed 1-2 m OTA path -> ZynqSDR RX antenna; connected by user on 2026-08-07",
+        "notes": "Pre-sweep baseline; KCT8103L bypass; transmitter set to -9 dBm"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-07T20:28:23.089908+00:00",
+          "radio_log": "TX seq=0 len=32 state=0 start_ms=65338 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-07T20:28:23.593170+00:00",
+          "radio_log": "TX seq=1 len=32 state=0 start_ms=65842 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-07T20:28:24.093029+00:00",
+          "radio_log": "TX seq=2 len=32 state=0 start_ms=66342 duration_ms=83"
+        },
+        {
+          "index": 3,
+          "host_utc": "2026-08-07T20:28:24.592155+00:00",
+          "radio_log": "TX seq=3 len=32 state=0 start_ms=66840 duration_ms=83"
+        },
+        {
+          "index": 4,
+          "host_utc": "2026-08-07T20:28:25.090429+00:00",
+          "radio_log": "TX seq=4 len=32 state=0 start_ms=67338 duration_ms=83"
+        },
+        {
+          "index": 5,
+          "host_utc": "2026-08-07T20:28:25.686865+00:00",
+          "radio_log": "TX seq=5 len=32 state=0 start_ms=67936 duration_ms=83"
+        },
+        {
+          "index": 6,
+          "host_utc": "2026-08-07T20:28:26.187036+00:00",
+          "radio_log": "TX seq=6 len=32 state=0 start_ms=68436 duration_ms=83"
+        },
+        {
+          "index": 7,
+          "host_utc": "2026-08-07T20:28:26.690274+00:00",
+          "radio_log": "TX seq=7 len=32 state=0 start_ms=68938 duration_ms=83"
+        },
+        {
+          "index": 8,
+          "host_utc": "2026-08-07T20:28:27.190360+00:00",
+          "radio_log": "TX seq=8 len=32 state=0 start_ms=69438 duration_ms=83"
+        },
+        {
+          "index": 9,
+          "host_utc": "2026-08-07T20:28:27.689791+00:00",
+          "radio_log": "TX seq=9 len=32 state=0 start_ms=69938 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 0.186,
+        "packet_end_seconds": 0.262999,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 123853.81839244935,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100941.6906773,
+        "cfo_hz": 941.6906772851944,
+        "estimated_snr_db": 49.75743948368706,
+        "preamble_score": 0.9711847372840763,
+        "profile_constrained": false,
+        "expected_bandwidth_hz": 0,
+        "expected_spreading_factor": 0
+      },
+      "provenance": {
+        "source_run_id": "20260807T202811Z-heltec-v43-baseline-sf7-bw125-m9-10pkt",
+        "repository_commit_at_acquisition": "40c25b98926382ff1e061ee66970c18602fed746",
+        "repository_was_dirty": false
+      }
+    },
+    {
+      "name": "sf5-bw125",
+      "capture": {
+        "path": "sf5-bw125.cf32",
+        "sha256": "e9e0fd2a5499eff6285aa84d40815b929e551f4d9cc4535d0277ff48d7c22b4c",
+        "bytes": 96000000,
+        "samples": 12000000,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 5,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 30,
+        "packet_interval_ms": 150
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 12.0,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 45,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> fixed 1-2 m OTA path -> ZynqSDR RX antenna; connected by user on 2026-08-07",
+        "notes": "SF5 acquisition and payload regression; same geometry as pre-sweep baseline"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-07T20:34:41.835513+00:00",
+          "radio_log": "TX seq=10 len=32 state=0 start_ms=444084 duration_ms=31"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-07T20:34:42.123514+00:00",
+          "radio_log": "TX seq=11 len=32 state=0 start_ms=444373 duration_ms=31"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-07T20:34:42.418510+00:00",
+          "radio_log": "TX seq=12 len=32 state=0 start_ms=444668 duration_ms=31"
+        },
+        {
+          "index": 3,
+          "host_utc": "2026-08-07T20:34:42.715494+00:00",
+          "radio_log": "TX seq=13 len=32 state=0 start_ms=444965 duration_ms=31"
+        },
+        {
+          "index": 4,
+          "host_utc": "2026-08-07T20:34:43.012500+00:00",
+          "radio_log": "TX seq=14 len=32 state=0 start_ms=445262 duration_ms=31"
+        },
+        {
+          "index": 5,
+          "host_utc": "2026-08-07T20:34:43.308511+00:00",
+          "radio_log": "TX seq=15 len=32 state=0 start_ms=445557 duration_ms=31"
+        },
+        {
+          "index": 6,
+          "host_utc": "2026-08-07T20:34:43.701497+00:00",
+          "radio_log": "TX seq=16 len=32 state=0 start_ms=445950 duration_ms=31"
+        },
+        {
+          "index": 7,
+          "host_utc": "2026-08-07T20:34:44.000498+00:00",
+          "radio_log": "TX seq=17 len=32 state=0 start_ms=446249 duration_ms=31"
+        },
+        {
+          "index": 8,
+          "host_utc": "2026-08-07T20:34:44.297515+00:00",
+          "radio_log": "TX seq=18 len=32 state=0 start_ms=446546 duration_ms=31"
+        },
+        {
+          "index": 9,
+          "host_utc": "2026-08-07T20:34:44.594521+00:00",
+          "radio_log": "TX seq=19 len=32 state=0 start_ms=446843 duration_ms=31"
+        },
+        {
+          "index": 10,
+          "host_utc": "2026-08-07T20:34:44.889514+00:00",
+          "radio_log": "TX seq=20 len=32 state=0 start_ms=447138 duration_ms=31"
+        },
+        {
+          "index": 11,
+          "host_utc": "2026-08-07T20:34:45.187513+00:00",
+          "radio_log": "TX seq=21 len=32 state=0 start_ms=447437 duration_ms=31"
+        },
+        {
+          "index": 12,
+          "host_utc": "2026-08-07T20:34:45.483515+00:00",
+          "radio_log": "TX seq=22 len=32 state=0 start_ms=447732 duration_ms=31"
+        },
+        {
+          "index": 13,
+          "host_utc": "2026-08-07T20:34:45.780518+00:00",
+          "radio_log": "TX seq=23 len=32 state=0 start_ms=448031 duration_ms=31"
+        },
+        {
+          "index": 14,
+          "host_utc": "2026-08-07T20:34:46.073525+00:00",
+          "radio_log": "TX seq=24 len=32 state=0 start_ms=448322 duration_ms=31"
+        },
+        {
+          "index": 15,
+          "host_utc": "2026-08-07T20:34:46.372504+00:00",
+          "radio_log": "TX seq=25 len=32 state=0 start_ms=448621 duration_ms=31"
+        },
+        {
+          "index": 16,
+          "host_utc": "2026-08-07T20:34:46.668500+00:00",
+          "radio_log": "TX seq=26 len=32 state=0 start_ms=448918 duration_ms=31"
+        },
+        {
+          "index": 17,
+          "host_utc": "2026-08-07T20:34:46.964502+00:00",
+          "radio_log": "TX seq=27 len=32 state=0 start_ms=449213 duration_ms=31"
+        },
+        {
+          "index": 18,
+          "host_utc": "2026-08-07T20:34:47.262514+00:00",
+          "radio_log": "TX seq=28 len=32 state=0 start_ms=449512 duration_ms=32"
+        },
+        {
+          "index": 19,
+          "host_utc": "2026-08-07T20:34:47.558515+00:00",
+          "radio_log": "TX seq=29 len=32 state=0 start_ms=449807 duration_ms=31"
+        },
+        {
+          "index": 20,
+          "host_utc": "2026-08-07T20:34:47.854513+00:00",
+          "radio_log": "TX seq=30 len=32 state=0 start_ms=450104 duration_ms=31"
+        },
+        {
+          "index": 21,
+          "host_utc": "2026-08-07T20:34:48.150497+00:00",
+          "radio_log": "TX seq=31 len=32 state=0 start_ms=450399 duration_ms=31"
+        },
+        {
+          "index": 22,
+          "host_utc": "2026-08-07T20:34:48.447528+00:00",
+          "radio_log": "TX seq=32 len=32 state=0 start_ms=450696 duration_ms=31"
+        },
+        {
+          "index": 23,
+          "host_utc": "2026-08-07T20:34:48.745495+00:00",
+          "radio_log": "TX seq=33 len=32 state=0 start_ms=450995 duration_ms=31"
+        },
+        {
+          "index": 24,
+          "host_utc": "2026-08-07T20:34:49.044542+00:00",
+          "radio_log": "TX seq=34 len=32 state=0 start_ms=451294 duration_ms=31"
+        },
+        {
+          "index": 25,
+          "host_utc": "2026-08-07T20:34:49.340495+00:00",
+          "radio_log": "TX seq=35 len=32 state=0 start_ms=451591 duration_ms=31"
+        },
+        {
+          "index": 26,
+          "host_utc": "2026-08-07T20:34:49.640494+00:00",
+          "radio_log": "TX seq=36 len=32 state=0 start_ms=451890 duration_ms=31"
+        },
+        {
+          "index": 27,
+          "host_utc": "2026-08-07T20:34:49.936498+00:00",
+          "radio_log": "TX seq=37 len=32 state=0 start_ms=452187 duration_ms=31"
+        },
+        {
+          "index": 28,
+          "host_utc": "2026-08-07T20:34:50.236496+00:00",
+          "radio_log": "TX seq=38 len=32 state=0 start_ms=452486 duration_ms=31"
+        },
+        {
+          "index": 29,
+          "host_utc": "2026-08-07T20:34:50.531496+00:00",
+          "radio_log": "TX seq=39 len=32 state=0 start_ms=452781 duration_ms=31"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 2.449,
+        "packet_end_seconds": 4.003499,
+        "estimated_bandwidth_hz": 250000,
+        "measured_occupied_bandwidth_hz": 280414.43032125203,
+        "estimated_spreading_factor": 6,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868160807.117729,
+        "cfo_hz": 60807.11772894859,
+        "estimated_snr_db": 38.445211718057976,
+        "preamble_score": 0.6846973936156924,
+        "profile_constrained": false,
+        "expected_bandwidth_hz": 0,
+        "expected_spreading_factor": 0
+      },
+      "provenance": {
+        "source_run_id": "20260807T203433Z-heltec-v43-sf5-bw125-m9-30pkt",
+        "repository_commit_at_acquisition": "40c25b98926382ff1e061ee66970c18602fed746",
+        "repository_was_dirty": false
+      }
+    },
+    {
+      "name": "sf6-bw125",
+      "capture": {
+        "path": "sf6-bw125.cf32",
+        "sha256": "94463a6976ade6c82376419b19d9a9acb0c469be21094358f80a0c0b8b6d3b12",
+        "bytes": 112000000,
+        "samples": 14000000,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 6,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 30,
+        "packet_interval_ms": 200
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 14.0,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 45,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> fixed 1-2 m OTA path -> ZynqSDR RX antenna; connected by user on 2026-08-07",
+        "notes": "SF6 control for low-SF acquisition; same geometry as SF5 and baseline"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-07T20:37:29.858022+00:00",
+          "radio_log": "TX seq=40 len=32 state=0 start_ms=612109 duration_ms=51"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-07T20:37:30.223023+00:00",
+          "radio_log": "TX seq=41 len=32 state=0 start_ms=612473 duration_ms=51"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-07T20:37:30.584991+00:00",
+          "radio_log": "TX seq=42 len=32 state=0 start_ms=612836 duration_ms=51"
+        },
+        {
+          "index": 3,
+          "host_utc": "2026-08-07T20:37:30.945989+00:00",
+          "radio_log": "TX seq=43 len=32 state=0 start_ms=613196 duration_ms=51"
+        },
+        {
+          "index": 4,
+          "host_utc": "2026-08-07T20:37:31.306989+00:00",
+          "radio_log": "TX seq=44 len=32 state=0 start_ms=613557 duration_ms=51"
+        },
+        {
+          "index": 5,
+          "host_utc": "2026-08-07T20:37:31.666986+00:00",
+          "radio_log": "TX seq=45 len=32 state=0 start_ms=613918 duration_ms=51"
+        },
+        {
+          "index": 6,
+          "host_utc": "2026-08-07T20:37:32.029000+00:00",
+          "radio_log": "TX seq=46 len=32 state=0 start_ms=614279 duration_ms=51"
+        },
+        {
+          "index": 7,
+          "host_utc": "2026-08-07T20:37:32.391984+00:00",
+          "radio_log": "TX seq=47 len=32 state=0 start_ms=614642 duration_ms=51"
+        },
+        {
+          "index": 8,
+          "host_utc": "2026-08-07T20:37:32.754984+00:00",
+          "radio_log": "TX seq=48 len=32 state=0 start_ms=615005 duration_ms=51"
+        },
+        {
+          "index": 9,
+          "host_utc": "2026-08-07T20:37:33.115990+00:00",
+          "radio_log": "TX seq=49 len=32 state=0 start_ms=615366 duration_ms=51"
+        },
+        {
+          "index": 10,
+          "host_utc": "2026-08-07T20:37:33.478987+00:00",
+          "radio_log": "TX seq=50 len=32 state=0 start_ms=615729 duration_ms=51"
+        },
+        {
+          "index": 11,
+          "host_utc": "2026-08-07T20:37:33.840985+00:00",
+          "radio_log": "TX seq=51 len=32 state=0 start_ms=616092 duration_ms=51"
+        },
+        {
+          "index": 12,
+          "host_utc": "2026-08-07T20:37:34.198985+00:00",
+          "radio_log": "TX seq=52 len=32 state=0 start_ms=616449 duration_ms=51"
+        },
+        {
+          "index": 13,
+          "host_utc": "2026-08-07T20:37:34.555984+00:00",
+          "radio_log": "TX seq=53 len=32 state=0 start_ms=616807 duration_ms=51"
+        },
+        {
+          "index": 14,
+          "host_utc": "2026-08-07T20:37:34.918988+00:00",
+          "radio_log": "TX seq=54 len=32 state=0 start_ms=617170 duration_ms=51"
+        },
+        {
+          "index": 15,
+          "host_utc": "2026-08-07T20:37:35.278988+00:00",
+          "radio_log": "TX seq=55 len=32 state=0 start_ms=617529 duration_ms=51"
+        },
+        {
+          "index": 16,
+          "host_utc": "2026-08-07T20:37:35.641008+00:00",
+          "radio_log": "TX seq=56 len=32 state=0 start_ms=617892 duration_ms=51"
+        },
+        {
+          "index": 17,
+          "host_utc": "2026-08-07T20:37:36.001007+00:00",
+          "radio_log": "TX seq=57 len=32 state=0 start_ms=618251 duration_ms=51"
+        },
+        {
+          "index": 18,
+          "host_utc": "2026-08-07T20:37:36.360007+00:00",
+          "radio_log": "TX seq=58 len=32 state=0 start_ms=618610 duration_ms=51"
+        },
+        {
+          "index": 19,
+          "host_utc": "2026-08-07T20:37:36.719988+00:00",
+          "radio_log": "TX seq=59 len=32 state=0 start_ms=618971 duration_ms=51"
+        },
+        {
+          "index": 20,
+          "host_utc": "2026-08-07T20:37:37.078006+00:00",
+          "radio_log": "TX seq=60 len=32 state=0 start_ms=619328 duration_ms=51"
+        },
+        {
+          "index": 21,
+          "host_utc": "2026-08-07T20:37:37.437987+00:00",
+          "radio_log": "TX seq=61 len=32 state=0 start_ms=619689 duration_ms=51"
+        },
+        {
+          "index": 22,
+          "host_utc": "2026-08-07T20:37:37.800984+00:00",
+          "radio_log": "TX seq=62 len=32 state=0 start_ms=620052 duration_ms=51"
+        },
+        {
+          "index": 23,
+          "host_utc": "2026-08-07T20:37:38.157987+00:00",
+          "radio_log": "TX seq=63 len=32 state=0 start_ms=620409 duration_ms=51"
+        },
+        {
+          "index": 24,
+          "host_utc": "2026-08-07T20:37:38.518991+00:00",
+          "radio_log": "TX seq=64 len=32 state=0 start_ms=620770 duration_ms=51"
+        },
+        {
+          "index": 25,
+          "host_utc": "2026-08-07T20:37:38.874986+00:00",
+          "radio_log": "TX seq=65 len=32 state=0 start_ms=621125 duration_ms=51"
+        },
+        {
+          "index": 26,
+          "host_utc": "2026-08-07T20:37:39.233988+00:00",
+          "radio_log": "TX seq=66 len=32 state=0 start_ms=621484 duration_ms=51"
+        },
+        {
+          "index": 27,
+          "host_utc": "2026-08-07T20:37:39.596991+00:00",
+          "radio_log": "TX seq=67 len=32 state=0 start_ms=621847 duration_ms=51"
+        },
+        {
+          "index": 28,
+          "host_utc": "2026-08-07T20:37:39.958983+00:00",
+          "radio_log": "TX seq=68 len=32 state=0 start_ms=622210 duration_ms=51"
+        },
+        {
+          "index": 29,
+          "host_utc": "2026-08-07T20:37:40.322002+00:00",
+          "radio_log": "TX seq=69 len=32 state=0 start_ms=622573 duration_ms=51"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 8.0625,
+        "packet_end_seconds": 8.107499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 119188.51937810787,
+        "estimated_spreading_factor": 6,
+        "estimated_symbol_duration_seconds": 0.000512,
+        "estimated_carrier_hz": 868101499.1150333,
+        "cfo_hz": 1499.1150332689285,
+        "estimated_snr_db": 48.748347128651154,
+        "preamble_score": 0.9338101243002996,
+        "profile_constrained": false,
+        "expected_bandwidth_hz": 0,
+        "expected_spreading_factor": 0
+      },
+      "provenance": {
+        "source_run_id": "20260807T203722Z-heltec-v43-sf6-bw125-m9-30pkt",
+        "repository_commit_at_acquisition": "40c25b98926382ff1e061ee66970c18602fed746",
+        "repository_was_dirty": false
+      }
+    },
+    {
+      "name": "sf7-bw500-fs4m",
+      "capture": {
+        "path": "sf7-bw500-fs4m.cf32",
+        "sha256": "31321ba47d3ae68bf1595c8716040619084db5dfffd5bd5ff360d4d3573fdbb1",
+        "bytes": 144000000,
+        "samples": 18000000,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 500000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 10,
+        "packet_interval_ms": 150
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868600000,
+        "sample_rate_hz": 4000000,
+        "rf_bandwidth_hz": 4000000,
+        "gain_db": 20,
+        "duration_s": 4.5,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 30000,
+        "arm_timeout_s": 45,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> fixed 1-2 m OTA path -> ZynqSDR RX antenna; connected by user on 2026-08-07",
+        "notes": "BW500 recapture at Fs=4 MS/s; signal placed 500 kHz below RX center to avoid DC"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-07T20:40:17.596852+00:00",
+          "radio_log": "TX seq=70 len=32 state=0 start_ms=779848 duration_ms=26"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-07T20:40:17.885837+00:00",
+          "radio_log": "TX seq=71 len=32 state=0 start_ms=780137 duration_ms=26"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-07T20:40:18.168842+00:00",
+          "radio_log": "TX seq=72 len=32 state=0 start_ms=780420 duration_ms=26"
+        },
+        {
+          "index": 3,
+          "host_utc": "2026-08-07T20:40:18.464838+00:00",
+          "radio_log": "TX seq=73 len=32 state=0 start_ms=780715 duration_ms=26"
+        },
+        {
+          "index": 4,
+          "host_utc": "2026-08-07T20:40:18.758836+00:00",
+          "radio_log": "TX seq=74 len=32 state=0 start_ms=781010 duration_ms=26"
+        },
+        {
+          "index": 5,
+          "host_utc": "2026-08-07T20:40:19.040842+00:00",
+          "radio_log": "TX seq=75 len=32 state=0 start_ms=781291 duration_ms=26"
+        },
+        {
+          "index": 6,
+          "host_utc": "2026-08-07T20:40:19.320856+00:00",
+          "radio_log": "TX seq=76 len=32 state=0 start_ms=781572 duration_ms=26"
+        },
+        {
+          "index": 7,
+          "host_utc": "2026-08-07T20:40:19.604859+00:00",
+          "radio_log": "TX seq=77 len=32 state=0 start_ms=781855 duration_ms=26"
+        },
+        {
+          "index": 8,
+          "host_utc": "2026-08-07T20:40:19.899868+00:00",
+          "radio_log": "TX seq=78 len=32 state=0 start_ms=782150 duration_ms=26"
+        },
+        {
+          "index": 9,
+          "host_utc": "2026-08-07T20:40:20.182853+00:00",
+          "radio_log": "TX seq=79 len=32 state=0 start_ms=782433 duration_ms=26"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 2.6365,
+        "packet_end_seconds": 2.65649975,
+        "estimated_bandwidth_hz": 500000,
+        "measured_occupied_bandwidth_hz": 488505.04392869433,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.000256,
+        "estimated_carrier_hz": 868103606.2828878,
+        "cfo_hz": 3606.282887816429,
+        "estimated_snr_db": 44.628035065667184,
+        "preamble_score": 0.8827617964223232,
+        "profile_constrained": false,
+        "expected_bandwidth_hz": 0,
+        "expected_spreading_factor": 0
+      },
+      "provenance": {
+        "source_run_id": "20260807T204009Z-heltec-v43-sf7-bw500-fs4m-m9-10pkt",
+        "repository_commit_at_acquisition": "40c25b98926382ff1e061ee66970c18602fed746",
+        "repository_was_dirty": false
+      }
+    },
+    {
+      "name": "toa-sf7-bw125",
+      "capture": {
+        "path": "toa-sf7-bw125.cf32",
+        "sha256": "80f651cfa3c2fe03e3f2401d08b556ee24e3e0f622399e3725d216c5f800d7fd",
+        "bytes": 152000000,
+        "samples": 19000000,
+        "format": "complex-float32-le-iq"
+      },
+      "transmitter": {
+        "board": "Heltec WiFi LoRa 32 V4.3 ESP32-S3 + SX1262 + KCT8103L",
+        "port": "COM10",
+        "baud": 115200,
+        "frequency_hz": 868100000,
+        "bandwidth_hz": 125000,
+        "spreading_factor": 7,
+        "coding_rate_denominator": 5,
+        "power_dbm": -9,
+        "preamble_symbols": 12,
+        "sync_word": "0x12",
+        "crc_enabled": true,
+        "iq_inverted": false,
+        "payload": "counter",
+        "payload_length": 32,
+        "packet_count": 50,
+        "packet_interval_ms": 100
+      },
+      "receiver": {
+        "type": "pluto",
+        "device": "ZynqSDR Z7020/AD9361 with Pluto-compatible firmware",
+        "uri": "ip:192.168.40.1",
+        "center_frequency_hz": 868350000,
+        "sample_rate_hz": 1000000,
+        "rf_bandwidth_hz": 1000000,
+        "gain_db": 20,
+        "duration_s": 19.0,
+        "warmup_buffers": 0,
+        "iio_timeout_ms": 45000,
+        "arm_timeout_s": 45,
+        "post_arm_delay_s": 0.25
+      },
+      "bench": {
+        "connection": "OTA",
+        "antenna_or_cable_path": "Heltec WiFi LoRa 32 V4.3 antenna -> fixed 1-2 m OTA path -> ZynqSDR RX antenna; connected by user on 2026-08-07",
+        "notes": "Fixed-geometry OTA timing-repeatability run; not an absolute propagation-delay calibration"
+      },
+      "transmissions": [
+        {
+          "index": 0,
+          "host_utc": "2026-08-07T20:43:22.941395+00:00",
+          "radio_log": "TX seq=80 len=32 state=0 start_ms=965193 duration_ms=83"
+        },
+        {
+          "index": 1,
+          "host_utc": "2026-08-07T20:43:23.240372+00:00",
+          "radio_log": "TX seq=81 len=32 state=0 start_ms=965493 duration_ms=83"
+        },
+        {
+          "index": 2,
+          "host_utc": "2026-08-07T20:43:23.538373+00:00",
+          "radio_log": "TX seq=82 len=32 state=0 start_ms=965791 duration_ms=83"
+        },
+        {
+          "index": 3,
+          "host_utc": "2026-08-07T20:43:23.833352+00:00",
+          "radio_log": "TX seq=83 len=32 state=0 start_ms=966085 duration_ms=83"
+        },
+        {
+          "index": 4,
+          "host_utc": "2026-08-07T20:43:24.134909+00:00",
+          "radio_log": "TX seq=84 len=32 state=0 start_ms=966387 duration_ms=83"
+        },
+        {
+          "index": 5,
+          "host_utc": "2026-08-07T20:43:24.433905+00:00",
+          "radio_log": "TX seq=85 len=32 state=0 start_ms=966685 duration_ms=83"
+        },
+        {
+          "index": 6,
+          "host_utc": "2026-08-07T20:43:24.728908+00:00",
+          "radio_log": "TX seq=86 len=32 state=0 start_ms=966981 duration_ms=83"
+        },
+        {
+          "index": 7,
+          "host_utc": "2026-08-07T20:43:25.025918+00:00",
+          "radio_log": "TX seq=87 len=32 state=0 start_ms=967277 duration_ms=83"
+        },
+        {
+          "index": 8,
+          "host_utc": "2026-08-07T20:43:25.323907+00:00",
+          "radio_log": "TX seq=88 len=32 state=0 start_ms=967575 duration_ms=83"
+        },
+        {
+          "index": 9,
+          "host_utc": "2026-08-07T20:43:25.620908+00:00",
+          "radio_log": "TX seq=89 len=32 state=0 start_ms=967873 duration_ms=83"
+        },
+        {
+          "index": 10,
+          "host_utc": "2026-08-07T20:43:25.917932+00:00",
+          "radio_log": "TX seq=90 len=32 state=0 start_ms=968169 duration_ms=83"
+        },
+        {
+          "index": 11,
+          "host_utc": "2026-08-07T20:43:26.213935+00:00",
+          "radio_log": "TX seq=91 len=32 state=0 start_ms=968465 duration_ms=83"
+        },
+        {
+          "index": 12,
+          "host_utc": "2026-08-07T20:43:26.510936+00:00",
+          "radio_log": "TX seq=92 len=32 state=0 start_ms=968763 duration_ms=83"
+        },
+        {
+          "index": 13,
+          "host_utc": "2026-08-07T20:43:26.808930+00:00",
+          "radio_log": "TX seq=93 len=32 state=0 start_ms=969061 duration_ms=83"
+        },
+        {
+          "index": 14,
+          "host_utc": "2026-08-07T20:43:27.104902+00:00",
+          "radio_log": "TX seq=94 len=32 state=0 start_ms=969357 duration_ms=83"
+        },
+        {
+          "index": 15,
+          "host_utc": "2026-08-07T20:43:27.400901+00:00",
+          "radio_log": "TX seq=95 len=32 state=0 start_ms=969653 duration_ms=83"
+        },
+        {
+          "index": 16,
+          "host_utc": "2026-08-07T20:43:27.695905+00:00",
+          "radio_log": "TX seq=96 len=32 state=0 start_ms=969947 duration_ms=83"
+        },
+        {
+          "index": 17,
+          "host_utc": "2026-08-07T20:43:27.993912+00:00",
+          "radio_log": "TX seq=97 len=32 state=0 start_ms=970245 duration_ms=83"
+        },
+        {
+          "index": 18,
+          "host_utc": "2026-08-07T20:43:28.291981+00:00",
+          "radio_log": "TX seq=98 len=32 state=0 start_ms=970543 duration_ms=83"
+        },
+        {
+          "index": 19,
+          "host_utc": "2026-08-07T20:43:28.589905+00:00",
+          "radio_log": "TX seq=99 len=32 state=0 start_ms=970841 duration_ms=83"
+        },
+        {
+          "index": 20,
+          "host_utc": "2026-08-07T20:43:28.881913+00:00",
+          "radio_log": "TX seq=100 len=32 state=0 start_ms=971134 duration_ms=83"
+        },
+        {
+          "index": 21,
+          "host_utc": "2026-08-07T20:43:29.180936+00:00",
+          "radio_log": "TX seq=101 len=32 state=0 start_ms=971432 duration_ms=83"
+        },
+        {
+          "index": 22,
+          "host_utc": "2026-08-07T20:43:29.478931+00:00",
+          "radio_log": "TX seq=102 len=32 state=0 start_ms=971730 duration_ms=83"
+        },
+        {
+          "index": 23,
+          "host_utc": "2026-08-07T20:43:29.772927+00:00",
+          "radio_log": "TX seq=103 len=32 state=0 start_ms=972024 duration_ms=83"
+        },
+        {
+          "index": 24,
+          "host_utc": "2026-08-07T20:43:30.069918+00:00",
+          "radio_log": "TX seq=104 len=32 state=0 start_ms=972321 duration_ms=83"
+        },
+        {
+          "index": 25,
+          "host_utc": "2026-08-07T20:43:30.365926+00:00",
+          "radio_log": "TX seq=105 len=32 state=0 start_ms=972618 duration_ms=83"
+        },
+        {
+          "index": 26,
+          "host_utc": "2026-08-07T20:43:30.665902+00:00",
+          "radio_log": "TX seq=106 len=32 state=0 start_ms=972918 duration_ms=83"
+        },
+        {
+          "index": 27,
+          "host_utc": "2026-08-07T20:43:30.960911+00:00",
+          "radio_log": "TX seq=107 len=32 state=0 start_ms=973212 duration_ms=83"
+        },
+        {
+          "index": 28,
+          "host_utc": "2026-08-07T20:43:31.258903+00:00",
+          "radio_log": "TX seq=108 len=32 state=0 start_ms=973510 duration_ms=83"
+        },
+        {
+          "index": 29,
+          "host_utc": "2026-08-07T20:43:31.554902+00:00",
+          "radio_log": "TX seq=109 len=32 state=0 start_ms=973806 duration_ms=83"
+        },
+        {
+          "index": 30,
+          "host_utc": "2026-08-07T20:43:31.848899+00:00",
+          "radio_log": "TX seq=110 len=32 state=0 start_ms=974101 duration_ms=83"
+        },
+        {
+          "index": 31,
+          "host_utc": "2026-08-07T20:43:32.145906+00:00",
+          "radio_log": "TX seq=111 len=32 state=0 start_ms=974397 duration_ms=83"
+        },
+        {
+          "index": 32,
+          "host_utc": "2026-08-07T20:43:32.445950+00:00",
+          "radio_log": "TX seq=112 len=32 state=0 start_ms=974697 duration_ms=83"
+        },
+        {
+          "index": 33,
+          "host_utc": "2026-08-07T20:43:32.742929+00:00",
+          "radio_log": "TX seq=113 len=32 state=0 start_ms=974995 duration_ms=83"
+        },
+        {
+          "index": 34,
+          "host_utc": "2026-08-07T20:43:33.038938+00:00",
+          "radio_log": "TX seq=114 len=32 state=0 start_ms=975291 duration_ms=83"
+        },
+        {
+          "index": 35,
+          "host_utc": "2026-08-07T20:43:33.337936+00:00",
+          "radio_log": "TX seq=115 len=32 state=0 start_ms=975589 duration_ms=83"
+        },
+        {
+          "index": 36,
+          "host_utc": "2026-08-07T20:43:33.635926+00:00",
+          "radio_log": "TX seq=116 len=32 state=0 start_ms=975887 duration_ms=83"
+        },
+        {
+          "index": 37,
+          "host_utc": "2026-08-07T20:43:33.933904+00:00",
+          "radio_log": "TX seq=117 len=32 state=0 start_ms=976185 duration_ms=83"
+        },
+        {
+          "index": 38,
+          "host_utc": "2026-08-07T20:43:34.232912+00:00",
+          "radio_log": "TX seq=118 len=32 state=0 start_ms=976485 duration_ms=83"
+        },
+        {
+          "index": 39,
+          "host_utc": "2026-08-07T20:43:34.530908+00:00",
+          "radio_log": "TX seq=119 len=32 state=0 start_ms=976783 duration_ms=83"
+        },
+        {
+          "index": 40,
+          "host_utc": "2026-08-07T20:43:34.828910+00:00",
+          "radio_log": "TX seq=120 len=32 state=0 start_ms=977080 duration_ms=83"
+        },
+        {
+          "index": 41,
+          "host_utc": "2026-08-07T20:43:35.127918+00:00",
+          "radio_log": "TX seq=121 len=32 state=0 start_ms=977380 duration_ms=83"
+        },
+        {
+          "index": 42,
+          "host_utc": "2026-08-07T20:43:35.421902+00:00",
+          "radio_log": "TX seq=122 len=32 state=0 start_ms=977674 duration_ms=83"
+        },
+        {
+          "index": 43,
+          "host_utc": "2026-08-07T20:43:35.718950+00:00",
+          "radio_log": "TX seq=123 len=32 state=0 start_ms=977970 duration_ms=83"
+        },
+        {
+          "index": 44,
+          "host_utc": "2026-08-07T20:43:36.014935+00:00",
+          "radio_log": "TX seq=124 len=32 state=0 start_ms=978267 duration_ms=83"
+        },
+        {
+          "index": 45,
+          "host_utc": "2026-08-07T20:43:36.310937+00:00",
+          "radio_log": "TX seq=125 len=32 state=0 start_ms=978562 duration_ms=83"
+        },
+        {
+          "index": 46,
+          "host_utc": "2026-08-07T20:43:36.606929+00:00",
+          "radio_log": "TX seq=126 len=32 state=0 start_ms=978858 duration_ms=83"
+        },
+        {
+          "index": 47,
+          "host_utc": "2026-08-07T20:43:36.906937+00:00",
+          "radio_log": "TX seq=127 len=32 state=0 start_ms=979158 duration_ms=83"
+        },
+        {
+          "index": 48,
+          "host_utc": "2026-08-07T20:43:37.200906+00:00",
+          "radio_log": "TX seq=128 len=32 state=0 start_ms=979452 duration_ms=83"
+        },
+        {
+          "index": 49,
+          "host_utc": "2026-08-07T20:43:37.497905+00:00",
+          "radio_log": "TX seq=129 len=32 state=0 start_ms=979750 duration_ms=83"
+        }
+      ],
+      "analysis": {
+        "packet_start_seconds": 1.3025,
+        "packet_end_seconds": 1.379499,
+        "estimated_bandwidth_hz": 125000,
+        "measured_occupied_bandwidth_hz": 127710.62237157467,
+        "estimated_spreading_factor": 7,
+        "estimated_symbol_duration_seconds": 0.001024,
+        "estimated_carrier_hz": 868100910.8267152,
+        "cfo_hz": 910.8267152309418,
+        "estimated_snr_db": 48.994129873828456,
+        "preamble_score": 0.97497855739028,
+        "profile_constrained": false,
+        "expected_bandwidth_hz": 0,
+        "expected_spreading_factor": 0
+      },
+      "provenance": {
+        "source_run_id": "20260807T204315Z-heltec-v43-toa-sf7-bw125-m9-50pkt",
+        "repository_commit_at_acquisition": "40c25b98926382ff1e061ee66970c18602fed746",
+        "repository_was_dirty": false
+      }
+    }
+  ],
+  "notes": [
+    "Raw IQ samples are byte-identical to the source experiment captures.",
+    "This is an OTA engineering dataset, not a calibrated RF measurement."
+  ]
+}

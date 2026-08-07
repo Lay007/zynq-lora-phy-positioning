@@ -1,0 +1,16 @@
+{
+  "Schema": "zynq-lora-toa-repeatability-v1",
+  "CaptureName": "toa-sf7-bw125",
+  "Transmissions": 50,
+  "MatchedPackets": 47,
+  "SampleRateHz": 1.0E+6,
+  "SlopeSamplesPerMillisecond": 1000.0049529738127,
+  "ClockScaleErrorPpm": 4.9529738126441458,
+  "BiasRemoved": true,
+  "ResidualMeanSamples": -1.7597971662403421E-7,
+  "ResidualStdSamples": 18.499142568103981,
+  "ResidualRmsSamples": 18.301285087265189,
+  "ResidualP95AbsoluteSamples": 31.805481221526861,
+  "ResidualStdMicroseconds": 18.499142568103981,
+  "Scope": "Fixed-geometry OTA repeatability; not absolute propagation-delay calibration"
+}

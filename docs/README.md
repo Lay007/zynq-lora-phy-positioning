@@ -24,6 +24,7 @@
 
 - [Hardware test bench](test-bench.md)
 - [Heltec V4.3/SX1262 to ZynqSDR hardware sweep, 3 August 2026](hardware-sweep-2026-08-03-heltec-v43.md)
+- [Targeted Heltec V4.3 low-SF, BW500, and ToA run, 7 August 2026](hardware-targeted-2026-08-07.md)
 - [LR1121 to ZynqSDR hardware sweep, 2 August 2026](hardware-sweep-2026-08-02.md)
 - **[SX1262 packet capture with RTL-SDR and PlutoSDR](iq-capture-guide.md)**
 - **[One-machine transmit, capture, and analysis](automated-phy-experiment.md)**
