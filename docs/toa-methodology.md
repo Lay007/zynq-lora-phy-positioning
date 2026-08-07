@@ -53,3 +53,16 @@ synthetic source in this order:
 The present estimator does not remove multipath bias, AD936x group delay,
 buffer timestamp uncertainty, or clock offset. Those terms belong in the
 calibration and uncertainty budget rather than in the AWGN curve.
+
+For a curated reference sweep containing counter payloads, reproduce the
+fixed-geometry OTA repeatability report with:
+
+```matlab
+addpath examples
+result = evaluate_reference_toa(datasetDirectory, "toa-sf7-bw125", ...
+    OutputDirectory=datasetDirectory);
+```
+
+The affine fit removes the unrelated TX/RX epochs and their linear clock-scale
+error. The residual still includes transmitter timestamp quantization,
+scheduling, RF/baseband latency variation, multipath, and RX estimation error.
