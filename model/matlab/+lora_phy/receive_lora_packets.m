@@ -43,6 +43,12 @@ end
 receptionCells = cell(size(runs, 1), 1);
 diagnostics = strings(size(runs, 1), 1);
 segmentBounds = zeros(size(runs));
+% Keep each single-packet inspector close to the activity run that created
+% the candidate.  Midpoint-only segmentation can leave hundreds of
+% milliseconds of unrelated IQ around the final burst; the inspector may
+% then lock to a stronger artefact instead of the detected LoRa packet.
+guardSamples = max(4*symbolSamples, 2*detector.blockLength);
+segmentGuardSamples = zeros(size(runs, 1), 1);
 for candidate = 1:size(runs, 1)
     if candidate == 1
         segmentStart = 1;
@@ -54,6 +60,11 @@ for candidate = 1:size(runs, 1)
     else
         segmentEnd = floor(0.5*(runs(candidate, 2)+runs(candidate+1, 1)));
     end
+    candidateGuard = max(guardSamples, ...
+        runs(candidate, 2)-runs(candidate, 1)+1);
+    segmentGuardSamples(candidate) = candidateGuard;
+    segmentStart = max(segmentStart, runs(candidate, 1)-candidateGuard);
+    segmentEnd = min(segmentEnd, runs(candidate, 2)+candidateGuard);
     segmentBounds(candidate, :) = [segmentStart, segmentEnd];
     try
         reception = lora_phy.receive_lora_packet( ...
@@ -98,6 +109,8 @@ result.successCount = numel(packets);
 result.sampleRateHz = sampleRateHz;
 result.bandwidthHz = bandwidthHz;
 result.spreadingFactor = spreadingFactor;
+result.guardSamples = guardSamples;
+result.segmentGuardSamples = segmentGuardSamples;
 end
 
 function [runs, detector] = detect_activity_runs(iq, sampleRateHz)
