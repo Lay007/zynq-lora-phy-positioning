@@ -6,35 +6,49 @@ The repository keeps demodulator errors and packet-decoder errors as two
 separate AWGN experiments. Both use fixed random seeds, raw error counts,
 explicit denominators, and two-sided 95% Wilson score intervals.
 
-## Uncoded single-phase versus polyphase comparison
+## Uncoded demodulator and coherent reference
 
 `simulate_uncoded_ber` transmits independent uniformly distributed CSS symbol
-indices with known timing. It adds circular complex AWGN, performs dechirp and
-a `2^SF`-point FFT, and compares the detected symbol index and its natural
-binary label with the transmitted values.
+indices with known timing. It adds circular complex AWGN and compares the
+detected symbol index and its natural binary label with the transmitted values.
 
-The campaign runs the legacy first-decimation-phase detector and the production
-polyphase FFT-power combiner on the same seeded waveform and noise realization:
+The campaign runs three receivers on the same seeded waveform and noise
+realization: the legacy first-decimation-phase FFT, the production noncoherent
+polyphase FFT-power sum, and an exact matched-filter reference. The reference
+circularly correlates all complex samples with every cyclically shifted CSS
+chirp and therefore combines the `L` samples coherently before comparing the
+hypothesis magnitudes.
 
 | Parameter | Value |
 |---|---:|
 | Spreading factor | 7 |
 | Samples per chip, `L` | 1, 2, 4, 8 |
-| Demodulators | single-phase, polyphase |
+| Demodulators | single-phase, polyphase, matched-filter |
 | Symbols per SNR/mode | 4,000 |
 | Label bits per SNR/mode | 28,000 |
 | SNR sweep | −20:2:−4 dB |
 | Seed | `70 + L` |
 
-![Single-phase and polyphase BER/SER](images/css-ber-polyphase-comparison.png)
+![Current demodulator versus matched-filter reference](images/css-ber-current-vs-ideal.png)
 
-Raw results: [`css-ber-polyphase-comparison.csv`](data/css-ber-polyphase-comparison.csv).
-At `L=8` and −10 dB, observed BER falls from `1.57e−2` to `3.57e−4`, about
-44 times lower. At `L=4` the gain is smaller. `L=2` is not monotonically
-better: the current noncoherent power sum can combine adjacent-bin energy from
-the cyclic chirp wrap and degrade part of the waterfall. This measured caveat
-must be resolved or explicitly accepted before the Simulink architecture is
-frozen.
+Raw results: [`css-ber-demodulator-comparison.csv`](data/css-ber-demodulator-comparison.csv).
+At `L=8`, log-BER interpolation gives a current-to-reference penalty of
+`5.33 dB` at BER `1e−2` and `6.03 dB` at BER `1e−3`. At `L=1` both receivers
+are mathematically equivalent and the measured gap is zero. The loss for every
+tested `L` is tabulated separately:
+
+![Measured gap to the matched filter](images/css-ber-ideal-gap.png)
+
+Thresholds and gaps: [`css-ber-ideal-gap.csv`](data/css-ber-ideal-gap.csv).
+The polyphase loss is not exactly `10 log10(L)`: its power sum is noncoherent,
+and adjacent-bin energy around the cyclic chirp wrap changes the waterfall,
+especially at `L=2`. This measured limitation must be resolved or explicitly
+accepted before the Simulink architecture is frozen.
+
+The matched filter is an ideal receiver only inside this experiment: symbol
+timing and the waveform are exact, the channel is AWGN, and there is no CFO,
+SFO, multipath, clipping, or quantization. It is not a Shannon bound and it
+does not represent packet acquisition performance.
 
 The uncoded experiment excludes preamble acquisition, whitening, interleaving,
 FEC, header, CRC, packet rejection, CFO/SFO, multipath, and clipping. It is a
@@ -115,10 +129,12 @@ addpath examples
 campaign = plot_ber_campaign;
 ```
 
-The command regenerates both PNGs, both CSVs, and
+The command regenerates three PNGs, three CSVs, and
 [`ber-polyphase-campaign.mat`](data/ber-polyphase-campaign.mat). The older
-SF7-only CSV/PNG files remain as historical baselines; the polyphase campaign
-is the current comparison.
+SF7-only and two-demodulator CSV/PNG files remain as historical baselines; the
+three-demodulator campaign is the current comparison. The MAT filename is
+retained for compatibility, while its schema is now
+`zynq-lora-ber-campaign-v2` and includes `idealGap`.
 
 The coded experiment still assumes known timing and sends no preamble. A later
 acquisition-inclusive hardware sweep must separately count attempted packets,
