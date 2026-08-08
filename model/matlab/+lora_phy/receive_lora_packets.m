@@ -26,9 +26,10 @@ if abs(samplesPerChip-round(samplesPerChip)) > 1e-9
         "On-air decoding currently requires an integer Fs/BW ratio");
 end
 symbolSamples = round(samplesPerChip)*2^spreadingFactor;
-[runs, detector] = detect_activity_runs(iq, sampleRateHz);
-minimumRunSamples = max(detector.blockLength, ...
-    round(0.5*options.PreambleSymbols*symbolSamples));
+[runs, detector] = detect_activity_runs( ...
+    iq, sampleRateHz, options.PreambleSymbols*symbolSamples);
+minimumRunSamples = max(detector.blockLength, round( ...
+    (options.PreambleSymbols+2+2.25+2*(spreadingFactor < 7))*symbolSamples));
 longEnough = runs(:, 2)-runs(:, 1)+1 >= minimumRunSamples;
 runs = runs(longEnough, :);
 detector.runExcessPower = detector.runExcessPower(longEnough);
@@ -75,7 +76,34 @@ for candidate = 1:size(runs, 1)
             ExpectedCarrierOffsetHz=options.ExpectedCarrierOffsetHz, ...
             SoftDecoding=options.SoftDecoding, ...
             MaximumPayloadSymbols=options.MaximumPayloadSymbols);
-        reception = shift_reception_indices(reception, segmentStart-1, sampleRateHz);
+        selectedSegmentStart = segmentStart;
+        if ~(reception.preambleValid && reception.syncValid)
+            retryStart = runs(candidate, 1);
+            if retryStart > segmentStart
+                try
+                    retry = lora_phy.receive_lora_packet( ...
+                        iq(retryStart:segmentEnd), sampleRateHz, bandwidthHz, ...
+                        spreadingFactor, PreambleSymbols=options.PreambleSymbols, ...
+                        SyncWord=options.SyncWord, IqInverted=options.IqInverted, ...
+                        LowDataRateOptimization=options.LowDataRateOptimization, ...
+                        ExpectedCarrierOffsetHz=options.ExpectedCarrierOffsetHz, ...
+                        SoftDecoding=options.SoftDecoding, ...
+                        MaximumPayloadSymbols=options.MaximumPayloadSymbols);
+                    originalQuality = acquisition_quality(reception);
+                    retryQuality = acquisition_quality(retry);
+                    if retryQuality > originalQuality
+                        reception = retry;
+                        selectedSegmentStart = retryStart;
+                        segmentBounds(candidate, 1) = retryStart;
+                    end
+                catch
+                    % Preserve the structured first-pass result when the
+                    % tighter retry cannot hold a complete acquisition.
+                end
+            end
+        end
+        reception = shift_reception_indices( ...
+            reception, selectedSegmentStart-1, sampleRateHz);
         reception.activityStartIndex = runs(candidate, 1);
         reception.activityEndIndex = runs(candidate, 2);
         reception.candidateIndex = candidate;
@@ -113,7 +141,8 @@ result.guardSamples = guardSamples;
 result.segmentGuardSamples = segmentGuardSamples;
 end
 
-function [runs, detector] = detect_activity_runs(iq, sampleRateHz)
+function [runs, detector] = detect_activity_runs( ...
+    iq, sampleRateHz, preambleSamples)
 blockLength = max(32, round(sampleRateHz/2000));
 blockCount = floor(numel(iq)/blockLength);
 if blockCount < 4
@@ -128,22 +157,51 @@ noiseSubset = sortedPowerDb(1:max(3, floor(0.4*blockCount)));
 noiseDb = median(noiseSubset);
 spreadDb = median(abs(noiseSubset-noiseDb));
 thresholdDb = noiseDb+max(4, 6*spreadDb);
-active = blockPowerDb > thresholdDb;
+% A single threshold fails when the receiver gain or an interferer raises
+% the floor for part of a capture: several packets then become one long
+% activity run. Track that slow change with a median window that is at
+% least four preambles wide. A 200 ms lower bound also leaves enough quiet
+% samples around short SF5/SF6 packets for an unbiased local floor.
+localWindowBlocks = max(3, ceil(max(0.2*sampleRateHz, ...
+    4*preambleSamples)/blockLength));
+if mod(localWindowBlocks, 2) == 0
+    localWindowBlocks = localWindowBlocks+1;
+end
+localNoiseDb = movmedian(blockPowerDb, localWindowBlocks);
+adaptiveThresholdDb = max(thresholdDb, localNoiseDb+4);
+globalActive = bridge_short_holes(blockPowerDb > thresholdDb, 2);
+% Do not bridge the local mask: on a raised floor, isolated high-power
+% outliers around a real packet can otherwise become additional
+% preamble-sized false candidates.
+localActive = blockPowerDb > adaptiveThresholdDb;
+[globalStarts, globalEnds] = logical_runs(globalActive);
+[localStarts, localEnds] = logical_runs(localActive);
 
-% Bridge short holes inside one constant-envelope packet, but retain the
-% long quiet intervals that separate transmissions.
-edges = diff([true, active, true]);
-gapStarts = find(edges == -1);
-gapEnds = find(edges == 1)-1;
-for gap = 1:numel(gapStarts)
-    if gapStarts(gap) > 1 && gapEnds(gap) < numel(active) && ...
-            gapEnds(gap)-gapStarts(gap)+1 <= 2
-        active(gapStarts(gap):gapEnds(gap)) = true;
+% Preserve an ordinary global run when the dense packet sequence raises the
+% rolling median so far that no local run remains. When one or more local
+% preamble-sized runs do exist, they are the tighter packet candidates and
+% replace the broad global run.
+minimumLocalBlocks = max(1, ceil(0.5*preambleSamples/blockLength));
+localLongEnough = localEnds-localStarts+1 >= minimumLocalBlocks;
+localStarts = localStarts(localLongEnough);
+localEnds = localEnds(localLongEnough);
+runStarts = zeros(0, 1);
+runEnds = zeros(0, 1);
+for globalRun = 1:numel(globalStarts)
+    contained = localStarts >= globalStarts(globalRun) & ...
+        localEnds <= globalEnds(globalRun);
+    if any(contained)
+        runStarts = [runStarts; localStarts(contained)]; %#ok<AGROW>
+        runEnds = [runEnds; localEnds(contained)]; %#ok<AGROW>
+    else
+        runStarts(end+1, 1) = globalStarts(globalRun); %#ok<AGROW>
+        runEnds(end+1, 1) = globalEnds(globalRun); %#ok<AGROW>
     end
 end
-edges = diff([false, active, false]);
-runStarts = find(edges == 1);
-runEnds = find(edges == -1)-1;
+active = false(size(globalActive));
+for run = 1:numel(runStarts)
+    active(runStarts(run):runEnds(run)) = true;
+end
 runs = [(runStarts(:)-1)*blockLength+1, ...
     min(numel(iq), runEnds(:)*blockLength)];
 runExcessPower = zeros(size(runStarts(:)));
@@ -157,8 +215,35 @@ detector.blockTimeSeconds = (((1:blockCount)-0.5)*blockLength/sampleRateHz).';
 detector.blockPowerDb = blockPowerDb(:);
 detector.noisePowerDb = noiseDb;
 detector.thresholdDb = thresholdDb;
+detector.localWindowBlocks = localWindowBlocks;
+detector.localNoisePowerDb = localNoiseDb(:);
+detector.adaptiveThresholdDb = adaptiveThresholdDb(:);
 detector.activeBlocks = active(:);
 detector.runExcessPower = runExcessPower;
+end
+
+function quality = acquisition_quality(reception)
+quality = 4*double(reception.success)+ ...
+    2*double(reception.preambleValid && reception.syncValid)+ ...
+    double(reception.decoded.headerValid);
+end
+
+function active = bridge_short_holes(active, maximumGapBlocks)
+edges = diff([true, active, true]);
+gapStarts = find(edges == -1);
+gapEnds = find(edges == 1)-1;
+for gap = 1:numel(gapStarts)
+    if gapStarts(gap) > 1 && gapEnds(gap) < numel(active) && ...
+            gapEnds(gap)-gapStarts(gap)+1 <= maximumGapBlocks
+        active(gapStarts(gap):gapEnds(gap)) = true;
+    end
+end
+end
+
+function [starts, ends] = logical_runs(active)
+edges = diff([false, active, false]);
+starts = find(edges == 1).';
+ends = (find(edges == -1)-1).';
 end
 
 function reception = shift_reception_indices(reception, offset, sampleRateHz)
