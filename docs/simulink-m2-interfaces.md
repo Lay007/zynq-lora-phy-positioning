@@ -106,6 +106,16 @@ array of `lora_phy.fft_correlator_stages` uses a **median** noise-floor
 estimate and stays outside the DUT: a streaming median over `N` bins is
 expensive in HDL and the LLR path is a software-side consumer.
 
+**Implementation note, added after the fixed-point build.** The divider's
+denominator is `max(spectrumSum, peak, floor)` rather than
+`max(spectrumSum, eps)`. At the decision instant the running sum already
+contains the peak, so the two are identical and the MATLAB definition is
+unchanged. On the intermediate cycles of a symbol the sum is still partial, and
+without the extra term the ratio exceeds one and saturates the fixed-point
+divider on values that are never sampled. Clamping the ratio there keeps the
+overflow diagnostic enabled for the rest of the datapath instead of having to
+switch it off.
+
 ### 2.4 Acquisition and synchronization outputs
 
 | Signal | Direction | Type | Meaning |
@@ -119,6 +129,15 @@ expensive in HDL and the LLR path is a software-side consumer.
 The joint estimator is the M1 result restated as an interface: the upchirp
 dechirp bin mixes whole-chip timing and CFO; the downchirp bin flips the sign
 of the timing term only. Half-sum gives CFO, half-difference gives timing.
+
+**Implementation note, added after the estimator was built.** Both halves are
+exact multiples of `1/2`, so the DUT carries them as `cfoHalfBins` and
+`timingHalfChips` in `int32` — twice the value, and therefore an exact integer.
+The whole estimator is integer arithmetic and needs no fixed-point type at all.
+Software recovers the physical value with
+`cfoHz = cfoHalfBins·Fs/(2·samplesPerSymbol)`. The `sfix<W_f>_En<F_f>` form
+listed above is superseded for this signal; carrying half-bins is both exact and
+cheaper.
 
 ### 2.5 Packet outputs and failure flags
 
@@ -203,6 +222,12 @@ The payload is deliberately raw so MATLAB, Simulink, Python, and a future
 HDL testbench can all read it with `fread`, `numpy.fromfile`, or an equivalent,
 without writing a parser. `lora_verify.read_stage_vectors` is the MATLAB
 reader; `lora_verify.load_stage_manifest` verifies every checksum on load.
+
+The tool-independence claim was checked rather than assumed: reading
+`sf7-l8-clean.f64` with `numpy.frombuffer` and the manifest offsets, then
+recomputing every stage from the stored `input` with `numpy.fft`, reproduces
+each stored stage to a relative error of `1e-15` or better and yields the
+expected symbol index. No MATLAB is involved in that path.
 
 ### 3.3 Committed cases
 

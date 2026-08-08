@@ -126,6 +126,63 @@ confidence, and the reference ROM contents. Results are written to
 Measured results are published in
 [`docs/simulink-m2-acceptance.md`](../../docs/simulink-m2-acceptance.md).
 
+## Fixed point
+
+```matlab
+info = build_fft_correlator_model(DataType="fixed", WordLength=14);
+report = run_fixed_point_sweep;
+```
+
+Integer bits per boundary come from measured range analysis over the committed
+golden vectors (`lora_sim.stage_ranges`) plus one guard bit, so the word length
+only trades fraction bits. Rounding is `Floor` and overflow saturates at every
+chosen boundary; both are held constant so a sweep changes one variable at a
+time.
+
+The two FFT widths are **not** chosen. `dsphdl.FFT` runs unnormalized, so its
+output word length is its input word length plus `log2(FFTLength)` with the
+fraction length unchanged. `lora_sim.fixed_point_types` reports them as derived
+values.
+
+Selection needs two criteria, not one. Preserving symbol decisions alone is
+satisfied by absurdly small word lengths, because the gap between the winning
+bin and the runner-up is wide in most acceptance vectors. The sweep therefore
+also bounds the relative RMS error and records `DecisionMargin` so a passing
+point can be told from a lucky one.
+
+## Real SX1262 windows
+
+```matlab
+report = run_real_iq_regression(WordLength=14);
+```
+
+The committed captures are decoded by the MATLAB receiver, the corrected symbol
+windows it consumed are extracted through `ReturnSymbolWindows`, normalized to
+unit RMS, and replayed through the fixed-point DUT. Range analysis for this run
+comes from the real windows themselves: the integer bits of a fixed-point design
+must follow the stimulus it will see, and the capture gain of one recording
+session must not decide the word length.
+
+The report separates two questions that must never be mixed: whether fixed point
+reproduces floating point on real signal statistics (both use the nominal
+reference, so any difference is quantization), and how often the DUT's nominal
+reference agrees with the packet receiver's preamble-estimated adaptive
+reference, which the DUT does not implement.
+
+## HDL compatibility
+
+```matlab
+report = run_hdl_compatibility_check(WordLength=14);
+```
+
+Runs `checkhdl` on each named DUT with `TargetLanguage` set to Verilog and
+records every message. Note that HDL Coder settings go through `hdlset_param`;
+`set_param`'s `TargetLang` is Simulink Coder's C/C++ selector and rejects
+`"Verilog"`.
+
+This stops at the compatibility checker. Generating Verilog, cosimulating it,
+and synthesizing it are M3 and are not attempted.
+
 ## HDL generation rules
 
 - Use a named DUT subsystem as the only HDL Coder target.

@@ -49,8 +49,10 @@ info = struct.empty;
 builtConfiguration = [NaN, NaN];
 failures = strings(0, 1);
 
-modelCleanup = onCleanup(@() closeGeneratedModel(info));
-
+% No onCleanup guard here: an anonymous function captures `info` by value at
+% creation time, when it is still empty, so the guard would silently never
+% close anything. The generated model is closed explicitly below, and the
+% next build closes any model left behind by an error.
 for index = selected
     entry = manifest.cases(index);
     caseId = string(entry.id);
@@ -133,7 +135,6 @@ for index = selected
 end
 
 closeGeneratedModel(info);
-clear modelCleanup;
 
 stageRows = vertcat(stageBlocks{:});
 summaryRows = vertcat(summaryBlocks{:});

@@ -21,7 +21,7 @@ count = numel(waveform)/m;
 
 tail = options.TailSamples;
 if isnan(tail)
-    tail = 4*m+4*n+1024;
+    tail = 2*m+3*n+512;
 end
 
 % The pipeline must be drained past the last symbol. Rather than guessing a
@@ -105,6 +105,8 @@ result.throughputSymbolsPerSample = 1/m;
 end
 
 function value = gather(signal, validMask, rows, columns, name)
+% double() is applied last so a fixed-point run returns the same layout as
+% a double run and can be compared with the golden vectors directly.
 signal = signal(:);
 validMask = validMask(:);
 selected = signal(validMask(1:numel(signal)));
@@ -114,7 +116,7 @@ if numel(selected) ~= expected
         "Stage %s produced %d valid samples, expected %d", ...
         name, numel(selected), expected);
 end
-value = reshape(selected, rows, columns);
+value = reshape(double(selected), rows, columns);
 end
 
 function value = pick(signal, validMask, expected, name)
@@ -126,5 +128,5 @@ if numel(selected) ~= expected
         "Signal %s produced %d decisions, expected %d", ...
         name, numel(selected), expected);
 end
-value = selected(:);
+value = double(selected(:));
 end

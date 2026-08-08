@@ -3,27 +3,35 @@ function info = build_fft_correlator_model(options)
 %
 % The `.slx` is never edited by hand and is never committed. This script is
 % the source of the model: delete the file and call the function again to
-% get a byte-for-byte equivalent design.
+% get an equivalent design.
 %
 %   info = build_fft_correlator_model;
 %   info = build_fft_correlator_model(SpreadingFactor=9, SamplesPerChip=2);
+%   info = build_fft_correlator_model(DataType="fixed", WordLength=14);
 %
 % Architecture inside the `DUT` subsystem, matching
 % LORA_PHY.FFT_CORRELATOR_STAGES one comparison point at a time:
 %
 %   iqIn/validIn
+%     -> CastInput           explicit DUT input type
 %     -> InputFraming        symbol boundary from a mod-M sample counter
 %     -> FFT_M               dsphdl.FFT, length M, natural order, unnormalized
-%     -> BinCounter          frequency bin index q, 0..M-1
+%     -> BinCounter          bin index q, feedback gate, partition valid
 %     -> RomReal/RomImag     conj(fft(reference)) as two ROMs addressed by q
 %     -> Multiply            product = fftM .* conjReferenceSpectrum
-%     -> PartitionAccumulate y[q] = product[q] + y[q-N], an N-deep comb
+%     -> AccumSum/AccumDelay y[q] = product[q] + y[q-N], an N-deep comb
 %     -> FFT_N               dsphdl.FFT, length N, on the last N accumulator
 %                            outputs of each symbol
 %     -> ScaleByM            1/M, an exact power-of-two shift
 %     -> MagnitudeSquared    |.|^2
-%     -> PeakTracker         first-maximum bin, peak, and spectrum sum
-%     -> Confidence          peak / max(spectrumSum, eps)
+%     -> SpectrumSum         running sum of the N magnitudes of one symbol
+%     -> PeakTracker         first-maximum bin and its value
+%     -> Confidence          peak / max(spectrumSum, floor)
+%
+% The accumulators are primitive blocks rather than MATLAB Function code so
+% that every fixed-point output type, rounding mode, and overflow policy is
+% an explicit block setting. Only counters and the argmax comparison, which
+% never change word length, live in MATLAB Function blocks.
 %
 % SpreadingFactor and SamplesPerChip are compile-time, as frozen in
 % docs/simulink-m2-interfaces.md: they set both FFT lengths and the ROM
@@ -32,6 +40,13 @@ function info = build_fft_correlator_model(options)
 arguments
     options.SpreadingFactor (1,1) double {mustBeInteger} = 7
     options.SamplesPerChip (1,1) double {mustBeInteger} = 8
+    options.DataType (1,1) string {mustBeMember(options.DataType, ...
+        ["double", "fixed"])} = "double"
+    options.WordLength (1,1) double {mustBeInteger, mustBePositive} = 16
+    options.GuardBits (1,1) double {mustBeInteger, mustBeNonnegative} = 1
+    options.Rounding (1,1) string = "Floor"
+    options.Overflow (1,1) string = "Saturate"
+    options.Ranges struct = struct.empty
     options.ModelName (1,1) string = "lora_fft_correlator"
     options.OutputDirectory (1,1) string = lora_sim.generated_directory
     options.Save (1,1) logical = true
@@ -43,7 +58,18 @@ m = config.samplesPerSymbol;
 modelName = options.ModelName;
 modelPath = fullfile(options.OutputDirectory, modelName+".slx");
 
+isFixed = options.DataType == "fixed";
+if isFixed
+    types = lora_sim.fixed_point_types(config.spreadingFactor, ...
+        config.samplesPerChip, WordLength=options.WordLength, ...
+        GuardBits=options.GuardBits, Rounding=options.Rounding, ...
+        Overflow=options.Overflow, Ranges=options.Ranges);
+else
+    types = struct.empty;
+end
+
 if bdIsLoaded(modelName)
+    set_param(modelName, Dirty="off");
     close_system(modelName, 0);
 end
 if isfile(modelPath)
@@ -64,15 +90,18 @@ assignin(workspace, "M", m);
 assignin(workspace, "refConjReal", real(conjReferenceSpectrum));
 assignin(workspace, "refConjImag", imag(conjReferenceSpectrum));
 
-buildDut(modelName, n, m);
+buildDut(modelName, n, m, isFixed, types);
 buildHarness(modelName);
 
 set_param(modelName, ...
     SolverType="Fixed-step", Solver="FixedStepDiscrete", ...
     FixedStep="1", StartTime="0", StopTime="1000", ...
     SaveOutput="off", SaveTime="off", SaveFormat="Array", ...
-    SignalLogging="off", ...
-    ReturnWorkspaceOutputs="on");
+    SignalLogging="off", ReturnWorkspaceOutputs="on");
+
+% The reference ROM is quantized on purpose and the resulting error is
+% measured by the regression, so the per-coefficient warning is noise.
+set_param(modelName, ParameterPrecisionLossMsg="none");
 
 if options.Save
     if ~isfolder(options.OutputDirectory)
@@ -90,7 +119,8 @@ info.samplesPerChip = config.samplesPerChip;
 info.symbolCount = n;
 info.samplesPerSymbol = m;
 info.conjReferenceSpectrum = conjReferenceSpectrum;
-info.dataType = "double";
+info.dataType = options.DataType;
+info.types = types;
 info.outputVariables = harnessVariables;
 
 clear cleanupOnFailure;
@@ -98,6 +128,7 @@ end
 
 function closeIfLoaded(modelName)
 if bdIsLoaded(modelName)
+    set_param(modelName, Dirty="off");
     close_system(modelName, 0);
 end
 end
@@ -142,7 +173,7 @@ for k = 1:numel(names)
 end
 end
 
-function buildDut(modelName, n, m)
+function buildDut(modelName, n, m, isFixed, types)
 %BUILDDUT Streaming correlator with production and verification outputs.
 
 dut = modelName+"/DUT";
@@ -154,6 +185,12 @@ delete_block(dut+"/Out1");
 
 addInport(dut, "iqIn", 1, [40 100]);
 addInport(dut, "validIn", 2, [40 170]);
+
+% --- explicit DUT input type ----------------------------------------------
+add_block("simulink/Signal Attributes/Data Type Conversion", ...
+    dut+"/CastInput", Position=[100 90 150 130]);
+applyType(dut+"/CastInput", isFixed, types, "input", "double");
+add_line(dut, "iqIn/1", "CastInput/1", autorouting="on");
 
 % --- symbol framing on the input stream -----------------------------------
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
@@ -180,25 +217,32 @@ add_line(dut, "validIn/1", "InputFraming/1", autorouting="on");
 
 % --- M-point streaming FFT -------------------------------------------------
 add_block("simulink/User-Defined Functions/MATLAB System", dut+"/FFT_M", ...
-    Position=[170 80 300 140]);
+    Position=[200 80 300 140]);
 set_param(dut+"/FFT_M", System="dsphdl.FFT");
 set_param(dut+"/FFT_M", FFTLength=num2str(m), BitReversedOutput="off", ...
     BitReversedInput="off", Normalize="off");
-add_line(dut, "iqIn/1", "FFT_M/1", autorouting="on");
+if isFixed
+    set_param(dut+"/FFT_M", RoundingMethod=char(types.rounding));
+end
+add_line(dut, "CastInput/1", "FFT_M/1", autorouting="on");
 add_line(dut, "validIn/1", "FFT_M/2", autorouting="on");
 
-% --- frequency bin counter -------------------------------------------------
+% --- frequency bin counter and partition control ---------------------------
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
-    dut+"/BinCounter", Position=[350 80 480 150]);
+    dut+"/BinCounter", Position=[350 70 480 160]);
 lora_sim.set_function_script(dut+"/BinCounter", [
-    "function binIndex = fcn(fftValid)"
+    "function [binIndex, feedbackGate, partitionValid] = fcn(fftValid)"
     "%#codegen"
     "% Natural-order frequency bin index q of the M-point FFT output."
+    "% feedbackGate opens the comb feedback once q >= N."
+    "% partitionValid marks the final N accumulator outputs of a symbol."
     "persistent counter"
     "if isempty(counter)"
     "    counter = uint32(0);"
     "end"
     "binIndex = counter;"
+    "feedbackGate = counter >= uint32(" + n + ");"
+    "partitionValid = fftValid && counter >= uint32(" + (m-n) + ");"
     "if fftValid"
     "    if counter == uint32(" + (m-1) + ")"
     "        counter = uint32(0);"
@@ -220,6 +264,10 @@ add_block("simulink/Lookup Tables/Direct Lookup Table (n-D)", ...
 set_param(dut+"/RomImag", NumberOfTableDimensions="1", ...
     Table="refConjImag", InputsSelectThisObjectFromTable="Element", ...
     TableIsInput="off", DiagnosticForOutOfRangeInput="Error");
+if isFixed
+    set_param(dut+"/RomReal", TableDataTypeStr=char(types.reference.expression));
+    set_param(dut+"/RomImag", TableDataTypeStr=char(types.reference.expression));
+end
 add_line(dut, "BinCounter/1", "RomReal/1", autorouting="on");
 add_line(dut, "BinCounter/1", "RomImag/1", autorouting="on");
 
@@ -233,136 +281,229 @@ add_line(dut, "RomImag/1", "RomComplex/2", autorouting="on");
 add_block("simulink/Math Operations/Product", dut+"/Multiply", ...
     Position=[770 80 820 140]);
 set_param(dut+"/Multiply", Inputs="2", Multiplication="Element-wise(.*)");
+applyType(dut+"/Multiply", isFixed, types, "product");
 add_line(dut, "FFT_M/1", "Multiply/1", autorouting="on");
 add_line(dut, "RomComplex/1", "Multiply/2", autorouting="on");
 
 % --- frequency partition accumulation --------------------------------------
-add_block("simulink/User-Defined Functions/MATLAB Function", ...
-    dut+"/PartitionAccumulate", Position=[870 70 1010 160]);
-lora_sim.set_function_script(dut+"/PartitionAccumulate", [
-    "function [partitionData, partitionValid] = fcn(product, fftValid, binIndex)"
-    "%#codegen"
-    "% Length-N recursive comb: y[q] = product[q] + y[q-N]."
-    "% After M bins the last N outputs are sum_r product(m + r*N),"
-    "% delivered in natural order m = 0..N-1."
-    "persistent buffer"
-    "if isempty(buffer)"
-    "    buffer = complex(zeros(" + n + ", 1));"
-    "end"
-    "partitionData = complex(0);"
-    "partitionValid = false;"
-    "if fftValid"
-    "    slot = mod(binIndex, uint32(" + n + ")) + uint32(1);"
-    "    if binIndex < uint32(" + n + ")"
-    "        accumulated = product;"
-    "    else"
-    "        accumulated = product + buffer(slot);"
-    "    end"
-    "    buffer(slot) = accumulated;"
-    "    partitionData = accumulated;"
-    "    partitionValid = binIndex >= uint32(" + (m-n) + ");"
-    "end"
-    "end"]);
-add_line(dut, "Multiply/1", "PartitionAccumulate/1", autorouting="on");
-add_line(dut, "FFT_M/2", "PartitionAccumulate/2", autorouting="on");
-add_line(dut, "BinCounter/1", "PartitionAccumulate/3", autorouting="on");
+% y[q] = product[q] + gate(q) * y[q-N]. The delay line advances only on
+% valid FFT output, so gaps in the stream cannot corrupt the alignment.
+add_block("simulink/Math Operations/Sum", dut+"/AccumSum", ...
+    Position=[880 80 920 140]);
+set_param(dut+"/AccumSum", Inputs="++");
+applyType(dut+"/AccumSum", isFixed, types, "accumulator");
+
+add_block("simulink/Discrete/Delay", dut+"/AccumDelay", ...
+    Position=[980 170 1040 230]);
+set_param(dut+"/AccumDelay", DelayLength=num2str(n), ShowEnablePort="on", ...
+    InitialCondition="complex(0,0)");
+
+add_block("simulink/Sources/Constant", dut+"/AccumZero", ...
+    Position=[820 260 870 290]);
+set_param(dut+"/AccumZero", Value="complex(0,0)");
+if isFixed
+    set_param(dut+"/AccumZero", ...
+        OutDataTypeStr=char(types.accumulator.expression));
+else
+    set_param(dut+"/AccumZero", OutDataTypeStr="double");
+end
+
+add_block("simulink/Signal Routing/Switch", dut+"/FeedbackGate", ...
+    Position=[900 190 940 250]);
+set_param(dut+"/FeedbackGate", Criteria="u2 > Threshold", Threshold="0.5");
+
+add_line(dut, "Multiply/1", "AccumSum/1", autorouting="on");
+add_line(dut, "FeedbackGate/1", "AccumSum/2", autorouting="on");
+add_line(dut, "AccumSum/1", "AccumDelay/1", autorouting="on");
+add_line(dut, "FFT_M/2", "AccumDelay/2", autorouting="on");
+add_line(dut, "AccumDelay/1", "FeedbackGate/1", autorouting="on");
+add_line(dut, "BinCounter/2", "FeedbackGate/2", autorouting="on");
+add_line(dut, "AccumZero/1", "FeedbackGate/3", autorouting="on");
 
 % --- N-point streaming FFT -------------------------------------------------
 add_block("simulink/User-Defined Functions/MATLAB System", dut+"/FFT_N", ...
-    Position=[1060 70 1190 140]);
+    Position=[1080 70 1180 140]);
 set_param(dut+"/FFT_N", System="dsphdl.FFT");
 set_param(dut+"/FFT_N", FFTLength=num2str(n), BitReversedOutput="off", ...
     BitReversedInput="off", Normalize="off");
-add_line(dut, "PartitionAccumulate/1", "FFT_N/1", autorouting="on");
-add_line(dut, "PartitionAccumulate/2", "FFT_N/2", autorouting="on");
+if isFixed
+    set_param(dut+"/FFT_N", RoundingMethod=char(types.rounding));
+end
+add_line(dut, "AccumSum/1", "FFT_N/1", autorouting="on");
+add_line(dut, "BinCounter/3", "FFT_N/2", autorouting="on");
 
 add_block("simulink/Math Operations/Gain", dut+"/ScaleByM", ...
     Position=[1240 80 1290 120]);
 set_param(dut+"/ScaleByM", Gain="1/M");
+applyType(dut+"/ScaleByM", isFixed, types, "fftN");
 add_line(dut, "FFT_N/1", "ScaleByM/1", autorouting="on");
 
 add_block("simulink/Math Operations/Math Function", ...
     dut+"/MagnitudeSquared", Position=[1340 80 1400 120]);
 set_param(dut+"/MagnitudeSquared", Operator="magnitude^2");
+applyType(dut+"/MagnitudeSquared", isFixed, types, "magnitudeSquared");
 add_line(dut, "ScaleByM/1", "MagnitudeSquared/1", autorouting="on");
 
-% --- peak, spectrum sum, and confidence ------------------------------------
+% --- spectrum sum ----------------------------------------------------------
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
-    dut+"/PeakTracker", Position=[1450 60 1600 160]);
-lora_sim.set_function_script(dut+"/PeakTracker", [
-    "function [symbolIndex, peakValue, spectrumSum, symbolValid] = fcn(magSq, magValid)"
+    dut+"/OutputBinCounter", Position=[1340 200 1470 270]);
+lora_sim.set_function_script(dut+"/OutputBinCounter", [
+    "function [binIndex, sumGate] = fcn(magValid)"
     "%#codegen"
-    "% Strict > keeps the first maximum, matching MATLAB max() tie-breaking."
-    "persistent counter bestValue bestIndex runningSum"
+    "% Bin index within the N-point spectrum of one symbol."
+    "persistent counter"
     "if isempty(counter)"
     "    counter = uint32(0);"
-    "    bestValue = 0;"
-    "    bestIndex = uint32(0);"
-    "    runningSum = 0;"
     "end"
-    "symbolIndex = uint32(0);"
-    "peakValue = 0;"
-    "spectrumSum = 0;"
-    "symbolValid = false;"
+    "binIndex = counter;"
+    "sumGate = counter > uint32(0);"
     "if magValid"
-    "    if counter == uint32(0)"
-    "        bestValue = magSq;"
-    "        bestIndex = counter;"
-    "        runningSum = magSq;"
-    "    else"
-    "        if magSq > bestValue"
-    "            bestValue = magSq;"
-    "            bestIndex = counter;"
-    "        end"
-    "        runningSum = runningSum + magSq;"
-    "    end"
     "    if counter == uint32(" + (n-1) + ")"
-    "        symbolIndex = bestIndex;"
-    "        peakValue = bestValue;"
-    "        spectrumSum = runningSum;"
-    "        symbolValid = true;"
     "        counter = uint32(0);"
     "    else"
     "        counter = counter + uint32(1);"
     "    end"
     "end"
     "end"]);
+add_line(dut, "FFT_N/2", "OutputBinCounter/1", autorouting="on");
+
+add_block("simulink/Math Operations/Sum", dut+"/SpectrumSum", ...
+    Position=[1520 80 1560 140]);
+set_param(dut+"/SpectrumSum", Inputs="++");
+applyType(dut+"/SpectrumSum", isFixed, types, "spectrumSum");
+
+add_block("simulink/Discrete/Delay", dut+"/SpectrumDelay", ...
+    Position=[1620 300 1680 360]);
+set_param(dut+"/SpectrumDelay", DelayLength="1", ShowEnablePort="on", ...
+    InitialCondition="0");
+
+add_block("simulink/Sources/Constant", dut+"/SpectrumZero", ...
+    Position=[1450 400 1500 430]);
+set_param(dut+"/SpectrumZero", Value="0");
+if isFixed
+    set_param(dut+"/SpectrumZero", ...
+        OutDataTypeStr=char(types.spectrumSum.expression));
+else
+    set_param(dut+"/SpectrumZero", OutDataTypeStr="double");
+end
+
+add_block("simulink/Signal Routing/Switch", dut+"/SpectrumGate", ...
+    Position=[1540 320 1580 380]);
+set_param(dut+"/SpectrumGate", Criteria="u2 > Threshold", Threshold="0.5");
+
+add_line(dut, "MagnitudeSquared/1", "SpectrumSum/1", autorouting="on");
+add_line(dut, "SpectrumGate/1", "SpectrumSum/2", autorouting="on");
+add_line(dut, "SpectrumSum/1", "SpectrumDelay/1", autorouting="on");
+add_line(dut, "FFT_N/2", "SpectrumDelay/2", autorouting="on");
+add_line(dut, "SpectrumDelay/1", "SpectrumGate/1", autorouting="on");
+add_line(dut, "OutputBinCounter/2", "SpectrumGate/2", autorouting="on");
+add_line(dut, "SpectrumZero/1", "SpectrumGate/3", autorouting="on");
+
+% --- peak, argmax, and confidence ------------------------------------------
+add_block("simulink/User-Defined Functions/MATLAB Function", ...
+    dut+"/PeakTracker", Position=[1620 60 1760 160]);
+lora_sim.set_function_script(dut+"/PeakTracker", [
+    "function [symbolIndex, peakValue, symbolValid] = fcn(magSq, magValid, binIndex)"
+    "%#codegen"
+    "% Strict > keeps the first maximum, matching MATLAB max() tie-breaking."
+    "% No arithmetic here changes word length, so the fixed-point type"
+    "% simply flows through from magSq."
+    "persistent bestValue bestIndex"
+    "if isempty(bestValue)"
+    "    bestValue = zeros('like', magSq);"
+    "    bestIndex = uint32(0);"
+    "end"
+    "symbolValid = false;"
+    "if magValid"
+    "    if binIndex == uint32(0)"
+    "        bestValue = magSq;"
+    "        bestIndex = binIndex;"
+    "    elseif magSq > bestValue"
+    "        bestValue = magSq;"
+    "        bestIndex = binIndex;"
+    "    end"
+    "    symbolValid = binIndex == uint32(" + (n-1) + ");"
+    "end"
+    "symbolIndex = bestIndex;"
+    "peakValue = bestValue;"
+    "end"]);
 add_line(dut, "MagnitudeSquared/1", "PeakTracker/1", autorouting="on");
 add_line(dut, "FFT_N/2", "PeakTracker/2", autorouting="on");
+add_line(dut, "OutputBinCounter/1", "PeakTracker/3", autorouting="on");
 
 add_block("simulink/Sources/Constant", dut+"/SumFloor", ...
-    Position=[1450 220 1500 250]);
-set_param(dut+"/SumFloor", Value="eps", OutDataTypeStr="double");
+    Position=[1620 430 1680 460]);
+if isFixed
+    set_param(dut+"/SumFloor", ...
+        Value=sprintf("2^%d", -types.spectrumSum.fractionLength), ...
+        OutDataTypeStr=char(types.spectrumSum.expression));
+else
+    set_param(dut+"/SumFloor", Value="eps", OutDataTypeStr="double");
+end
+
+% max(spectrumSum, peak, floor). At the decision instant the running sum
+% already contains the peak, so this equals MATLAB's max(sum, eps) exactly.
+% On the intermediate cycles of a symbol it keeps the ratio at or below one,
+% which is what stops the fixed-point divider from saturating on values that
+% are never sampled.
 add_block("simulink/Math Operations/MinMax", dut+"/GuardedSum", ...
-    Position=[1560 200 1610 250]);
-set_param(dut+"/GuardedSum", Function="max", Inputs="2");
-add_line(dut, "PeakTracker/3", "GuardedSum/1", autorouting="on");
-add_line(dut, "SumFloor/1", "GuardedSum/2", autorouting="on");
+    Position=[1740 400 1790 460]);
+set_param(dut+"/GuardedSum", Function="max", Inputs="3");
+add_line(dut, "SpectrumSum/1", "GuardedSum/1", autorouting="on");
+add_line(dut, "PeakTracker/2", "GuardedSum/2", autorouting="on");
+add_line(dut, "SumFloor/1", "GuardedSum/3", autorouting="on");
 
 add_block("simulink/Math Operations/Divide", dut+"/Confidence", ...
-    Position=[1670 180 1720 240]);
+    Position=[1850 380 1900 440]);
 set_param(dut+"/Confidence", Inputs="*/");
+applyType(dut+"/Confidence", isFixed, types, "confidence");
 add_line(dut, "PeakTracker/2", "Confidence/1", autorouting="on");
 add_line(dut, "GuardedSum/1", "Confidence/2", autorouting="on");
 
 % --- outputs ---------------------------------------------------------------
-addOutport(dut, "symbolIndex", 1, [1800 60], "PeakTracker/1");
-addOutport(dut, "symbolValid", 2, [1800 110], "PeakTracker/4");
-addOutport(dut, "confidence", 3, [1800 160], "Confidence/1");
-addOutport(dut, "peakMagnitudeSquared", 4, [1800 210], "PeakTracker/2");
-addOutport(dut, "spectrumSum", 5, [1800 260], "PeakTracker/3");
-addOutport(dut, "symbolBoundary", 6, [1800 310], "InputFraming/1");
+addOutport(dut, "symbolIndex", 1, [1990 60], "PeakTracker/1");
+addOutport(dut, "symbolValid", 2, [1990 110], "PeakTracker/3");
+addOutport(dut, "confidence", 3, [1990 160], "Confidence/1");
+addOutport(dut, "peakMagnitudeSquared", 4, [1990 210], "PeakTracker/2");
+addOutport(dut, "spectrumSum", 5, [1990 260], "SpectrumSum/1");
+addOutport(dut, "symbolBoundary", 6, [1990 310], "InputFraming/1");
 
-addOutport(dut, "stageFftM", 7, [1800 380], "FFT_M/1");
-addOutport(dut, "stageProduct", 8, [1800 430], "Multiply/1");
-addOutport(dut, "stagePartition", 9, [1800 480], "PartitionAccumulate/1");
-addOutport(dut, "stageFftN", 10, [1800 530], "ScaleByM/1");
-addOutport(dut, "stageMagnitudeSquared", 11, [1800 580], "MagnitudeSquared/1");
-addOutport(dut, "fftMValid", 12, [1800 630], "FFT_M/2");
-addOutport(dut, "partitionValid", 13, [1800 680], "PartitionAccumulate/2");
-addOutport(dut, "fftNValid", 14, [1800 730], "FFT_N/2");
+addOutport(dut, "stageFftM", 7, [1990 380], "FFT_M/1");
+addOutport(dut, "stageProduct", 8, [1990 430], "Multiply/1");
+addOutport(dut, "stagePartition", 9, [1990 480], "AccumSum/1");
+addOutport(dut, "stageFftN", 10, [1990 530], "ScaleByM/1");
+addOutport(dut, "stageMagnitudeSquared", 11, [1990 580], "MagnitudeSquared/1");
+addOutport(dut, "fftMValid", 12, [1990 630], "FFT_M/2");
+addOutport(dut, "partitionValid", 13, [1990 680], "BinCounter/3");
+addOutport(dut, "fftNValid", 14, [1990 730], "FFT_N/2");
 
 set_param(dut, TreatAsAtomicUnit="on");
+end
+
+function applyType(blockPath, isFixed, types, field, doubleType)
+%APPLYTYPE Output type, rounding, and overflow policy for one boundary.
+arguments
+    blockPath (1,1) string
+    isFixed (1,1) logical
+    types
+    field (1,1) string
+    doubleType (1,1) string = "Inherit: Inherit via internal rule"
+end
+if ~isFixed
+    set_param(blockPath, OutDataTypeStr=char(doubleType));
+    return;
+end
+type = types.(field);
+set_param(blockPath, OutDataTypeStr=char(type.expression), ...
+    RndMeth=char(types.rounding));
+if ismember("SaturateOnIntegerOverflow", fieldnames( ...
+        get_param(blockPath, "DialogParameters")))
+    if types.saturate
+        set_param(blockPath, SaturateOnIntegerOverflow="on");
+    else
+        set_param(blockPath, SaturateOnIntegerOverflow="off");
+    end
+end
 end
 
 function addInport(parent, name, portNumber, position)
