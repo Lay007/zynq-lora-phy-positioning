@@ -19,11 +19,18 @@ saturation и fixed-point типы. Источником реализации о
 
 ```text
 complex sample stream
-    → dechirp
-    → streaming FFT
+    → streaming FFT длины N·L
+    → умножение на спектр опорного chirp
+    → сумма L частотных секций
+    → FFT длины N
     → magnitude / peak detector
     → symbol index + valid
 ```
+
+Первый DUT реализует только когерентный FFT-correlator. Оценка адаптивного
+шаблона по преамбуле, legacy polyphase fallback, пакетный декодер и выбор ветви
+по CRC остаются вне DUT, пока не измерены их стоимость и устойчивость к
+несовпадению реального сигнала с моделью.
 
 DUT обязан определять clock/sample rate, backpressure, типы на границах,
 overflow policy, pipeline latency, reset behavior и набор compile-time/tunable

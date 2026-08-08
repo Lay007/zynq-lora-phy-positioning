@@ -10,8 +10,10 @@ The initial HDL-oriented subsystem will implement:
 
 ```text
 complex sample stream
-    → dechirp
-    → streaming FFT
+    → N·L streaming FFT
+    → reference-spectrum multiply
+    → sum L frequency partitions
+    → N-point FFT
     → magnitude/peak detector
     → symbol index + valid
 ```
@@ -25,6 +27,11 @@ The model must define:
 - pipeline latency and reset behavior;
 - tunable versus compile-time LoRa parameters;
 - comparison points against MATLAB golden vectors.
+
+The first DUT implements only the coherent FFT-correlator path. Adaptive
+preamble-reference estimation, the legacy polyphase fallback, packet decoding,
+and CRC-based path selection remain outside the DUT until their resource and
+mismatch trade-offs are measured.
 
 ## HDL generation rules
 

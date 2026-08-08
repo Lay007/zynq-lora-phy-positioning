@@ -12,17 +12,17 @@
 известном времени символа. После добавления комплексного AWGN принятый индекс
 и его естественная двоичная метка сравниваются с переданными значениями.
 
-Три приёмника получают одинаковые seeded waveform и noise: legacy FFT по
-первой фазе децимации, рабочая некогерентная сумма мощностей polyphase FFT и
-точный matched-filter reference. Эталон выполняет циклическую корреляцию всех
-комплексных отсчётов со всеми циклическими сдвигами CSS chirp, поэтому
-когерентно объединяет `L` отсчётов до сравнения модулей гипотез.
+Четыре приёмника получают одинаковые seeded waveform и noise: legacy FFT по
+первой фазе децимации, legacy-некогерентная сумма мощностей polyphase FFT,
+новый FFT-correlator и точный matched-filter reference. Последние два выполняют
+циклическую корреляцию всех комплексных отсчётов со всеми циклическими сдвигами
+CSS chirp и когерентно объединяют `L` отсчётов.
 
 | Параметр | Значение |
 |---|---:|
 | SF | 7 |
 | Samples/chip, `L` | 1, 2, 4, 8 |
-| Демодуляторы | single-phase, polyphase, matched-filter |
+| Демодуляторы | single-phase, polyphase, fft-correlator, matched-filter |
 | Символов на SNR/mode | 4 000 |
 | Label bits на SNR/mode | 28 000 |
 | SNR sweep | −20:2:−4 dB |
@@ -31,18 +31,23 @@
 ![Текущий демодулятор и matched-filter reference](../images/css-ber-current-vs-ideal.png)
 
 Исходные результаты: [`css-ber-demodulator-comparison.csv`](../data/css-ber-demodulator-comparison.csv).
-При `L=8` интерполяция в логарифмическом масштабе BER даёт проигрыш текущего
-приёмника эталону `5,33 dB` при BER `1e−2` и `6,03 dB` при BER `1e−3`. При
-`L=1` оба приёмника математически эквивалентны, поэтому измеренный разрыв равен
-нулю. Результаты для всех исследованных `L` сведены отдельно:
+При `L=8` интерполяция в логарифмическом масштабе BER даёт старой polyphase
+сумме проигрыш `5,33 dB` при BER `1e−2` и `6,03 dB` при BER `1e−3`.
+FFT-correlator алгебраически эквивалентен точному matched filter: измеренный
+разрыв равен `0 dB` для всех исследованных `L` и порогов BER:
 
 ![Измеренный проигрыш matched filter](../images/css-ber-ideal-gap.png)
 
 Пороги и разрывы: [`css-ber-ideal-gap.csv`](../data/css-ber-ideal-gap.csv).
-Проигрыш polyphase не обязан точно равняться `10 log10(L)`: мощности фаз
+Проигрыш legacy polyphase не обязан точно равняться `10 log10(L)`: мощности фаз
 складываются некогерентно, а энергия соседних bins около циклического переноса
-chirp меняет waterfall, особенно при `L=2`. Это ограничение нужно устранить или
-явно принять до фиксации Simulink-архитектуры.
+chirp меняет waterfall, особенно при `L=2`.
+
+Для `M=N·L` FFT-correlator выполняет `M`-точечный FFT, умножение на комплексно
+сопряжённый спектр опорного chirp, суммирование bins `m+rN` и `N`-точечный
+прямой FFT. Результат точно совпадает с нужными корреляциями matched filter в
+точках `−kL`; полный `M`-точечный IFFT и банк временных шаблонов не нужны. Эта
+декомпозиция выбрана кандидатом для Simulink.
 
 Matched filter является идеальным только внутри данного эксперимента: время
 символа и форма сигнала известны точно, канал содержит только AWGN, отсутствуют
@@ -88,12 +93,24 @@ FEC, diagonal interleaving, Gray mapping и CSS waveform, добавляет AWG
 | SNR sweep | −20:2:−4 dB |
 | Seeds | 105, 106, 107 |
 
-![Coded BER и PER для SF5/SF6/SF7](../images/lora-coded-ber-sf5-sf7-polyphase.png)
+![Coded BER и PER для SF5/SF6/SF7](../images/lora-coded-ber-sf5-sf7-fft-correlator.png)
 
-Исходные результаты: [`lora-coded-ber-sf5-sf7-polyphase.csv`](../data/lora-coded-ber-sf5-sf7-polyphase.csv).
-При −10 dB hard/soft PER равны 100%/74,5% для SF5, 41%/4% для SF6 и
-4%/0% для SF7. Soft decoder дополнительно восстановил 51, 74 и 8 пакетов из
-200 соответственно. Это конечный Monte Carlo, а не аналитический предел.
+Исходные результаты: [`lora-coded-ber-sf5-sf7-fft-correlator.csv`](../data/lora-coded-ber-sf5-sf7-fft-correlator.csv).
+При −10 dB в 200 пакетах для каждого SF5, SF6 и SF7 не наблюдалось ошибок
+символов, payload или пакетов. Конечный Monte Carlo не доказывает нулевую
+вероятность ошибки: верхняя граница Wilson сохранена в CSV.
+
+## Устойчивость на реальном сигнале
+
+Точный коррелятор только с номинальным шаблоном декодировал 118 из 130
+сохранённых передач SX1262→ZynqSDR. Фильтрация тракта, остаточная ошибка
+синхронизации и несовпадение формы сигнала делают его менее устойчивым, чем
+показывает AWGN-кривая. Поэтому пакетный приёмник оценивает выровненный по фазе
+шаблон по повторяющимся upchirp преамбулы и для каждой временной гипотезы
+проверяет FFT-correlator и legacy polyphase. Ветвь выбирается по header и CRC.
+Итог: 130/130 пакетов; 56 выбрали FFT-correlator, 74 — polyphase fallback.
+Dual-path policy остаётся вне первого HDL DUT до измерения fixed-point стоимости
+и устойчивости к mismatch.
 
 ## Метрики
 
@@ -127,11 +144,10 @@ campaign = plot_ber_campaign;
 ```
 
 Команда заново создаёт три PNG, три CSV и
-[`ber-polyphase-campaign.mat`](../data/ber-polyphase-campaign.mat). Старые
-SF7-only и двухрежимные CSV/PNG сохранены как исторический baseline; текущим
-результатом считается кампания с тремя демодуляторами. Имя MAT-файла сохранено
-для совместимости, но его схема теперь `zynq-lora-ber-campaign-v2` и содержит
-таблицу `idealGap`.
+[`ber-demodulator-campaign.mat`](../data/ber-demodulator-campaign.mat).
+Исторические результаты доступны через Git history. Текущая схема MAT —
+`zynq-lora-ber-campaign-v3`; таблица `idealGap` содержит старый и текущий
+проигрыш.
 
 Coded sweep по-прежнему предполагает известное время и не передаёт преамбулу.
 Будущий acquisition-inclusive hardware sweep должен отдельно считать attempts,

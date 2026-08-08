@@ -12,18 +12,17 @@ explicit denominators, and two-sided 95% Wilson score intervals.
 indices with known timing. It adds circular complex AWGN and compares the
 detected symbol index and its natural binary label with the transmitted values.
 
-The campaign runs three receivers on the same seeded waveform and noise
-realization: the legacy first-decimation-phase FFT, the production noncoherent
-polyphase FFT-power sum, and an exact matched-filter reference. The reference
-circularly correlates all complex samples with every cyclically shifted CSS
-chirp and therefore combines the `L` samples coherently before comparing the
-hypothesis magnitudes.
+The campaign runs four receivers on the same seeded waveform and noise
+realization: the legacy first-decimation-phase FFT, the legacy noncoherent
+polyphase FFT-power sum, the new FFT correlator, and an exact matched-filter
+reference. The last two circularly correlate all complex samples with every
+cyclically shifted CSS chirp and therefore combine `L` coherently.
 
 | Parameter | Value |
 |---|---:|
 | Spreading factor | 7 |
 | Samples per chip, `L` | 1, 2, 4, 8 |
-| Demodulators | single-phase, polyphase, matched-filter |
+| Demodulators | single-phase, polyphase, fft-correlator, matched-filter |
 | Symbols per SNR/mode | 4,000 |
 | Label bits per SNR/mode | 28,000 |
 | SNR sweep | −20:2:−4 dB |
@@ -32,18 +31,23 @@ hypothesis magnitudes.
 ![Current demodulator versus matched-filter reference](images/css-ber-current-vs-ideal.png)
 
 Raw results: [`css-ber-demodulator-comparison.csv`](data/css-ber-demodulator-comparison.csv).
-At `L=8`, log-BER interpolation gives a current-to-reference penalty of
-`5.33 dB` at BER `1e−2` and `6.03 dB` at BER `1e−3`. At `L=1` both receivers
-are mathematically equivalent and the measured gap is zero. The loss for every
-tested `L` is tabulated separately:
+At `L=8`, log-BER interpolation gives the legacy polyphase power sum a penalty
+of `5.33 dB` at BER `1e−2` and `6.03 dB` at BER `1e−3`. The FFT correlator is
+algebraically equivalent to the exact matched filter and its measured gap is
+`0 dB` for every tested `L` and BER threshold:
 
 ![Measured gap to the matched filter](images/css-ber-ideal-gap.png)
 
 Thresholds and gaps: [`css-ber-ideal-gap.csv`](data/css-ber-ideal-gap.csv).
-The polyphase loss is not exactly `10 log10(L)`: its power sum is noncoherent,
+The legacy loss is not exactly `10 log10(L)`: its power sum is noncoherent,
 and adjacent-bin energy around the cyclic chirp wrap changes the waterfall,
-especially at `L=2`. This measured limitation must be resolved or explicitly
-accepted before the Simulink architecture is frozen.
+especially at `L=2`.
+
+For `M=N·L`, the FFT correlator computes an `M`-point FFT, multiplies it by the
+conjugated reference spectrum, sums bins `m+rN`, and applies an `N`-point
+forward FFT. The resulting values are exactly the required matched-filter
+correlations at lags `−kL`; the full `M`-point IFFT and a time-domain template
+bank are unnecessary. This decomposition is the selected Simulink candidate.
 
 The matched filter is an ideal receiver only inside this experiment: symbol
 timing and the waveform are exact, the channel is AWGN, and there is no CFO,
@@ -90,13 +94,24 @@ same per-bin FFT metrics.
 | SNR sweep | −20:2:−4 dB |
 | Seeds | 105, 106, 107 |
 
-![Coded low-SF BER and PER](images/lora-coded-ber-sf5-sf7-polyphase.png)
+![Coded low-SF BER and PER](images/lora-coded-ber-sf5-sf7-fft-correlator.png)
 
-Raw results: [`lora-coded-ber-sf5-sf7-polyphase.csv`](data/lora-coded-ber-sf5-sf7-polyphase.csv).
-At −10 dB, the measured hard/soft PER is 100%/74.5% for SF5, 41%/4% for
-SF6, and 4%/0% for SF7. The corresponding soft-recovered packet counts are
-51, 74, and 8 out of 200. These are finite Monte Carlo observations, not
-analytic receiver limits.
+Raw results: [`lora-coded-ber-sf5-sf7-fft-correlator.csv`](data/lora-coded-ber-sf5-sf7-fft-correlator.csv).
+At −10 dB, no symbol, payload, or packet errors were observed in 200 packets
+for each of SF5, SF6, and SF7. This finite Monte Carlo result is not proof of a
+zero error probability; the Wilson upper bound remains part of the CSV.
+
+## Real-waveform robustness
+
+An exact nominal reference alone decoded 118 of 130 committed SX1262→ZynqSDR
+transmissions. Front-end filtering, residual synchronization error, and
+waveform mismatch make it less robust than its AWGN curve suggests. The packet
+receiver therefore estimates a phase-aligned reference from repeated preamble
+upchirps and evaluates both the FFT-correlator and legacy polyphase metrics for
+each timing hypothesis. Header and CRC evidence select the path. The resulting
+run decoded 130/130 packets: 56 selected the FFT correlator and 74 selected the
+polyphase fallback. This dual-path policy belongs outside the first HDL DUT
+until fixed-point cost and mismatch tolerance are measured.
 
 ## Metric definitions
 
@@ -130,11 +145,10 @@ campaign = plot_ber_campaign;
 ```
 
 The command regenerates three PNGs, three CSVs, and
-[`ber-polyphase-campaign.mat`](data/ber-polyphase-campaign.mat). The older
-SF7-only and two-demodulator CSV/PNG files remain as historical baselines; the
-three-demodulator campaign is the current comparison. The MAT filename is
-retained for compatibility, while its schema is now
-`zynq-lora-ber-campaign-v2` and includes `idealGap`.
+[`ber-demodulator-campaign.mat`](data/ber-demodulator-campaign.mat). Historical
+results remain available through Git history. The current MAT schema is
+`zynq-lora-ber-campaign-v3` and includes `idealGap` with both legacy and current
+penalties.
 
 The coded experiment still assumes known timing and sends no preamble. A later
 acquisition-inclusive hardware sweep must separately count attempted packets,

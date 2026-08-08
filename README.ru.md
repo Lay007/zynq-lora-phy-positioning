@@ -94,6 +94,14 @@ dechirp и выбор соответствующего FFT-bin.
 
 ![Coded LoRa payload BER и PER](docs/images/lora-coded-ber-sf7.png)
 
+Текущая BER-кампания сравнивает legacy single-phase/polyphase, выбранный для
+Simulink FFT-correlator и независимый matched-filter reference. FFT-correlator
+устранил прежний проигрыш 5–6 dB при `L=8` в AWGN:
+
+![Текущий CSS-демодулятор и когерентный эталон](docs/images/css-ber-current-vs-ideal.png)
+
+![Coded LoRa BER/PER с FFT-correlator](docs/images/lora-coded-ber-sf5-sf7-fft-correlator.png)
+
 ## Быстрый запуск Python-проверок
 
 ```bash

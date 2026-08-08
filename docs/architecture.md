@@ -107,9 +107,11 @@ Each hardware DSP block has four representations when applicable:
 | Generated Verilog | Cycle-accurate implementation | HDL cosimulation and golden-vector regression |
 | Hardware | Real RF behavior | Versioned configuration and measurements |
 
-The Simulink DUT boundary will initially contain dechirp, FFT, and peak
-detection. Channel filtering, preamble detection, timestamping, fractional ToA,
-and AXI-Stream control will be added after the symbol detector is verified. TDoA
+The Simulink DUT boundary will initially contain the coherent FFT correlator:
+an `N·L` FFT, reference-spectrum multiply, `L`-partition accumulation, `N` FFT,
+and peak detection. Adaptive reference estimation, the polyphase fallback,
+channel filtering, preamble detection, timestamping, fractional ToA, and
+AXI-Stream control will be added after the symbol detector is verified. TDoA
 event association, calibration, and multilateration remain software algorithms
 validated in MATLAB; they are not initial HDL Coder targets. Generated Verilog
 is treated as a build artifact of the reviewed model and generation scripts,

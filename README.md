@@ -100,16 +100,18 @@ interleaving, and Gray/CSS mapping with all intermediate values exposed.
 
 ![CSS frame acquisition](docs/images/css-frame-acquisition-sf7.png)
 
-![Single-phase and polyphase CSS BER/SER](docs/images/css-ber-polyphase-comparison.png)
+![Current CSS demodulator versus coherent reference](docs/images/css-ber-current-vs-ideal.png)
 
-![Coded LoRa BER and PER for SF5 through SF7](docs/images/lora-coded-ber-sf5-sf7-polyphase.png)
+![Coded LoRa BER and PER for SF5 through SF7](docs/images/lora-coded-ber-sf5-sf7-fft-correlator.png)
 
 ## What the BER figure means
 
 The uncoded curves are a **demodulator baseline**, not coded LoRa packet BER.
-They compare the legacy single-decimation-phase receiver with polyphase
-FFT-power combining for 1, 2, 4, and 8 samples/chip. Preamble failures,
-whitening, FEC, interleaving, CRC, and rejected packets are excluded.
+They compare the legacy single-phase and polyphase receivers, the HDL-oriented
+FFT correlator, and an independent exact matched filter for 1, 2, 4, and 8
+samples/chip. The FFT correlator closes the former 5–6 dB `L=8` AWGN gap.
+Preamble failures, whitening, FEC, interleaving, CRC, and rejected packets are
+excluded from these uncoded curves.
 
 The coded campaign compares hard and soft decoding for SF5, SF6, and SF7 at
 CR 4/5, 8 samples/chip, and a 16-byte payload. It reports pre-FEC BER, hard and

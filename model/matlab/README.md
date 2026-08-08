@@ -112,20 +112,27 @@ reference-sweep evaluator rebuilds the deterministic firmware payload from the
 TX log and reports acquisition, header, CRC, pre-FEC BER, payload BER, and PER
 separately.
 
-For `samplesPerChip > 1`, dechirp produces one chip-rate FFT for every
-oversampling phase. `polyphase_spectrum` sums their powers bin by bin instead
-of selecting only the first phase. The LoRa symbol-bin mapping is unchanged,
-while timing-phase sensitivity and metric variance are reduced. This operation
-is an explicit block to carry into the Simulink and RTL architectures.
+`fft_correlator_metrics` is the selected coherent symbol-demodulation
+candidate. For `M=N·L`, it performs an `M`-point FFT, multiplies by the
+conjugated reference spectrum, aliases frequency bins spaced by `N`, and
+performs an `N`-point forward FFT. It is numerically equivalent to the exact
+matched-filter bank without a full `M`-point IFFT.
+
+The on-air packet receiver additionally learns a phase-aligned reference from
+the repeated preamble and evaluates the coherent and legacy polyphase paths.
+Header/CRC evidence chooses the result. This preserved 130/130 committed
+SX1262 packets while exposing real waveform mismatch: 56 packets selected the
+FFT correlator and 74 used the polyphase fallback.
 
 ## BER definitions
 
 `simulate_uncoded_ber` compares natural binary labels of transmitted and
 detected CSS indices in complex AWGN. Its fifth argument selects
-`"single-phase"`, `"polyphase"`, or `"matched-filter"`; logical false/true
-remain aliases for the first two modes. The matched filter coherently
+`"single-phase"`, `"polyphase"`, `"fft-correlator"`, or `"matched-filter"`;
+logical false/true remain aliases for the first two modes. The matched filter coherently
 correlates every complex sample with the complete cyclic-shift waveform bank
-and is the floating-point AWGN reference, not the planned RTL architecture.
+and remains the independent floating-point AWGN reference. The FFT correlator
+is the algebraically equivalent HDL-oriented decomposition.
 The table contains BER/SER, raw counts, denominators, energy-axis conversions,
 and 95% Wilson intervals.
 

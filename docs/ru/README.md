@@ -8,6 +8,7 @@
 - [Дорожная карта и критерии готовности](roadmap.md)
 - [MATLAB-модель](matlab-model.md)
 - [Simulink и генерация Verilog](simulink.md)
+- [ADR-0001: когерентный FFT-correlator и fallback](architecture-decisions/0001-coherent-css-demodulator.md)
 
 ## PHY и измерения
 

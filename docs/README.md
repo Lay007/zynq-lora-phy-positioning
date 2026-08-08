@@ -7,6 +7,7 @@
 - [System architecture](architecture.md)
 - [Roadmap and acceptance criteria](roadmap.md)
 - [MATLAB modeling flow](../model/README.md)
+- [ADR-0001: coherent FFT correlator and fallback](architecture-decisions/0001-coherent-css-demodulator.md)
 
 ## PHY algorithms and measurements
 
