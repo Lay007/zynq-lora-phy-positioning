@@ -26,6 +26,7 @@ arguments
         mustBeLessThanOrEqual(options.CodingRate,4)} = 1
     options.PayloadCrc (1,1) logical = true
     options.CoarsePreambleStartIndex (1,1) double = NaN
+    options.ReturnSymbolWindows (1,1) logical = false
 end
 
 if options.SyncWord > 255
@@ -192,7 +193,7 @@ nominalPayloadStart = preambleStart + round( ...
     (options.PreambleSymbols+2+2.25+sx126xLowSfPadding)*symbolSamples);
 searchOffsets = (-samplesPerChip:samplesPerChip).';
 bestCandidate = struct("offset", 0, "mode", "", ...
-    "symbols", zeros(0,1), ...
+    "symbols", zeros(0,1), "windows", complex(zeros(symbolSamples, 0)), ...
     "confidence", zeros(0,1), "metrics", zeros(0, 2^spreadingFactor), ...
     "hardDecoded", struct, "softDecoded", struct, ...
     "decoded", struct, "score", -inf);
@@ -204,7 +205,7 @@ for mode = demodulationModes
             (effectivePacketEnd-candidateStart+1)/symbolSamples);
         candidateSymbolCount = max(0, min( ...
             options.MaximumPayloadSymbols, candidateSymbolCount));
-        [symbols, confidence, metrics] = demodulate_windows( ...
+        [symbols, confidence, metrics, windows] = demodulate_windows( ...
             workingIq, candidateStart, candidateSymbolCount, preambleStart, ...
             sampleRateHz, bandwidthHz, spreadingFactor, ...
             demodulationCentreHz, demodulationResidualCfoHz, ...
@@ -242,6 +243,7 @@ for mode = demodulationModes
             bestCandidate.offset = searchOffsets(candidate);
             bestCandidate.mode = mode;
             bestCandidate.symbols = symbols;
+            bestCandidate.windows = windows;
             bestCandidate.confidence = confidence;
             bestCandidate.metrics = metrics;
             bestCandidate.hardDecoded = hardDecoded;
@@ -290,6 +292,19 @@ result.usedChirpPreambleSearch = usedChirpSearch;
 result.residualCfoHz = demodulationResidualCfoHz;
 result.softDecoding = options.SoftDecoding;
 result.demodulationMode = bestCandidate.mode;
+% The corrected per-symbol windows are the exact input the Simulink and HDL
+% correlator DUT consumes. They are returned only on request because a long
+% capture holds many megabytes of them.
+if options.ReturnSymbolWindows
+    result.symbolWindows = bestCandidate.windows;
+    result.correlationReference = adaptiveReference;
+    result.nominalReference = lora_phy.reference_chirp( ...
+        lora_phy.css_config(spreadingFactor, samplesPerChip));
+else
+    result.symbolWindows = complex(zeros(symbolSamples, 0));
+    result.correlationReference = complex(zeros(0, 1));
+    result.nominalReference = complex(zeros(0, 1));
+end
 result.decodingMethod = "hard";
 if options.SoftDecoding && isequaln(decoded, bestCandidate.softDecoded)
     result.decodingMethod = "soft";
@@ -383,22 +398,13 @@ downDechirped = iq(downIndices(:)).* ...
     upDechirped, samplesPerChip));
 [~, downBin] = max(lora_phy.polyphase_spectrum( ...
     downDechirped, samplesPerChip));
-upSigned = signed_bin(upBin-1, config.symbolCount);
-downSigned = signed_bin(downBin-1, config.symbolCount);
-timingChips = 0.5*(upSigned-downSigned);
-correctionSamples = round(-timingChips*samplesPerChip);
-if abs(correctionSamples) > symbolSamples/2+samplesPerChip
-    correctionSamples = 0;
-end
-cfoBins = 0.5*(upSigned+downSigned);
-cfoHz = cfoBins*fs/symbolSamples;
+estimate = lora_phy.joint_timing_cfo_from_bins( ...
+    upBin-1, downBin-1, config);
+correctionSamples = estimate.correctionSamples;
+cfoHz = estimate.cfoBins*fs/symbolSamples;
 end
 
-function value = signed_bin(bin, modulus)
-value = mod(double(bin)+modulus/2, modulus)-modulus/2;
-end
-
-function [symbols, confidence, metrics] = demodulate_windows( ...
+function [symbols, confidence, metrics, windows] = demodulate_windows( ...
     iq, startIndex, symbolCount, phaseOrigin, fs, bw, sf, centre, ...
     residualCfo, mode, correlationReference)
 samplesPerChip = round(fs/bw);
@@ -408,6 +414,7 @@ if symbolCount < 1 || startIndex < 1 || ...
     symbols = zeros(0, 1);
     confidence = zeros(0, 1);
     metrics = zeros(0, 2^sf);
+    windows = complex(zeros(symbolSamples, 0));
     return
 end
 config = lora_phy.css_config(sf, samplesPerChip);
@@ -417,11 +424,13 @@ residualCorrection = exp(-2j*pi*residualCfo*localTime);
 symbols = zeros(symbolCount, 1);
 confidence = zeros(symbolCount, 1);
 metrics = zeros(symbolCount, 2^sf);
+windows = complex(zeros(symbolSamples, symbolCount));
 for symbol = 1:symbolCount
     indices = startIndex+(symbol-1)*symbolSamples+(0:symbolSamples-1);
     carrierTime = (indices(:)-phaseOrigin)/fs;
     window = iq(indices(:)).*exp(-2j*pi*centre*carrierTime);
     corrected = window.*residualCorrection;
+    windows(:, symbol) = corrected;
     if mode == "fft-correlator"
         [symbols(symbol), confidence(symbol), metrics(symbol, :)] = ...
             lora_phy.fft_correlator_metrics(corrected, config, ...
