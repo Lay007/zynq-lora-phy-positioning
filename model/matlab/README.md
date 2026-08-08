@@ -121,16 +121,19 @@ is an explicit block to carry into the Simulink and RTL architectures.
 ## BER definitions
 
 `simulate_uncoded_ber` compares natural binary labels of transmitted and
-detected CSS indices in complex AWGN. Its fifth argument selects production
-polyphase combining or the legacy first-phase baseline. The table contains
-BER/SER, raw counts, denominators, energy-axis conversions, and 95% Wilson
-intervals.
+detected CSS indices in complex AWGN. Its fifth argument selects
+`"single-phase"`, `"polyphase"`, or `"matched-filter"`; logical false/true
+remain aliases for the first two modes. The matched filter coherently
+correlates every complex sample with the complete cyclic-shift waveform bank
+and is the floating-point AWGN reference, not the planned RTL architecture.
+The table contains BER/SER, raw counts, denominators, energy-axis conversions,
+and 95% Wilson intervals.
 
 `simulate_coded_ber` additionally reports pre-FEC BER, hard and soft payload
 BER/PER, soft-recovered packets, header/CRC failures, undetected errors, and
 confidence intervals. Failed packet decodes count all payload bits as errors.
 
-Generate the current two-figure campaign with:
+Generate the current three-figure campaign with:
 
 ```matlab
 addpath examples

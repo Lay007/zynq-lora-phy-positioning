@@ -87,5 +87,26 @@ classdef TestCssModel < matlab.unittest.TestCase
             testCase.verifyEqual(polyphase, 19);
             testCase.verifyEqual(singlePhase, 0);
         end
+
+        function coherentMatchedFilterRoundTripsEverySymbol(testCase)
+            config = lora_phy.css_config(5, 8);
+            transmitted = (0:config.symbolCount-1).';
+
+            [received, confidence, metrics] = ...
+                lora_phy.matched_filter_metrics( ...
+                lora_phy.modulate(transmitted, config), config);
+
+            testCase.verifyEqual(received, transmitted);
+            testCase.verifySize(confidence, [config.symbolCount, 1]);
+            testCase.verifySize(metrics, ...
+                [config.symbolCount, config.symbolCount]);
+        end
+
+        function matchedFilterRejectsIncompleteSymbols(testCase)
+            config = lora_phy.css_config(5, 8);
+            testCase.verifyError(@() lora_phy.matched_filter_metrics( ...
+                ones(config.samplesPerSymbol-1, 1), config), ...
+                "lora_phy:InvalidSampleCount");
+        end
     end
 end

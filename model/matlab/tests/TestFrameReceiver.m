@@ -50,6 +50,18 @@ classdef TestFrameReceiver < matlab.unittest.TestCase
             testCase.verifyGreaterThanOrEqual(results.BER_Upper95, results.BER);
         end
 
+        function uncodedBerSupportsMatchedFilterReference(testCase)
+            config = lora_phy.css_config(5, 4);
+            results = lora_phy.simulate_uncoded_ber( ...
+                -8, config, 40, 12, "matched-filter");
+
+            testCase.verifyEqual(results.DemodulationMode, "matched-filter");
+            testCase.verifyEqual(results.Symbols, 40);
+            testCase.verifyError(@() lora_phy.simulate_uncoded_ber( ...
+                -8, config, 10, 12, "unknown"), ...
+                "lora_phy:InvalidBerOption");
+        end
+
         function wilsonIntervalBoundsZeroErrorRate(testCase)
             [lower, upper] = lora_phy.binomial_wilson_interval(0, 100);
 
