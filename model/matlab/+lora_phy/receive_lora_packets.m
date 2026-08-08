@@ -17,6 +17,12 @@ arguments
     options.SoftDecoding (1,1) logical = true
     options.MaximumPayloadSymbols (1,1) double {mustBeInteger, mustBePositive} = 1024
     options.MaximumCandidates (1,1) double {mustBeInteger, mustBePositive} = 128
+    options.ExplicitHeader (1,1) logical = true
+    options.PayloadLength (1,1) double = NaN
+    options.CodingRate (1,1) double ...
+        {mustBeInteger, mustBeGreaterThanOrEqual(options.CodingRate,1), ...
+        mustBeLessThanOrEqual(options.CodingRate,4)} = 1
+    options.PayloadCrc (1,1) logical = true
 end
 
 iq = double(iq(:));
@@ -33,12 +39,58 @@ minimumRunSamples = max(detector.blockLength, round( ...
 longEnough = runs(:, 2)-runs(:, 1)+1 >= minimumRunSamples;
 runs = runs(longEnough, :);
 detector.runExcessPower = detector.runExcessPower(longEnough);
+[chirpStarts, chirpDiagnostics] = lora_phy.detect_lora_preambles( ...
+    iq, sampleRateHz, bandwidthHz, spreadingFactor, ...
+    PreambleSymbols=options.PreambleSymbols, SyncWord=options.SyncWord);
+energyRuns = runs;
+candidatePreambleStarts = nan(size(runs, 1), 1);
+candidateSources = repmat("energy", size(runs, 1), 1);
+candidateScores = detector.runExcessPower(:);
+for chirp = 1:numel(chirpStarts)
+    nearby = find(chirpStarts(chirp) >= runs(:, 1)-2*symbolSamples & ...
+        chirpStarts(chirp) <= runs(:, 2)+2*symbolSamples & ...
+        isnan(candidatePreambleStarts), 1);
+    if ~isempty(nearby)
+        candidatePreambleStarts(nearby) = chirpStarts(chirp);
+        candidateSources(nearby) = "energy+chirp";
+        candidateScores(nearby) = candidateScores(nearby)+ ...
+            chirpDiagnostics.selectedScores(chirp);
+    else
+        % A strong packet elsewhere in the capture must not suppress a
+        % chirp-validated packet that remains below the energy threshold.
+        % Keep every unmatched chirp sequence as an independent candidate.
+        pseudoStart = max(1, chirpStarts(chirp)-symbolSamples);
+        pseudoEnd = min(numel(iq), chirpStarts(chirp)+ ...
+            (options.PreambleSymbols+4)*symbolSamples-1);
+        runs(end+1, :) = [pseudoStart, pseudoEnd]; %#ok<AGROW>
+        candidatePreambleStarts(end+1, 1) = chirpStarts(chirp); %#ok<AGROW>
+        candidateSources(end+1, 1) = "chirp"; %#ok<AGROW>
+        candidateScores(end+1, 1) = ...
+            chirpDiagnostics.selectedScores(chirp); %#ok<AGROW>
+    end
+end
+if ~isempty(runs)
+    candidateCentres = mean(runs, 2);
+    hasPreambleStart = isfinite(candidatePreambleStarts);
+    candidateCentres(hasPreambleStart) = ...
+        candidatePreambleStarts(hasPreambleStart);
+    [~, order] = sort(candidateCentres);
+    runs = runs(order, :);
+    candidatePreambleStarts = candidatePreambleStarts(order);
+    candidateSources = candidateSources(order);
+    candidateScores = candidateScores(order);
+end
+detector.energyRuns = energyRuns;
+detector.chirp = chirpDiagnostics;
+detector.runExcessPower = candidateScores;
 if size(runs, 1) > options.MaximumCandidates
-    runPower = detector.runExcessPower;
+    runPower = candidateScores;
     [~, order] = sort(runPower, "descend");
     selected = sort(order(1:options.MaximumCandidates));
     runs = runs(selected, :);
     detector.runExcessPower = runPower(selected);
+    candidatePreambleStarts = candidatePreambleStarts(selected);
+    candidateSources = candidateSources(selected);
 end
 
 receptionCells = cell(size(runs, 1), 1);
@@ -50,24 +102,43 @@ segmentBounds = zeros(size(runs));
 % then lock to a stronger artefact instead of the detected LoRa packet.
 guardSamples = max(4*symbolSamples, 2*detector.blockLength);
 segmentGuardSamples = zeros(size(runs, 1), 1);
+hasChirp = candidateSources == "chirp";
 for candidate = 1:size(runs, 1)
-    if candidate == 1
-        segmentStart = 1;
-    else
-        segmentStart = floor(0.5*(runs(candidate-1, 2)+runs(candidate, 1)))+1;
-    end
-    if candidate == size(runs, 1)
+    if hasChirp(candidate)
+        segmentStart = max(1, ...
+            candidatePreambleStarts(candidate)-2*symbolSamples);
+        % A repeated payload symbol can look like a preamble candidate.
+        % Do not let that unvalidated candidate truncate the preceding real
+        % packet. The supplied coarse start keeps the single-packet receiver
+        % local even though its candidate segment extends to stream end.
         segmentEnd = numel(iq);
     else
-        segmentEnd = floor(0.5*(runs(candidate, 2)+runs(candidate+1, 1)));
+        if candidate == 1
+            segmentStart = 1;
+        else
+            segmentStart = floor(0.5*(runs(candidate-1, 2)+ ...
+                runs(candidate, 1)))+1;
+        end
+        if candidate == size(runs, 1)
+            segmentEnd = numel(iq);
+        else
+            segmentEnd = floor(0.5*(runs(candidate, 2)+ ...
+                runs(candidate+1, 1)));
+        end
     end
     candidateGuard = max(guardSamples, ...
         runs(candidate, 2)-runs(candidate, 1)+1);
     segmentGuardSamples(candidate) = candidateGuard;
-    segmentStart = max(segmentStart, runs(candidate, 1)-candidateGuard);
-    segmentEnd = min(segmentEnd, runs(candidate, 2)+candidateGuard);
+    if ~hasChirp(candidate)
+        segmentStart = max(segmentStart, runs(candidate, 1)-candidateGuard);
+        segmentEnd = min(segmentEnd, runs(candidate, 2)+candidateGuard);
+    end
     segmentBounds(candidate, :) = [segmentStart, segmentEnd];
     try
+        coarseLocal = NaN;
+        if hasChirp(candidate)
+            coarseLocal = candidatePreambleStarts(candidate)-segmentStart+1;
+        end
         reception = lora_phy.receive_lora_packet( ...
             iq(segmentStart:segmentEnd), sampleRateHz, bandwidthHz, ...
             spreadingFactor, PreambleSymbols=options.PreambleSymbols, ...
@@ -75,12 +146,21 @@ for candidate = 1:size(runs, 1)
             LowDataRateOptimization=options.LowDataRateOptimization, ...
             ExpectedCarrierOffsetHz=options.ExpectedCarrierOffsetHz, ...
             SoftDecoding=options.SoftDecoding, ...
-            MaximumPayloadSymbols=options.MaximumPayloadSymbols);
+            MaximumPayloadSymbols=options.MaximumPayloadSymbols, ...
+            ExplicitHeader=options.ExplicitHeader, ...
+            PayloadLength=options.PayloadLength, ...
+            CodingRate=options.CodingRate, PayloadCrc=options.PayloadCrc, ...
+            CoarsePreambleStartIndex=coarseLocal);
         selectedSegmentStart = segmentStart;
         if ~(reception.preambleValid && reception.syncValid)
             retryStart = runs(candidate, 1);
             if retryStart > segmentStart
                 try
+                    retryCoarse = NaN;
+                    if hasChirp(candidate)
+                        retryCoarse = candidatePreambleStarts(candidate)- ...
+                            retryStart+1;
+                    end
                     retry = lora_phy.receive_lora_packet( ...
                         iq(retryStart:segmentEnd), sampleRateHz, bandwidthHz, ...
                         spreadingFactor, PreambleSymbols=options.PreambleSymbols, ...
@@ -88,7 +168,12 @@ for candidate = 1:size(runs, 1)
                         LowDataRateOptimization=options.LowDataRateOptimization, ...
                         ExpectedCarrierOffsetHz=options.ExpectedCarrierOffsetHz, ...
                         SoftDecoding=options.SoftDecoding, ...
-                        MaximumPayloadSymbols=options.MaximumPayloadSymbols);
+                        MaximumPayloadSymbols=options.MaximumPayloadSymbols, ...
+                        ExplicitHeader=options.ExplicitHeader, ...
+                        PayloadLength=options.PayloadLength, ...
+                        CodingRate=options.CodingRate, ...
+                        PayloadCrc=options.PayloadCrc, ...
+                        CoarsePreambleStartIndex=retryCoarse);
                     originalQuality = acquisition_quality(reception);
                     retryQuality = acquisition_quality(retry);
                     if retryQuality > originalQuality
@@ -139,6 +224,8 @@ result.bandwidthHz = bandwidthHz;
 result.spreadingFactor = spreadingFactor;
 result.guardSamples = guardSamples;
 result.segmentGuardSamples = segmentGuardSamples;
+result.candidatePreambleStarts = candidatePreambleStarts;
+result.candidateSources = candidateSources;
 end
 
 function [runs, detector] = detect_activity_runs( ...

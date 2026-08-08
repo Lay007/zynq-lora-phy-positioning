@@ -19,6 +19,9 @@ arguments
     options.IqPhaseImbalanceDegrees (1,1) double = 0
     options.DcOffset (1,1) double = 0
     options.SnrDb (1,1) double = Inf
+    options.NoiseReferencePower (1,1) double = NaN
+    options.AdcFullScale (1,1) double {mustBePositive} = Inf
+    options.AdcBits (1,1) double = Inf
     options.RandomSeed (1,1) double ...
         {mustBeInteger, mustBeNonnegative} = 0
 end
@@ -33,6 +36,22 @@ if any(options.MultipathDelaysSamples < 0)
 end
 if isnan(options.SnrDb)
     error("lora_phy:InvalidSnr", "SnrDb cannot be NaN");
+end
+if ~(isnan(options.NoiseReferencePower) || ...
+        (isfinite(options.NoiseReferencePower) && ...
+        options.NoiseReferencePower > 0))
+    error("lora_phy:InvalidNoiseReference", ...
+        "NoiseReferencePower must be NaN or finite and positive");
+end
+if ~(isinf(options.AdcBits) || (isfinite(options.AdcBits) && ...
+        options.AdcBits == fix(options.AdcBits) && ...
+        options.AdcBits >= 2 && options.AdcBits <= 24))
+    error("lora_phy:InvalidAdcBits", ...
+        "AdcBits must be Inf or an integer from 2 through 24");
+end
+if isfinite(options.AdcBits) && ~isfinite(options.AdcFullScale)
+    error("lora_phy:MissingAdcFullScale", ...
+        "Finite AdcBits requires a finite AdcFullScale");
 end
 
 samples = double(samples(:));
@@ -61,19 +80,43 @@ qComponent = qGain*(cos(phaseError)*imag(impaired)+ ...
 impaired = complex(iComponent, qComponent)+options.DcOffset;
 
 signalPower = mean(abs(impaired).^2);
+noiseReferencePower = signalPower;
+if ~isnan(options.NoiseReferencePower)
+    noiseReferencePower = options.NoiseReferencePower;
+end
 noisePower = 0;
 if isfinite(options.SnrDb)
-    if signalPower == 0
+    if noiseReferencePower == 0
         error("lora_phy:ZeroSignal", ...
             "Cannot define SNR for an all-zero impaired signal");
     end
-    noisePower = signalPower/10^(options.SnrDb/10);
+    noisePower = noiseReferencePower/10^(options.SnrDb/10);
     previousState = rng;
     restoreState = onCleanup(@() rng(previousState));
     rng(options.RandomSeed, "twister");
     noise = sqrt(noisePower/2)*( ...
         randn(size(impaired))+1j*randn(size(impaired)));
     impaired = impaired+noise;
+end
+
+clippedSampleCount = 0;
+if isfinite(options.AdcFullScale)
+    unclipped = impaired;
+    clippedI = min(max(real(impaired), -options.AdcFullScale), ...
+        options.AdcFullScale);
+    clippedQ = min(max(imag(impaired), -options.AdcFullScale), ...
+        options.AdcFullScale);
+    impaired = complex(clippedI, clippedQ);
+    clippedSampleCount = nnz(impaired ~= unclipped);
+end
+quantizationStep = 0;
+if isfinite(options.AdcBits)
+    quantizationStep = 2*options.AdcFullScale/(2^options.AdcBits-1);
+    quantizedI = round((real(impaired)+options.AdcFullScale)/ ...
+        quantizationStep)*quantizationStep-options.AdcFullScale;
+    quantizedQ = round((imag(impaired)+options.AdcFullScale)/ ...
+        quantizationStep)*quantizationStep-options.AdcFullScale;
+    impaired = complex(quantizedI, quantizedQ);
 end
 
 diagnostics = struct;
@@ -88,6 +131,11 @@ diagnostics.iqPhaseImbalanceDegrees = options.IqPhaseImbalanceDegrees;
 diagnostics.dcOffset = options.DcOffset;
 diagnostics.requestedSnrDb = options.SnrDb;
 diagnostics.signalPower = signalPower;
+diagnostics.noiseReferencePower = noiseReferencePower;
 diagnostics.noisePower = noisePower;
+diagnostics.adcFullScale = options.AdcFullScale;
+diagnostics.adcBits = options.AdcBits;
+diagnostics.clippedSampleCount = clippedSampleCount;
+diagnostics.quantizationStep = quantizationStep;
 diagnostics.randomSeed = options.RandomSeed;
 end

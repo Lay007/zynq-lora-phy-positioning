@@ -19,6 +19,13 @@ arguments
     options.ExpectedCarrierOffsetHz (1,1) double = NaN
     options.SoftDecoding (1,1) logical = true
     options.MaximumPayloadSymbols (1,1) double {mustBeInteger, mustBePositive} = 1024
+    options.ExplicitHeader (1,1) logical = true
+    options.PayloadLength (1,1) double = NaN
+    options.CodingRate (1,1) double ...
+        {mustBeInteger, mustBeGreaterThanOrEqual(options.CodingRate,1), ...
+        mustBeLessThanOrEqual(options.CodingRate,4)} = 1
+    options.PayloadCrc (1,1) logical = true
+    options.CoarsePreambleStartIndex (1,1) double = NaN
 end
 
 if options.SyncWord > 255
@@ -53,7 +60,12 @@ inspection = lora_phy.inspect_iq_capture(workingIq, sampleRateHz, ...
 demodulationCentreHz = inspection.estimatedCarrierOffsetHz;
 demodulationResidualCfoHz = inspection.residualCfoHz;
 coarsePreambleStart = inspection.alignedStartIndex;
-effectivePacketEnd = inspection.packetEndIndex;
+% The energy inspector estimates a visualization burst, not a normative
+% packet boundary. CSS payload power can cross its adaptive threshold and
+% make that estimate end at the SFD, especially for an implicit header.
+% The caller owns segment isolation; the PHY header/configuration owns the
+% number of symbols consumed from that segment.
+effectivePacketEnd = numel(workingIq);
 usedChirpSearch = inspection.packetStartIndex == 1 && ...
     inspection.packetEndIndex > 0.5*numel(workingIq);
 usedChirpSearch = usedChirpSearch || ...
@@ -64,7 +76,21 @@ if usedChirpSearch
         spreadingFactor, samplesPerChip, options.PreambleSymbols);
     demodulationCentreHz = 0;
     demodulationResidualCfoHz = 0;
-    effectivePacketEnd = numel(workingIq);
+end
+if isfinite(options.CoarsePreambleStartIndex)
+    if options.CoarsePreambleStartIndex < 1 || ...
+            options.CoarsePreambleStartIndex ~= ...
+            fix(options.CoarsePreambleStartIndex)
+        error("lora_phy:InvalidCoarsePreambleStart", ...
+            "CoarsePreambleStartIndex must be NaN or a positive integer");
+    end
+    coarsePreambleStart = options.CoarsePreambleStartIndex;
+    usedChirpSearch = true;
+else
+    coarsePreambleStart = refine_chirp_phase(workingIq, ...
+        coarsePreambleStart, spreadingFactor, samplesPerChip, sampleRateHz, ...
+        demodulationCentreHz+demodulationResidualCfoHz, ...
+        options.PreambleSymbols);
 end
 
 acquisitionCount = options.PreambleSymbols+2;
@@ -85,11 +111,20 @@ bestAcquisitionScore = -inf;
 preambleStart = inspection.alignedStartIndex;
 acquisitionSymbols = zeros(0, 1);
 acquisitionConfidence = zeros(0, 1);
+bestAcquisitionCfoHz = demodulationCentreHz+demodulationResidualCfoHz;
 for candidateStart = preambleCandidates.'
+    candidateSfdStart = candidateStart+acquisitionCount*symbolSamples;
+    [candidateCorrection, candidateCfoHz] = estimate_joint_timing_cfo( ...
+        workingIq, candidateStart, candidateSfdStart, spreadingFactor, ...
+        samplesPerChip, sampleRateHz);
+    candidateStart = candidateStart+candidateCorrection;
+    if ~isfinite(candidateCfoHz)
+        candidateCfoHz = bestAcquisitionCfoHz;
+    end
     [candidateSymbols, candidateConfidence] = demodulate_windows( ...
         workingIq, candidateStart, acquisitionCount, candidateStart, ...
         sampleRateHz, bandwidthHz, spreadingFactor, ...
-        demodulationCentreHz, demodulationResidualCfoHz, ...
+        candidateCfoHz, 0, ...
         "polyphase", zeros(0, 1));
     if numel(candidateSymbols) ~= acquisitionCount
         continue
@@ -105,6 +140,7 @@ for candidateStart = preambleCandidates.'
         preambleStart = candidateStart;
         acquisitionSymbols = candidateSymbols;
         acquisitionConfidence = candidateConfidence;
+        bestAcquisitionCfoHz = candidateCfoHz;
     end
 end
 % Every candidate offset is rejected when the segment cannot hold a complete
@@ -117,6 +153,8 @@ if numel(acquisitionSymbols) ~= acquisitionCount
         "the segment is too short to validate the preamble and sync word", ...
         acquisitionCount);
 end
+demodulationCentreHz = bestAcquisitionCfoHz;
+demodulationResidualCfoHz = 0;
 preambleBins = acquisitionSymbols(1:options.PreambleSymbols);
 syncBins = acquisitionSymbols(options.PreambleSymbols+(1:2));
 preambleValid = all(circular_distance(preambleBins, 0, 2^spreadingFactor) <= 1);
@@ -136,6 +174,18 @@ else
 end
 config = lora_phy.phy_config(spreadingFactor, samplesPerChip, 1);
 config.lowDataRateOptimization = lowDataRateOptimization;
+config.codingRate = options.CodingRate;
+config.payloadCrc = options.PayloadCrc;
+config.explicitHeader = options.ExplicitHeader;
+if ~config.explicitHeader
+    if ~isscalar(options.PayloadLength) || ~isfinite(options.PayloadLength) || ...
+            options.PayloadLength < 0 || options.PayloadLength > 255 || ...
+            options.PayloadLength ~= fix(options.PayloadLength)
+        error("lora_phy:MissingPayloadLength", ...
+            "Implicit-header reception requires PayloadLength in [0, 255]");
+    end
+    config.payloadLength = options.PayloadLength;
+end
 
 sx126xLowSfPadding = 2*(spreadingFactor < 7);
 nominalPayloadStart = preambleStart + round( ...
@@ -277,6 +327,75 @@ for index = 1:last
 end
 [~, best] = max(scores);
 startIndex = starts(best);
+end
+
+function refinedStart = refine_chirp_phase( ...
+    iq, coarseStart, sf, samplesPerChip, fs, cfoHz, preambleSymbols)
+% Use a matched chirp to recover the sample phase that an energy boundary
+% cannot provide. A subsequent symbol-spaced search still determines which
+% repeated upchirp is the first preamble symbol.
+config = lora_phy.css_config(sf, samplesPerChip);
+reference = lora_phy.reference_chirp(config);
+symbolSamples = config.samplesPerSymbol;
+repetitions = min(4, preambleSymbols);
+searchStart = max(1, round(coarseStart)-symbolSamples);
+searchEnd = min(numel(iq)-repetitions*symbolSamples+1, ...
+    round(coarseStart)+symbolSamples);
+if searchEnd < searchStart
+    refinedStart = coarseStart;
+    return
+end
+localStart = searchStart;
+localEnd = min(numel(iq), searchEnd+repetitions*symbolSamples-1);
+indices = (localStart:localEnd).';
+corrected = iq(indices).*exp(-2j*pi*cfoHz*(indices-1)/fs);
+matched = conv(corrected, flipud(conj(reference)), "valid");
+energy = conv(abs(corrected).^2, ones(symbolSamples, 1), "valid");
+candidateCount = searchEnd-searchStart+1;
+scores = zeros(candidateCount, 1);
+for repetition = 0:repetitions-1
+    rows = (1:candidateCount)+repetition*symbolSamples;
+    normalized = abs(matched(rows))./ ...
+        sqrt(max(symbolSamples*energy(rows), eps));
+    scores = scores+normalized(:)/repetitions;
+end
+[~, best] = max(scores);
+refinedStart = searchStart+best-1;
+end
+
+function [correctionSamples, cfoHz] = estimate_joint_timing_cfo( ...
+    iq, upStart, downStart, sf, samplesPerChip, fs)
+config = lora_phy.css_config(sf, samplesPerChip);
+symbolSamples = config.samplesPerSymbol;
+if upStart < 1 || downStart < 1 || ...
+        upStart+symbolSamples-1 > numel(iq) || ...
+        downStart+symbolSamples-1 > numel(iq)
+    correctionSamples = 0;
+    cfoHz = NaN;
+    return
+end
+upIndices = upStart+(0:symbolSamples-1);
+downIndices = downStart+(0:symbolSamples-1);
+upDechirped = iq(upIndices(:)).*conj(lora_phy.reference_chirp(config, "up"));
+downDechirped = iq(downIndices(:)).* ...
+    conj(lora_phy.reference_chirp(config, "down"));
+[~, upBin] = max(lora_phy.polyphase_spectrum( ...
+    upDechirped, samplesPerChip));
+[~, downBin] = max(lora_phy.polyphase_spectrum( ...
+    downDechirped, samplesPerChip));
+upSigned = signed_bin(upBin-1, config.symbolCount);
+downSigned = signed_bin(downBin-1, config.symbolCount);
+timingChips = 0.5*(upSigned-downSigned);
+correctionSamples = round(-timingChips*samplesPerChip);
+if abs(correctionSamples) > symbolSamples/2+samplesPerChip
+    correctionSamples = 0;
+end
+cfoBins = 0.5*(upSigned+downSigned);
+cfoHz = cfoBins*fs/symbolSamples;
+end
+
+function value = signed_bin(bin, modulus)
+value = mod(double(bin)+modulus/2, modulus)-modulus/2;
 end
 
 function [symbols, confidence, metrics] = demodulate_windows( ...

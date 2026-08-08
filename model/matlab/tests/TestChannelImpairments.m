@@ -53,5 +53,38 @@ classdef TestChannelImpairments < matlab.unittest.TestCase
                 ones(8, 1), 1e6, MultipathDelaysSamples=[0; 1], ...
                 MultipathGains=1), "lora_phy:PathCountMismatch");
         end
+
+        function streamNoiseUsesExplicitPacketPowerReference(testCase)
+            samples = [ones(100, 1); zeros(900, 1)];
+
+            [actual, diagnostics] = lora_phy.apply_channel_impairments( ...
+                samples, 1e6, SnrDb=10, NoiseReferencePower=1, ...
+                RandomSeed=81);
+
+            measuredNoisePower = mean(abs(actual-samples).^2);
+            testCase.verifyEqual(diagnostics.noiseReferencePower, 1);
+            testCase.verifyEqual(measuredNoisePower, 0.1, "AbsTol", 0.015);
+        end
+
+        function clippingAndQuantizationModelAdc(testCase)
+            samples = complex([-2; -0.2; 0.2; 2], [2; 0.2; -0.2; -2]);
+
+            [actual, diagnostics] = lora_phy.apply_channel_impairments( ...
+                samples, 1e6, AdcFullScale=1, AdcBits=3);
+
+            testCase.verifyGreaterThan(diagnostics.clippedSampleCount, 0);
+            testCase.verifyEqual(diagnostics.quantizationStep, 2/7, ...
+                "AbsTol", 1e-12);
+            testCase.verifyLessThanOrEqual(max(abs(real(actual))), 1);
+            testCase.verifyLessThanOrEqual(max(abs(imag(actual))), 1);
+            levels = (real(actual)+1)/diagnostics.quantizationStep;
+            testCase.verifyEqual(levels, round(levels), "AbsTol", 1e-12);
+        end
+
+        function quantizerRequiresFiniteFullScale(testCase)
+            testCase.verifyError(@() lora_phy.apply_channel_impairments( ...
+                ones(8, 1), 1e6, AdcBits=12), ...
+                "lora_phy:MissingAdcFullScale");
+        end
     end
 end
