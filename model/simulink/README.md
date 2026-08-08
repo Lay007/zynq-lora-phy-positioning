@@ -22,27 +22,55 @@ them as absent.
 
 ## First DUT
 
-The initial HDL-oriented subsystem will implement:
+Build the streaming correlator. The `.slx` is an output, never an input:
 
-```text
-complex sample stream
-    → N·L streaming FFT
-    → reference-spectrum multiply
-    → sum L frequency partitions
-    → N-point FFT
-    → magnitude/peak detector
-    → symbol index + valid
+```matlab
+cd model/simulink
+info = build_fft_correlator_model;                                % SF7, L=8
+info = build_fft_correlator_model(SpreadingFactor=9, SamplesPerChip=2);
 ```
 
-The model must define:
+Models are written to `generated/`, which is git-ignored. Deleting that
+directory and re-running the builder is the normal workflow.
 
-- sample and clock rates;
-- `valid`, framing, and backpressure behavior;
-- fixed-point types at every boundary;
-- rounding, saturation, and overflow policy;
-- pipeline latency and reset behavior;
-- tunable versus compile-time LoRa parameters;
-- comparison points against MATLAB golden vectors.
+`DUT` implements the coherent FFT correlator with one block per MATLAB
+comparison point:
+
+```text
+iqIn / validIn
+    → InputFraming          symbol boundary from a mod-M sample counter
+    → FFT_M                 dsphdl.FFT, length M = N·L, natural order,
+                            unnormalized so it equals fft()
+    → BinCounter            frequency bin index q = 0…M-1
+    → RomReal / RomImag     conj(fft(reference)) as two ROMs addressed by q
+    → Multiply              product = fftM .* conjReferenceSpectrum
+    → PartitionAccumulate   y[q] = product[q] + y[q-N], an N-deep comb whose
+                            last N outputs are the frequency partitions
+    → FFT_N                 dsphdl.FFT, length N
+    → ScaleByM              1/M, an exact power-of-two shift
+    → MagnitudeSquared      |.|²
+    → PeakTracker           first-maximum bin, peak, spectrum sum
+    → Confidence            peak / max(spectrumSum, eps)
+```
+
+The partition accumulator is the one place where the Simulink structure
+deliberately differs from the MATLAB expression. MATLAB reshapes the `M`
+product bins to `N × L` and sums along `L`; the DUT cannot buffer a whole
+symbol of bins, so it runs a length-`N` recursive comb and keeps the last `N`
+outputs. `TestCorrelatorStageVectors` proves the two are equal.
+
+`SpreadingFactor` and `SamplesPerChip` are compile-time: they set both FFT
+lengths and the ROM depth, so a different configuration is a different
+generated model. Everything else in the frozen interface contract is tunable
+or a run-time signal.
+
+The DUT exposes six production outputs (`symbolIndex`, `symbolValid`,
+`confidence`, `peakMagnitudeSquared`, `spectrumSum`, `symbolBoundary`) and
+eight verification taps (`stageFftM`, `stageProduct`, `stagePartition`,
+`stageFftN`, `stageMagnitudeSquared`, `fftMValid`, `partitionValid`,
+`fftNValid`). The taps carry signals that already exist internally, so they
+cost ports rather than logic; gating them out of the HDL target is an M3 task
+and is not done yet.
 
 The first DUT implements only the coherent FFT-correlator path. Adaptive
 preamble-reference estimation, the legacy polyphase fallback, packet decoding,

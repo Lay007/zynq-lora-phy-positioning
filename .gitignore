@@ -51,3 +51,6 @@ article/
 tmp/
 .DS_Store
 Thumbs.db
+
+# Script-generated Simulink models and reports
+model/simulink/generated/
