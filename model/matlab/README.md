@@ -120,11 +120,19 @@ is an explicit block to carry into the Simulink and RTL architectures.
 
 ## BER definitions
 
-`simulate_uncoded_ber` compares the natural binary labels of transmitted and
-detected CSS symbol indices in complex AWGN. It assumes known symbol timing and
-does not include preamble failures, coding, or packet rejection. The returned
-table contains BER, SER, raw error counts, and trial counts.
+`simulate_uncoded_ber` compares natural binary labels of transmitted and
+detected CSS indices in complex AWGN. Its fifth argument selects production
+polyphase combining or the legacy first-phase baseline. The table contains
+BER/SER, raw counts, denominators, energy-axis conversions, and 95% Wilson
+intervals.
 
-`simulate_coded_ber` additionally reports pre-FEC BER, recovered-payload BER,
-PER, header failures, and CRC failures. Failed packet decodes count all payload
-bits as errors in its conservative payload-BER metric.
+`simulate_coded_ber` additionally reports pre-FEC BER, hard and soft payload
+BER/PER, soft-recovered packets, header/CRC failures, undetected errors, and
+confidence intervals. Failed packet decodes count all payload bits as errors.
+
+Generate the current two-figure campaign with:
+
+```matlab
+addpath examples
+campaign = plot_ber_campaign;
+```

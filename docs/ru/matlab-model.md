@@ -100,8 +100,17 @@ single-packet отчётом. Подробнее:
 ## Определения BER
 
 `simulate_uncoded_ber` сравнивает двоичные метки переданных и обнаруженных CSS
-символов в AWGN. В него не входят преамбула, FEC и CRC.
+символов в AWGN. Пятый аргумент переключает рабочее polyphase-объединение и
+legacy single-phase baseline. В результат входят raw counts, denominators,
+оси энергии и 95%-интервалы Wilson; преамбула, FEC и CRC не моделируются.
 
-`simulate_coded_ber` сообщает pre-FEC BER, payload BER, PER, число ошибок
-заголовка и CRC. Если заголовок не декодирован или длина неверна, все payload
-bits считаются ошибочными — это консервативное определение.
+`simulate_coded_ber` сообщает pre-FEC BER, hard/soft payload BER и PER,
+soft-recovered packets, ошибки header/CRC и undetected errors. Если заголовок
+не декодирован или длина неверна, все payload bits считаются ошибочными.
+
+Текущая кампания воспроизводится командой:
+
+```matlab
+addpath examples
+campaign = plot_ber_campaign;
+```

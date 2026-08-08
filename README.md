@@ -100,21 +100,22 @@ interleaving, and Gray/CSS mapping with all intermediate values exposed.
 
 ![CSS frame acquisition](docs/images/css-frame-acquisition-sf7.png)
 
-![Uncoded CSS BER and SER](docs/images/css-ber-sf7.png)
+![Single-phase and polyphase CSS BER/SER](docs/images/css-ber-polyphase-comparison.png)
 
-![Coded LoRa payload BER and PER](docs/images/lora-coded-ber-sf7.png)
+![Coded LoRa BER and PER for SF5 through SF7](docs/images/lora-coded-ber-sf5-sf7-polyphase.png)
 
 ## What the BER figure means
 
-The uncoded curve is a **demodulator baseline**, not coded LoRa packet BER.
-It compares the natural `SF`-bit labels of transmitted and detected CSS symbol
-indices with known timing in AWGN. Preamble failures, whitening, FEC,
-interleaving, CRC, and rejected packets are deliberately excluded.
+The uncoded curves are a **demodulator baseline**, not coded LoRa packet BER.
+They compare the legacy single-decimation-phase receiver with polyphase
+FFT-power combining for 1, 2, 4, and 8 samples/chip. Preamble failures,
+whitening, FEC, interleaving, CRC, and rejected packets are excluded.
 
-The coded curve compares CR 4/5 and CR 4/8 for a 16-byte payload with explicit
-header and CRC. It still assumes known packet timing and therefore does not
-include preamble-detection failures. Measurement definitions, SNR convention,
-trial counts, zero-error marker rule, and CSV locations are in the
+The coded campaign compares hard and soft decoding for SF5, SF6, and SF7 at
+CR 4/5, 8 samples/chip, and a 16-byte payload. It reports pre-FEC BER, hard and
+soft payload BER/PER, soft recoveries, raw counts, and 95% Wilson intervals.
+Known packet timing still excludes preamble-detection failures. Measurement
+definitions, SNR convention, trial counts, zero-error marker rule, and data are in the
 **[BER/SER methodology](docs/ber-methodology.md)**. The implemented coding chain is
 described in **[LoRa PHY coding stages](docs/lora-phy-coding.md)**.
 

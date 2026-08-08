@@ -1,125 +1,126 @@
 # BER/SER/PER methodology
 
-The repository contains two distinct AWGN experiments: an uncoded CSS
-demodulator baseline and a complete hard-decision packet-coding experiment.
+[Русская версия](ru/ber-methodology.md)
 
-## What the current curve measures
+The repository keeps demodulator errors and packet-decoder errors as two
+separate AWGN experiments. Both use fixed random seeds, raw error counts,
+explicit denominators, and two-sided 95% Wilson score intervals.
 
-The experiment transmits independent uniformly distributed CSS symbol indices,
-adds circular complex AWGN, performs dechirp and a `2^SF`-point FFT, and selects
-the largest bin. Symbol error rate (SER) is the fraction of incorrect indices.
-Uncoded bit error rate (BER) compares their natural binary labels.
+## Uncoded single-phase versus polyphase comparison
 
-This deliberately excludes:
+`simulate_uncoded_ber` transmits independent uniformly distributed CSS symbol
+indices with known timing. It adds circular complex AWGN, performs dechirp and
+a `2^SF`-point FFT, and compares the detected symbol index and its natural
+binary label with the transmitted values.
 
-- preamble detection and symbol-timing failures;
-- CFO/SFO, multipath, clipping, and RF impairments;
-- whitening, interleaving, FEC, header, and CRC;
-- packet rejection and retransmission behavior.
-
-It is therefore a demodulator baseline, not LoRa packet-error performance.
-
-## SNR convention
-
-`SNR_dB` is the ratio of average complex signal-sample power to average complex
-noise-sample power before dechirp processing. For `samplesPerChip = L`, the
-sample rate is `Fs = BW × L`; the generated chirp still occupies `BW`.
-
-The current committed plot uses:
+The campaign runs the legacy first-decimation-phase detector and the production
+polyphase FFT-power combiner on the same seeded waveform and noise realization:
 
 | Parameter | Value |
 |---|---:|
 | Spreading factor | 7 |
-| Samples per chip | 2 |
-| Symbols per SNR point | 4,000 |
-| Bits per SNR point | 28,000 |
-| SNR sweep | −20:2:0 dB |
-| Random seed | 7 |
+| Samples per chip, `L` | 1, 2, 4, 8 |
+| Demodulators | single-phase, polyphase |
+| Symbols per SNR/mode | 4,000 |
+| Label bits per SNR/mode | 28,000 |
+| SNR sweep | −20:2:−4 dB |
+| Seed | `70 + L` |
 
-The source table is [`docs/data/css-ber-sf7.csv`](data/css-ber-sf7.csv).
+![Single-phase and polyphase BER/SER](images/css-ber-polyphase-comparison.png)
 
-For the implemented unit-amplitude waveform, one CSS symbol contains
+Raw results: [`css-ber-polyphase-comparison.csv`](data/css-ber-polyphase-comparison.csv).
+At `L=8` and −10 dB, observed BER falls from `1.57e−2` to `3.57e−4`, about
+44 times lower. At `L=4` the gain is smaller. `L=2` is not monotonically
+better: the current noncoherent power sum can combine adjacent-bin energy from
+the cyclic chirp wrap and degrade part of the waterfall. This measured caveat
+must be resolved or explicitly accepted before the Simulink architecture is
+frozen.
+
+The uncoded experiment excludes preamble acquisition, whitening, interleaving,
+FEC, header, CRC, packet rejection, CFO/SFO, multipath, and clipping. It is a
+demodulator baseline, not application-visible packet performance.
+
+## SNR and energy convention
+
+`SNR_dB` is average complex signal-sample power divided by average complex
+noise-sample power before dechirp. For `L = samplesPerChip`:
 
 ```text
-Ns = 2^SF × samplesPerChip
-```
-
-complex samples. For the current uncoded symbol labels, a useful conversion is
-
-```text
+Fs = BW × L
+Ns = 2^SF × L
 Es/N0 [dB] = SNRsample [dB] + 10 log10(Ns)
 Eb/N0 [dB] = SNRsample [dB] + 10 log10(Ns / SF)
 ```
 
-The second expression uses `SF` uncoded label bits per symbol. Once FEC,
-preamble, headers, and CRC are included, information-bit `Eb/N0` must instead
-use the total transmitted energy divided by the number of user payload bits.
+The last expression applies to the `SF` uncoded label bits. The uncoded CSV
+stores both converted axes. For the coded experiment, `EbN0_dB` uses the total
+header/payload-symbol energy divided by user payload bits; no preamble is
+included because the experiment starts at a known packet boundary.
 
-## Reading zero-error points
+## Coded SF5/SF6/SF7 campaign
 
-A run with zero observed errors does not prove that BER or SER is zero. For a
-logarithmic plot, zero-error points are displayed as filled markers at `0.5/N`,
-where `N` is the number of bits or symbols tested. Raw CSV values remain zero.
-
-For publication-quality low-BER results, replace the fixed trial count with a
-stopping rule such as a minimum number of observed errors plus a maximum number
-of processed bits, and report a confidence interval.
-
-## Implemented coded packet experiment
-
-`simulate_coded_ber` generates random payload bytes, builds the explicit header,
-CRC, whitening, FEC, interleaving, Gray mapping, and CSS waveform, then reverses
-the chain after AWGN. Timing is known and no preamble is sent, so the curve
-isolates packet coding plus hard CSS decisions rather than acquisition.
-
-The committed comparison uses:
+`simulate_coded_ber` builds the explicit header, payload CRC, whitening,
+Hamming FEC, diagonal interleaving, Gray mapping, and CSS waveform, then
+reverses the chain after AWGN. It evaluates hard and soft decoders from the
+same per-bin FFT metrics.
 
 | Parameter | Value |
 |---|---:|
-| Spreading factor | 7 |
-| Samples per chip | 2 |
+| Spreading factors | 5, 6, 7 |
+| Samples per chip | 8 |
+| Coding rate | 4/5 |
 | Payload | 16 bytes |
 | Header / CRC | explicit / enabled |
-| Coding rates | 4/5 and 4/8 |
-| Packets per SNR and CR | 100 |
-| SNR sweep | -20:2:-6 dB |
+| Packets per SNR/SF | 200 |
+| Payload bits per SNR/SF | 25,600 |
+| SNR sweep | −20:2:−4 dB |
+| Seeds | 105, 106, 107 |
 
-The plot is [`docs/images/lora-coded-ber-sf7.png`](images/lora-coded-ber-sf7.png).
-Raw results are stored in
-[`lora-coded-ber-sf7-cr1.csv`](data/lora-coded-ber-sf7-cr1.csv) and
-[`lora-coded-ber-sf7-cr4.csv`](data/lora-coded-ber-sf7-cr4.csv).
+![Coded low-SF BER and PER](images/lora-coded-ber-sf5-sf7-polyphase.png)
 
-One curve cannot describe the whole receiver. The experiment reports the
-implemented metrics below and reserves one counter for later CRC safety work:
+Raw results: [`lora-coded-ber-sf5-sf7-polyphase.csv`](data/lora-coded-ber-sf5-sf7-polyphase.csv).
+At −10 dB, the measured hard/soft PER is 100%/74.5% for SF5, 41%/4% for
+SF6, and 4%/0% for SF7. The corresponding soft-recovered packet counts are
+51, 74, and 8 out of 200. These are finite Monte Carlo observations, not
+analytic receiver limits.
 
-| Metric | Comparison point | What it isolates |
+## Metric definitions
+
+| Metric | Comparison | Interpretation |
 |---|---|---|
-| SER | transmitted vs detected CSS indices | synchronization/demodulation |
-| Pre-FEC BER | interleaver-output bits vs received hard/soft bits | modulation and channel |
-| Post-FEC BER | original bits vs FEC-decoder output | residual decoder errors |
-| Payload BER | original payload vs dewhitened payload | complete bit pipeline |
-| PER/FER | packets with any payload error or failed CRC | application-visible reliability |
-| Undetected-error rate | CRC-pass packets with wrong payload | CRC safety check (planned counter) |
+| SER | transmitted/detected CSS indices | demodulator symbol errors |
+| Pre-FEC BER | transmitted/received interleaver codeword bits | channel plus hard CSS decisions |
+| Hard/soft payload BER | original/dewhitened payload | decoder-specific residual errors |
+| Hard/soft PER | exact payload plus header/CRC status | decoder-specific packet failure |
+| Soft recovered | hard packet failed, soft packet exact | incremental soft-decoder recovery |
+| Undetected errors | CRC passed but payload differed | CRC safety observation |
 
-For `PayloadBER`, a header failure or an output with the wrong length counts all
-payload bits as erroneous. This conservative rule keeps failed packets in the
-denominator. `PER` counts a header failure, CRC failure, or any wrong payload as
-a packet error. Zero observations are plotted at `0.5/N`, while CSV values and
-raw counts remain exact.
+If a decoder returns the wrong payload length, every user payload bit counts as
+an error. A packet error is a failed header, failed CRC, wrong length, or any
+payload mismatch. No failed packet disappears from a denominator.
 
-For every SNR point, the experiment records raw error counts and denominators
-instead of only decimal rates. A future acquisition-inclusive experiment must
-add these separate state counters:
+## Confidence intervals and zero observations
 
-```text
-attempted packets
-detected preambles
-synchronized frames
-decoded headers
-CRC-pass packets
-bit-correct payloads
+CSV rates remain exact observed ratios. Each uncoded BER/SER and primary coded
+BER/PER metric includes a two-sided 95% Wilson interval. A zero-error run does
+not prove a zero underlying rate: plots place it at `0.5/N` only to keep the
+marker visible on a logarithmic axis. For example, zero packet errors in 200
+trials still has a 95% Wilson upper bound of about 1.88%.
+
+## Reproduce
+
+```matlab
+cd model/matlab
+addpath examples
+campaign = plot_ber_campaign;
 ```
 
-This separation prevents a missed preamble from being mislabeled as a decoder
-bit error and prevents CRC-rejected packets from silently disappearing from the
-reported BER.
+The command regenerates both PNGs, both CSVs, and
+[`ber-polyphase-campaign.mat`](data/ber-polyphase-campaign.mat). The older
+SF7-only CSV/PNG files remain as historical baselines; the polyphase campaign
+is the current comparison.
+
+The coded experiment still assumes known timing and sends no preamble. A later
+acquisition-inclusive hardware sweep must separately count attempted packets,
+detected preambles, synchronized frames, decoded headers, CRC-pass packets,
+and bit-correct payloads.

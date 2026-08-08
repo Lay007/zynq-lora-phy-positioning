@@ -2,30 +2,47 @@
 
 [English version](../ber-methodology.md)
 
-В проекте есть два разных AWGN-эксперимента: uncoded baseline CSS-демодулятора
-и полная пакетная цепочка с hard decisions. Их нельзя смешивать на одном уровне
-интерпретации.
+В репозитории отдельно измеряются ошибки демодулятора и ошибки пакетного
+декодера. Оба AWGN-эксперимента используют фиксированные seed, исходные
+счётчики ошибок, явные знаменатели и двусторонние 95%-интервалы Wilson.
 
-## Uncoded CSS baseline
+## Сравнение single-phase и polyphase без FEC
 
-Эксперимент передаёт независимые равномерные CSS symbol indices, добавляет
-комплексный AWGN, выполняет dechirp и `2^SF`-point FFT и выбирает максимальный
-bin. SER — доля неверных symbol indices. Uncoded BER сравнивает их естественные
-двоичные метки.
+`simulate_uncoded_ber` передаёт независимые равномерные CSS symbol indices при
+известном времени символа. После добавления комплексного AWGN выполняются
+dechirp, `2^SF`-point FFT и сравнение принятого индекса и его естественной
+двоичной метки с переданными значениями.
 
-В baseline не входят:
+Legacy-детектор по первой фазе децимации и рабочий polyphase-комбайнер получают
+одинаковые seeded waveform и noise:
 
-- обнаружение преамбулы и ошибки времени;
-- CFO/SFO, multipath, clipping и RF-искажения;
-- whitening, interleaving, FEC, header и CRC;
-- отклонение и повторная передача пакета.
+| Параметр | Значение |
+|---|---:|
+| SF | 7 |
+| Samples/chip, `L` | 1, 2, 4, 8 |
+| Демодуляторы | single-phase, polyphase |
+| Символов на SNR/mode | 4 000 |
+| Label bits на SNR/mode | 28 000 |
+| SNR sweep | −20:2:−4 dB |
+| Seed | `70 + L` |
 
-Это характеристика демодулятора, а не LoRa packet error performance.
+![Сравнение single-phase и polyphase BER/SER](../images/css-ber-polyphase-comparison.png)
 
-## Определение SNR
+Исходные результаты: [`css-ber-polyphase-comparison.csv`](../data/css-ber-polyphase-comparison.csv).
+При `L=8` и −10 dB наблюдаемый BER снижается с `1,57e−2` до `3,57e−4`, то
+есть примерно в 44 раза. Для `L=4` выигрыш меньше. При `L=2` улучшение не
+монотонно: текущая некогерентная сумма мощностей может объединять энергию
+соседних bins около циклического переноса chirp и ухудшать часть waterfall.
+Это ограничение нужно устранить или явно принять до фиксации Simulink-архитектуры.
 
-`SNR_dB` — отношение средней мощности комплексного signal sample к средней
-мощности комплексного noise sample до dechirp. При `samplesPerChip = L`:
+В uncoded baseline не входят acquisition, whitening, interleaving, FEC,
+header, CRC, packet rejection, CFO/SFO, multipath и clipping. Это характеристика
+демодулятора, а не прикладная пакетная надёжность.
+
+## Определение SNR и энергии
+
+`SNR_dB` — отношение средней мощности complex signal sample к средней мощности
+complex noise sample до dechirp. Для `L = samplesPerChip`:
 
 ```text
 Fs = BW × L
@@ -34,82 +51,73 @@ Es/N0 [dB] = SNRsample [dB] + 10 log10(Ns)
 Eb/N0 [dB] = SNRsample [dB] + 10 log10(Ns / SF)
 ```
 
-Последняя формула относится к uncoded label с `SF` bits/symbol. Для пакетного
-PHY информационный `Eb/N0` должен учитывать всю энергию преамбулы, header, CRC и
-избыточных FEC bits на число user payload bits.
+Последняя формула относится к `SF` uncoded label bits. В uncoded CSV сохранены
+обе пересчитанные оси. Для coded sweep `EbN0_dB` использует энергию всех
+header/payload symbols на число user payload bits; преамбула не учитывается,
+поскольку начало пакета известно.
 
-Параметры uncoded-графика:
+## Coded sweep SF5/SF6/SF7
 
-| Параметр | Значение |
-|---|---:|
-| SF | 7 |
-| samples/chip | 2 |
-| symbols/SNR | 4000 |
-| bits/SNR | 28000 |
-| SNR | −20:2:0 dB |
-| seed | 7 |
-
-Исходные значения: [`css-ber-sf7.csv`](../data/css-ber-sf7.csv).
-
-## Нулевые наблюдаемые ошибки
-
-Отсутствие ошибок в конечном прогоне не доказывает BER=0. На logarithmic plot
-такая точка рисуется на уровне `0.5/N`, где `N` — число испытаний. В CSV
-сохраняются фактический ноль, error count и denominator.
-
-Для низких BER нужен stopping rule: минимальное число наблюдаемых ошибок плюс
-максимальное число обработанных bits, а также confidence interval.
-
-## Coded packet experiment
-
-`simulate_coded_ber` создаёт случайный payload, explicit header, CRC, whitening,
-FEC, interleaving, Gray mapping и CSS waveform, добавляет AWGN и выполняет
-обратную цепочку. Время начала известно, преамбула не передаётся. Поэтому график
-характеризует packet coding и hard CSS decisions, но не acquisition.
-
-Параметры committed comparison:
+`simulate_coded_ber` строит explicit header, payload CRC, whitening, Hamming
+FEC, diagonal interleaving, Gray mapping и CSS waveform, добавляет AWGN и
+выполняет обратную цепочку. Hard и soft decoder получают одни FFT metrics.
 
 | Параметр | Значение |
 |---|---:|
-| SF | 7 |
-| samples/chip | 2 |
-| payload | 16 bytes |
-| header / CRC | explicit / enabled |
-| coding rates | 4/5 и 4/8 |
-| packets на SNR и CR | 100 |
-| SNR | −20:2:−6 dB |
+| SF | 5, 6, 7 |
+| Samples/chip | 8 |
+| Coding rate | 4/5 |
+| Payload | 16 bytes |
+| Header / CRC | explicit / enabled |
+| Пакетов на SNR/SF | 200 |
+| Payload bits на SNR/SF | 25 600 |
+| SNR sweep | −20:2:−4 dB |
+| Seeds | 105, 106, 107 |
 
-Результаты:
+![Coded BER и PER для SF5/SF6/SF7](../images/lora-coded-ber-sf5-sf7-polyphase.png)
 
-- [график](../images/lora-coded-ber-sf7.png);
-- [CR 4/5 CSV](../data/lora-coded-ber-sf7-cr1.csv);
-- [CR 4/8 CSV](../data/lora-coded-ber-sf7-cr4.csv).
+Исходные результаты: [`lora-coded-ber-sf5-sf7-polyphase.csv`](../data/lora-coded-ber-sf5-sf7-polyphase.csv).
+При −10 dB hard/soft PER равны 100%/74,5% для SF5, 41%/4% для SF6 и
+4%/0% для SF7. Soft decoder дополнительно восстановил 51, 74 и 8 пакетов из
+200 соответственно. Это конечный Monte Carlo, а не аналитический предел.
 
 ## Метрики
 
-| Метрика | Точка сравнения | Что характеризует |
+| Метрика | Сравнение | Смысл |
 |---|---|---|
-| SER | TX/RX CSS indices | синхронизацию и демодуляцию |
-| Pre-FEC BER | coded bits после обратного interleaving | канал и модуляцию |
-| Post-FEC BER | исходные bits / FEC output | остаточные ошибки decoder |
-| Payload BER | исходный / dewhitened payload | всю bit chain |
-| PER/FER | неверный payload или failed CRC | видимую приложению надёжность |
-| Undetected errors | CRC pass при неверном payload | безопасность CRC, будущий counter |
+| SER | TX/RX CSS indices | ошибки символов демодулятора |
+| Pre-FEC BER | TX/RX interleaver codeword bits | канал и hard CSS decisions |
+| Hard/soft payload BER | исходный/dewhitened payload | остаточные ошибки декодера |
+| Hard/soft PER | payload вместе с header/CRC | пакетная ошибка декодера |
+| Soft recovered | hard packet failed, soft packet exact | выигрыш soft decoder |
+| Undetected errors | CRC pass при неверном payload | наблюдение безопасности CRC |
 
-Если header не декодирован или длина результата неверна, `PayloadBER` считает
-ошибочными все payload bits. `PER` считает ошибкой failed header, failed CRC или
-любое расхождение payload. Так failed packets не исчезают из denominator.
+Если декодер вернул неправильную длину, ошибочными считаются все user payload
+bits. Packet error включает failed header, failed CRC, неверную длину или любое
+расхождение payload. Ошибочные пакеты не исчезают из denominator.
 
-Будущий acquisition-inclusive эксперимент должен отдельно считать:
+## Доверительные интервалы и нулевые ошибки
 
-```text
-attempted packets
-detected preambles
-synchronized frames
-decoded headers
-CRC-pass packets
-bit-correct payloads
+В CSV остаются точные наблюдаемые отношения. Для uncoded BER/SER и основных
+coded BER/PER сохранены двусторонние 95%-интервалы Wilson. Ноль ошибок не
+доказывает нулевую вероятность: на logarithmic plot такая точка показана на
+уровне `0.5/N`. Например, для 0 ошибок из 200 верхняя граница Wilson всё ещё
+равна примерно 1,88%.
+
+## Воспроизведение
+
+```matlab
+cd model/matlab
+addpath examples
+campaign = plot_ber_campaign;
 ```
 
-Это не позволяет назвать пропущенную преамбулу bit error или молча исключить
-CRC-rejected packet из BER.
+Команда заново создаёт два PNG, два CSV и
+[`ber-polyphase-campaign.mat`](../data/ber-polyphase-campaign.mat). Старые
+SF7-only CSV/PNG сохранены как исторический baseline; текущим результатом
+считается polyphase campaign.
+
+Coded sweep по-прежнему предполагает известное время и не передаёт преамбулу.
+Будущий acquisition-inclusive hardware sweep должен отдельно считать attempts,
+detected preambles, synchronized frames, decoded headers, CRC-pass packets и
+bit-correct payloads.
