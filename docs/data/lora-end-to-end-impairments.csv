@@ -1,0 +1,5 @@
+Case,SNR_dB,SpreadingFactor,SamplesPerChip,CodingRate,Transmissions,ActivityCandidates,EnergyDetectedPackets,AcquiredPackets,DetectionProbability,FalseAlarmCandidates,FalseLoRaReceptions,DuplicateCandidates,PacketErrors,PER,PayloadBitErrors,PayloadBits,PayloadBER,PreFecBitErrors,PreFecBits,PreFecBER,HeaderFailures,CrcFailures,UndetectedErrors,FftCorrelatorPackets,PolyphaseFallbackPackets,DetectionLower95,DetectionUpper95,PER_Lower95,PER_Upper95
+baseline,-10,7,8,2,5,5,5,5,1,0,0,0,0,0,0,800,0,0,1470,0,0,0,0,5,0,0.565517535216826,1,0,0.434482464783174
+cfo-sfo,-8,7,8,2,5,5,5,5,1,0,0,0,0,0,0,800,0,0,1470,0,0,0,0,5,0,0.565517535216826,1,0,0.434482464783174
+multipath-timing,-8,7,8,2,5,5,5,5,1,0,0,0,0,0,0,800,0,0,1470,0,0,0,0,5,0,0.565517535216826,1,0,0.434482464783174
+front-end-adc,-8,7,8,2,5,5,5,5,1,0,0,0,0,0,0,800,0,0,1470,0,0,0,0,5,0,0.565517535216826,1,0,0.434482464783174
