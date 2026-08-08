@@ -90,10 +90,6 @@ dechirp и выбор соответствующего FFT-bin.
 
 ![Захват CSS-кадра](docs/images/css-frame-acquisition-sf7.png)
 
-![Uncoded CSS BER и SER](docs/images/css-ber-sf7.png)
-
-![Coded LoRa payload BER и PER](docs/images/lora-coded-ber-sf7.png)
-
 Текущая BER-кампания сравнивает legacy single-phase/polyphase, выбранный для
 Simulink FFT-correlator и независимый matched-filter reference. FFT-correlator
 устранил прежний проигрыш 5–6 dB при `L=8` в AWGN:
