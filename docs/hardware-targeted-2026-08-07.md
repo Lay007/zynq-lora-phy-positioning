@@ -9,13 +9,16 @@ transmissions. The complete dataset and reproducibility commands are in
 Key conclusions:
 
 - the SF7/BW125 pre-check decoded 10/10 packets;
-- SF5 and SF6 remain acquisition/timing regression targets at 16/30 and 20/30
-  matching payloads respectively;
-- BW500 is usable when recaptured at Fs=4 MS/s: 9/10 packets decode, versus
+- the adaptive local-floor detector acquires 30/30 SF5 and 30/30 SF6 packets;
+  matching payloads improve to 26/30 in both modes, with the remaining losses
+  identified as header/CRC failures rather than missed activity;
+- BW500 is usable when recaptured at Fs=4 MS/s: 10/10 packets decode, versus
   0/2 in the historical Fs=1 MS/s recording;
 - the 50-packet SF7 run gives 18.50 us residual standard deviation after
   affine TX/RX clock fitting, but is not an absolute ToA calibration.
 
-The next receiver work should therefore prioritize low-SF activity detection
-and timing tracking. The next hardware timing step requires a safely attenuated
-cable path and a timestamp closer to RF than the ESP32 millisecond counter.
+The next receiver work should therefore analyze low-SF symbol metrics, timing,
+and residual CFO for the eight header/CRC failures, then validate the change
+with controlled SNR sweeps. The next hardware timing step requires a safely
+attenuated cable path and a timestamp closer to RF than the ESP32 millisecond
+counter.

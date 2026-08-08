@@ -15,19 +15,21 @@ acquisition commit, byte count, and SHA-256 hash.
 | Capture | Fs | TX packets | Acquisition | Matching payload | Soft recovered | PER |
 |---|---:|---:|---:|---:|---:|---:|
 | baseline-sf7-bw125 | 1 MS/s | 10 | 10 | 10 | 1 | 0% |
-| sf5-bw125 | 1 MS/s | 30 | 21 | 16 | 0 | 46.7% |
-| sf6-bw125 | 1 MS/s | 30 | 22 | 20 | 0 | 33.3% |
-| sf7-bw500-fs4m | 4 MS/s | 10 | 9 | 9 | 0 | 10.0% |
+| sf5-bw125 | 1 MS/s | 30 | 30 | 26 | 1 | 13.3% |
+| sf6-bw125 | 1 MS/s | 30 | 30 | 26 | 0 | 13.3% |
+| sf7-bw500-fs4m | 4 MS/s | 10 | 10 | 10 | 0 | 0% |
 | toa-sf7-bw125 | 1 MS/s | 50 | 50 | 47 | 6 | 6.0% |
 
-Across all 130 transmissions, 112 pass acquisition and 102 payloads match.
-The aggregate PER is 21.54%; it is intentionally dominated by the low-SF
-regression cases and must not be interpreted as link sensitivity.
+Across all 130 transmissions, all 130 pass acquisition and 119 payloads match.
+The aggregate PER is 8.46%. The adaptive local-floor detector separates
+packets that the original global threshold merged during receiver floor
+changes. A tighter retry from the activity boundary recovers the remaining
+SF5 acquisition ambiguity. The residual low-SF errors have valid acquisition
+and are header/CRC failures; this fixed high-SNR run is not a sensitivity test.
 
 The BW 500 kHz result replaces the earlier under-sampled Fs=1 MS/s attempt:
-with Fs=4 MS/s and the signal 500 kHz away from receiver DC, all nine detected
-packets decode without payload bit errors. The one remaining loss is an
-activity-detector miss.
+with Fs=4 MS/s and the signal 500 kHz away from receiver DC, all ten packets
+are acquired and decode without payload bit errors.
 
 ## ToA repeatability
 
@@ -62,7 +64,10 @@ Generated files:
 ## Кратко по-русски
 
 Набор подтверждает, что прежний провал BW500 был связан с записью при
-недостаточной Fs: при 4 Мвыб/с декодировано 9 из 10 передач. Для SF5/SF6
-основным ограничением остаётся MATLAB detector/acquisition, несмотря на сильный
-сигнал. Повторяемость всей OTA-цепочки ToA после удаления линейного drift равна
-18,50 мкс по стандартному отклонению; это ещё не аппаратно откалиброванный ToA.
+недостаточной Fs: при 4 Мвыб/с декодированы все 10 передач. Адаптивная оценка
+локального фона и повторная синхронизация от границы активности подняли
+acquisition SF5/SF6 до 30 из 30 в каждом режиме. Корректный payload получен для
+26 из 30 передач как SF5, так и SF6; оставшиеся ошибки относятся к header/CRC,
+а не к пропуску пакета. Повторяемость всей OTA-цепочки ToA после удаления
+линейного drift равна 18,50 мкс по стандартному отклонению; это ещё не
+аппаратно откалиброванный ToA.
