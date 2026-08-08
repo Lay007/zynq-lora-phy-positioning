@@ -1,0 +1,5 @@
+SF,L,N,Pairs,Coverage,CorrectionMismatches,CfoMismatches,TimingMismatches,RejectionMismatches,ValidMismatches,RejectedPairs
+5,8,32,1024,exhaustive,0,0,0,0,0,0
+7,8,128,16384,exhaustive,0,0,0,0,0,0
+7,1,128,16384,exhaustive,0,0,0,0,0,0
+9,2,512,262144,exhaustive,0,0,0,0,0,0

@@ -77,6 +77,31 @@ preamble-reference estimation, the legacy polyphase fallback, packet decoding,
 and CRC-based path selection remain outside the DUT until their resource and
 mismatch trade-offs are measured.
 
+## Second DUT: joint timing/CFO
+
+```matlab
+info = build_joint_sync_model(SpreadingFactor=7, SamplesPerChip=8);
+```
+
+`lora_joint_sync/DUT` consumes the dechirped peak bin of one preamble
+upchirp and one SFD downchirp and separates whole-chip timing from carrier
+offset — the M1 result that made the coherent branch deterministic on real
+captures:
+
+```text
+upSigned        = signed bin of the upchirp peak,   [-N/2, N/2)
+downSigned      = signed bin of the downchirp peak
+cfoHalfBins     = upSigned + downSigned      (2 x the CFO in bins)
+timingHalfChips = upSigned - downSigned      (2 x the timing in chips)
+correction      = round(-timingChips * L),  zeroed when implausible
+```
+
+Working in halves of a bin removes every fractional value, so the whole
+estimator is integer arithmetic and the DUT is **bit-exact** against
+`lora_phy.joint_timing_cfo_from_bins`. No fixed-point tolerance applies and
+none is claimed. `run_joint_sync_regression` enumerates the entire `N × N`
+input domain where that is affordable.
+
 ## Regression
 
 One command runs everything and fails loudly:

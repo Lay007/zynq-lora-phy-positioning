@@ -2,6 +2,11 @@
 
 [English modeling flow](../../model/README.md) · [English Simulink README](../../model/simulink/README.md)
 
+Измеренная конфигурация инструментов, зафиксированный контракт интерфейсов и
+формат stage-векторов приведены в
+[основаниях M2](simulink-m2-interfaces.md). Полученные численные результаты —
+в [приёмке M2](simulink-m2-acceptance.md).
+
 ## 1. MATLAB float
 
 MATLAB определяет ожидаемое численное поведение без ограничений архитектуры HDL
@@ -31,6 +36,14 @@ complex sample stream
 шаблона по преамбуле, legacy polyphase fallback, пакетный декодер и выбор ветви
 по CRC остаются вне DUT, пока не измерены их стоимость и устойчивость к
 несовпадению реального сигнала с моделью.
+
+Второй DUT — совместная оценка timing/CFO по паре up/down bins. Она построена в
+единицах половины бина, поэтому целиком целочисленная и сравнивается с MATLAB на
+точное равенство, а не в пределах допуска.
+
+Модели не коммитятся: каждая `.slx` собирается скриптом
+(`build_fft_correlator_model`, `build_joint_sync_model`). Удаление каталога
+`model/simulink/generated/` и повторная сборка — штатная операция.
 
 DUT обязан определять clock/sample rate, backpressure, типы на границах,
 overflow policy, pipeline latency, reset behavior и набор compile-time/tunable
