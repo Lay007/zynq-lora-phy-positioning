@@ -77,6 +77,30 @@ preamble-reference estimation, the legacy polyphase fallback, packet decoding,
 and CRC-based path selection remain outside the DUT until their resource and
 mismatch trade-offs are measured.
 
+## Regression
+
+One command runs everything and fails loudly:
+
+```matlab
+cd model/simulink
+results = run_simulink_regression;
+```
+
+```bash
+matlab -batch "cd model/simulink; run_simulink_regression"
+```
+
+The shell form returns a nonzero exit code whenever Simulink and MATLAB
+disagree. `run_correlator_regression` drives the DUT with the committed golden
+`input` stage and compares `fftM`, `product`, `partition`, `fftN`, and
+`magnitudeSquared` against the golden payload, plus symbol decision,
+confidence, and the reference ROM contents. Results are written to
+`docs/data/simulink-m2-stage-comparison.csv` and
+`docs/data/simulink-m2-case-summary.csv`.
+
+Measured results are published in
+[`docs/simulink-m2-acceptance.md`](../../docs/simulink-m2-acceptance.md).
+
 ## HDL generation rules
 
 - Use a named DUT subsystem as the only HDL Coder target.
