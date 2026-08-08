@@ -91,5 +91,19 @@ classdef TestPacketCoding < matlab.unittest.TestCase
             testCase.verifyGreaterThan(result.Symbols, 0);
             testCase.verifyGreaterThan(result.PreFecBits, 0);
         end
+
+        function lowSfCodedBerReportsHardAndSoftResults(testCase)
+            config = lora_phy.phy_config(5, 2, 1);
+            result = lora_phy.simulate_coded_ber( ...
+                -2, config, 2, 4, 37, true, true);
+
+            testCase.verifyEqual(result.SpreadingFactor, 5);
+            testCase.verifyEqual(result.HardSuccessPackets, 2);
+            testCase.verifyEqual(result.SoftSuccessPackets, 2);
+            testCase.verifyEqual(result.PacketErrors, 0);
+            testCase.verifyEqual(result.UndetectedErrors, 0);
+            testCase.verifyEqual(result.SelectedDecoder, "soft-preferred");
+            testCase.verifyGreaterThan(result.PreFecBits, 0);
+        end
     end
 end

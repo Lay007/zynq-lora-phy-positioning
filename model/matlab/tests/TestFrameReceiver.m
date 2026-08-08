@@ -38,5 +38,26 @@ classdef TestFrameReceiver < matlab.unittest.TestCase
             testCase.verifyEqual(results.BER(3), 0);
             testCase.verifyEqual(results.SER(3), 0);
         end
+
+        function uncodedBerReportsConfidenceAndDemodulator(testCase)
+            config = lora_phy.css_config(5, 2);
+            results = lora_phy.simulate_uncoded_ber( ...
+                -4, config, 20, 11, false);
+
+            testCase.verifyEqual(results.DemodulationMode, "single-phase");
+            testCase.verifyEqual(results.SamplesPerChip, 2);
+            testCase.verifyLessThanOrEqual(results.BER_Lower95, results.BER);
+            testCase.verifyGreaterThanOrEqual(results.BER_Upper95, results.BER);
+        end
+
+        function wilsonIntervalBoundsZeroErrorRate(testCase)
+            [lower, upper] = lora_phy.binomial_wilson_interval(0, 100);
+
+            testCase.verifyEqual(lower, 0, "AbsTol", 1e-15);
+            testCase.verifyEqual(upper, 0.0369934982069857, ...
+                "AbsTol", 1e-12);
+            testCase.verifyError(@() lora_phy.binomial_wilson_interval( ...
+                2, 1), "lora_phy:InvalidBinomialCounts");
+        end
     end
 end

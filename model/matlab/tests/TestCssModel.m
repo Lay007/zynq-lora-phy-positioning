@@ -74,5 +74,18 @@ classdef TestCssModel < matlab.unittest.TestCase
             testCase.verifyError(@() lora_phy.polyphase_spectrum( ...
                 ones(17, 1), 8), "lora_phy:InvalidSampleCount");
         end
+
+        function metricsCanReproduceLegacySinglePhaseDecision(testCase)
+            config = lora_phy.css_config(5, 8);
+            waveform = lora_phy.modulate_symbol(19, config);
+            waveform(1:config.samplesPerChip:end) = 0;
+
+            polyphase = lora_phy.demodulate_metrics(waveform, config);
+            singlePhase = lora_phy.demodulate_metrics(waveform, config, ...
+                CombineOversamplingPhases=false);
+
+            testCase.verifyEqual(polyphase, 19);
+            testCase.verifyEqual(singlePhase, 0);
+        end
     end
 end
