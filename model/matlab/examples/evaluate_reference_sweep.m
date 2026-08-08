@@ -131,7 +131,7 @@ end
 
 function aggregate = aggregate_rows(packets)
 aggregate = struct;
-aggregate.Schema = "zynq-lora-packet-performance-v1";
+aggregate.Schema = "zynq-lora-packet-performance-v2";
 aggregate.Transmissions = height(packets);
 aggregate.AcquiredPackets = sum(packets.Acquired);
 aggregate.HeaderValidPackets = sum(packets.HeaderValid);
@@ -141,6 +141,10 @@ aggregate.PayloadMatchedPackets = sum(packets.PayloadMatch);
 aggregate.HardSuccessPackets = sum(packets.HardSuccess);
 aggregate.SoftSuccessPackets = sum(packets.SoftSuccess);
 aggregate.SoftRecoveredPackets = sum(packets.SoftRecovered);
+aggregate.FftCorrelatorPackets = sum( ...
+    packets.DemodulationMode == "fft-correlator");
+aggregate.PolyphaseFallbackPackets = sum( ...
+    packets.DemodulationMode == "polyphase");
 aggregate.PacketErrors = sum(packets.PacketError);
 aggregate.PER = safe_ratio(aggregate.PacketErrors, aggregate.Transmissions);
 aggregate.PreFecBitErrors = sum(packets.PreFecBitErrors);

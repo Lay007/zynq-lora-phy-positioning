@@ -36,6 +36,10 @@ for packet = 1:packetCount
         if isfield(reception, "decodingMethod")
             row.DecoderMethod = string(reception.decodingMethod);
         end
+        row.DemodulationMode = "unspecified";
+        if isfield(reception, "demodulationMode")
+            row.DemodulationMode = string(reception.demodulationMode);
+        end
         row.Acquired = reception.preambleValid && reception.syncValid;
         row.HeaderValid = reception.decoded.headerValid;
         row.CrcChecked = logical(config.payloadCrc);
@@ -79,6 +83,10 @@ summary.PayloadMatchedPackets = sum(packets.PayloadMatch);
 summary.HardSuccessPackets = sum(packets.HardSuccess);
 summary.SoftSuccessPackets = sum(packets.SoftSuccess);
 summary.SoftRecoveredPackets = sum(packets.SoftRecovered);
+summary.FftCorrelatorPackets = sum( ...
+    packets.DemodulationMode == "fft-correlator");
+summary.PolyphaseFallbackPackets = sum( ...
+    packets.DemodulationMode == "polyphase");
 summary.PacketErrors = sum(packets.PacketError);
 summary.PER = safe_ratio(summary.PacketErrors, summary.Transmissions);
 summary.PayloadBitErrors = sum(packets.PayloadBitErrors);
@@ -164,7 +172,7 @@ end
 function row = empty_row()
 row = struct("PacketIndex", 0, "CandidatePresent", false, ...
     "HardSuccess", false, "SoftSuccess", false, "SoftRecovered", false, ...
-    "DecoderMethod", "none", ...
+    "DecoderMethod", "none", "DemodulationMode", "none", ...
     "Acquired", false, "HeaderValid", false, "CrcChecked", false, ...
     "CrcValid", false, "PayloadLengthValid", false, ...
     "PayloadMatch", false, "PacketError", true, "ExpectedLength", 0, ...

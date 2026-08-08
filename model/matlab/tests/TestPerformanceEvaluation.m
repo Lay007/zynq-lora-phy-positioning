@@ -24,6 +24,8 @@ classdef TestPerformanceEvaluation < matlab.unittest.TestCase
 
             testCase.verifyEqual(report.summary.Transmissions, 2);
             testCase.verifyEqual(report.summary.PacketErrors, 1);
+            testCase.verifyEqual(report.summary.FftCorrelatorPackets, 0);
+            testCase.verifyEqual(report.summary.PolyphaseFallbackPackets, 0);
             testCase.verifyEqual(report.summary.PER, 0.5);
             testCase.verifyEqual(report.summary.PayloadBitErrors, 16*8);
             testCase.verifyEqual(report.summary.PayloadBits, 2*16*8);

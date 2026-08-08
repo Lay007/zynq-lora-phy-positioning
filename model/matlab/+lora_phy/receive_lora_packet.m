@@ -89,7 +89,8 @@ for candidateStart = preambleCandidates.'
     [candidateSymbols, candidateConfidence] = demodulate_windows( ...
         workingIq, candidateStart, acquisitionCount, candidateStart, ...
         sampleRateHz, bandwidthHz, spreadingFactor, ...
-        demodulationCentreHz, demodulationResidualCfoHz);
+        demodulationCentreHz, demodulationResidualCfoHz, ...
+        "polyphase", zeros(0, 1));
     if numel(candidateSymbols) ~= acquisitionCount
         continue
     end
@@ -121,6 +122,9 @@ syncBins = acquisitionSymbols(options.PreambleSymbols+(1:2));
 preambleValid = all(circular_distance(preambleBins, 0, 2^spreadingFactor) <= 1);
 syncValid = all(circular_distance(syncBins, double(expectedSyncBins), ...
     2^spreadingFactor) <= 1);
+adaptiveReference = estimate_packet_reference(workingIq, preambleStart, ...
+    options.PreambleSymbols, sampleRateHz, bandwidthHz, spreadingFactor, ...
+    demodulationCentreHz, demodulationResidualCfoHz);
 
 if isnan(options.LowDataRateOptimization)
     lowDataRateOptimization = 2^spreadingFactor/bandwidthHz >= 16e-3;
@@ -137,54 +141,64 @@ sx126xLowSfPadding = 2*(spreadingFactor < 7);
 nominalPayloadStart = preambleStart + round( ...
     (options.PreambleSymbols+2+2.25+sx126xLowSfPadding)*symbolSamples);
 searchOffsets = (-samplesPerChip:samplesPerChip).';
-bestCandidate = struct("offset", 0, "symbols", zeros(0,1), ...
+bestCandidate = struct("offset", 0, "mode", "", ...
+    "symbols", zeros(0,1), ...
     "confidence", zeros(0,1), "metrics", zeros(0, 2^spreadingFactor), ...
     "hardDecoded", struct, "softDecoded", struct, ...
     "decoded", struct, "score", -inf);
-for candidate = 1:numel(searchOffsets)
-    candidateStart = nominalPayloadStart+searchOffsets(candidate);
-    candidateSymbolCount = floor( ...
-        (effectivePacketEnd-candidateStart+1)/symbolSamples);
-    candidateSymbolCount = max(0, min( ...
-        options.MaximumPayloadSymbols, candidateSymbolCount));
-    [symbols, confidence, metrics] = demodulate_windows( ...
-        workingIq, candidateStart, candidateSymbolCount, preambleStart, ...
-        sampleRateHz, bandwidthHz, spreadingFactor, ...
-        demodulationCentreHz, demodulationResidualCfoHz);
-    hardDecoded = lora_phy.decode_packet(symbols, config);
-    softDecoded = lora_phy.decode_packet_soft(metrics, config);
-    decoded = hardDecoded;
-    % A failed soft pass must not replace a valid hard header with an
-    % invalid one. When both headers have equal validity, retain the soft
-    % payload candidate because it uses FFT-bin reliability information.
-    if options.SoftDecoding && (softDecoded.success || ...
-            (~hardDecoded.success && (softDecoded.headerValid || ...
-            ~hardDecoded.headerValid)))
-        decoded = softDecoded;
-    end
-    score = mean(confidence);
-    if hardDecoded.headerValid || softDecoded.headerValid
-        score = score+10;
-    end
-    if hardDecoded.success
-        score = score+100;
-    end
-    if softDecoded.success
-        score = score+120;
-    end
-    % When every timing hypothesis contains fewer than eight header
-    % symbols, mean(confidence) is NaN. Still retain the first structured
-    % decoder failure instead of leaving bestCandidate.decoded empty and
-    % throwing while the diagnostic result is assembled below.
-    if candidate == 1 || score > bestCandidate.score
-        bestCandidate.offset = searchOffsets(candidate);
-        bestCandidate.symbols = symbols;
-        bestCandidate.confidence = confidence;
-        bestCandidate.metrics = metrics;
-        bestCandidate.hardDecoded = hardDecoded;
-        bestCandidate.softDecoded = softDecoded;
-        bestCandidate.decoded = decoded;
-        bestCandidate.score = score;
+demodulationModes = ["fft-correlator", "polyphase"];
+for mode = demodulationModes
+    for candidate = 1:numel(searchOffsets)
+        candidateStart = nominalPayloadStart+searchOffsets(candidate);
+        candidateSymbolCount = floor( ...
+            (effectivePacketEnd-candidateStart+1)/symbolSamples);
+        candidateSymbolCount = max(0, min( ...
+            options.MaximumPayloadSymbols, candidateSymbolCount));
+        [symbols, confidence, metrics] = demodulate_windows( ...
+            workingIq, candidateStart, candidateSymbolCount, preambleStart, ...
+            sampleRateHz, bandwidthHz, spreadingFactor, ...
+            demodulationCentreHz, demodulationResidualCfoHz, ...
+            mode, adaptiveReference);
+        hardDecoded = lora_phy.decode_packet(symbols, config);
+        softDecoded = lora_phy.decode_packet_soft(metrics, config);
+        decoded = hardDecoded;
+        % A failed soft pass must not replace a valid hard header with an
+        % invalid one. When both headers have equal validity, retain the soft
+        % payload candidate because it uses bin reliability information.
+        if options.SoftDecoding && (softDecoded.success || ...
+                (~hardDecoded.success && (softDecoded.headerValid || ...
+                ~hardDecoded.headerValid)))
+            decoded = softDecoded;
+        end
+        score = mean(confidence);
+        if hardDecoded.headerValid || softDecoded.headerValid
+            score = score+10;
+        end
+        if hardDecoded.success
+            score = score+100;
+        end
+        if softDecoded.success
+            score = score+120;
+        end
+        % Prefer the coherent path when all packet-level evidence ties.
+        if mode == "fft-correlator"
+            score = score+1e-6;
+        end
+        % When every timing hypothesis contains fewer than eight header
+        % symbols, mean(confidence) is NaN. Still retain the first structured
+        % decoder failure instead of leaving bestCandidate.decoded empty.
+        if (mode == demodulationModes(1) && candidate == 1) || ...
+                score > bestCandidate.score
+            bestCandidate.offset = searchOffsets(candidate);
+            bestCandidate.mode = mode;
+            bestCandidate.symbols = symbols;
+            bestCandidate.confidence = confidence;
+            bestCandidate.metrics = metrics;
+            bestCandidate.hardDecoded = hardDecoded;
+            bestCandidate.softDecoded = softDecoded;
+            bestCandidate.decoded = decoded;
+            bestCandidate.score = score;
+        end
     end
 end
 timingOffset = bestCandidate.offset;
@@ -225,6 +239,7 @@ result.frontEndFrequencyShiftHz = frontEndShiftHz;
 result.usedChirpPreambleSearch = usedChirpSearch;
 result.residualCfoHz = demodulationResidualCfoHz;
 result.softDecoding = options.SoftDecoding;
+result.demodulationMode = bestCandidate.mode;
 result.decodingMethod = "hard";
 if options.SoftDecoding && isequaln(decoded, bestCandidate.softDecoded)
     result.decodingMethod = "soft";
@@ -265,7 +280,8 @@ startIndex = starts(best);
 end
 
 function [symbols, confidence, metrics] = demodulate_windows( ...
-    iq, startIndex, symbolCount, phaseOrigin, fs, bw, sf, centre, residualCfo)
+    iq, startIndex, symbolCount, phaseOrigin, fs, bw, sf, centre, ...
+    residualCfo, mode, correlationReference)
 samplesPerChip = round(fs/bw);
 symbolSamples = samplesPerChip*2^sf;
 if symbolCount < 1 || startIndex < 1 || ...
@@ -276,7 +292,7 @@ if symbolCount < 1 || startIndex < 1 || ...
     return
 end
 config = lora_phy.css_config(sf, samplesPerChip);
-reference = lora_phy.reference_chirp(config, "up");
+nominalReference = lora_phy.reference_chirp(config);
 localTime = (0:symbolSamples-1).'/fs;
 residualCorrection = exp(-2j*pi*residualCfo*localTime);
 symbols = zeros(symbolCount, 1);
@@ -286,14 +302,56 @@ for symbol = 1:symbolCount
     indices = startIndex+(symbol-1)*symbolSamples+(0:symbolSamples-1);
     carrierTime = (indices(:)-phaseOrigin)/fs;
     window = iq(indices(:)).*exp(-2j*pi*centre*carrierTime);
-    dechirped = window.*conj(reference).*residualCorrection;
-    spectrum = lora_phy.polyphase_spectrum(dechirped, samplesPerChip);
-    [peak, peakIndex] = max(spectrum);
-    symbols(symbol) = peakIndex-1;
-    confidence(symbol) = peak/max(sum(spectrum), eps);
-    noisePower = max(median(spectrum)/log(2), eps);
-    metrics(symbol, :) = min((spectrum/noisePower).', 1e6);
+    corrected = window.*residualCorrection;
+    if mode == "fft-correlator"
+        [symbols(symbol), confidence(symbol), metrics(symbol, :)] = ...
+            lora_phy.fft_correlator_metrics(corrected, config, ...
+            Reference=correlationReference);
+    elseif mode == "polyphase"
+        dechirped = corrected.*conj(nominalReference);
+        spectrum = lora_phy.polyphase_spectrum( ...
+            dechirped, samplesPerChip);
+        [peak, peakIndex] = max(spectrum);
+        symbols(symbol) = peakIndex-1;
+        confidence(symbol) = peak/max(sum(spectrum), eps);
+        noisePower = max(median(spectrum)/log(2), eps);
+        metrics(symbol, :) = min((spectrum/noisePower).', 1e6);
+    else
+        error("lora_phy:InvalidDemodulationMode", ...
+            "Unsupported packet demodulation mode: %s", mode);
+    end
 end
+end
+
+function reference = estimate_packet_reference(iq, startIndex, repetitions, ...
+    fs, bw, sf, centre, residualCfo)
+samplesPerChip = round(fs/bw);
+config = lora_phy.css_config(sf, samplesPerChip);
+symbolSamples = config.samplesPerSymbol;
+nominal = lora_phy.reference_chirp(config);
+reference = complex(zeros(symbolSamples, 1));
+used = 0;
+localTime = (0:symbolSamples-1).'/fs;
+residualCorrection = exp(-2j*pi*residualCfo*localTime);
+for repetition = 1:repetitions
+    indices = startIndex+(repetition-1)*symbolSamples+ ...
+        (0:symbolSamples-1);
+    if indices(1) < 1 || indices(end) > numel(iq)
+        continue
+    end
+    carrierTime = (indices(:)-startIndex)/fs;
+    window = iq(indices(:)).*exp(-2j*pi*centre*carrierTime).* ...
+        residualCorrection;
+    phase = angle(sum(window.*conj(nominal)));
+    reference = reference+window.*exp(-1j*phase);
+    used = used+1;
+end
+if used == 0 || ~any(reference)
+    reference = nominal;
+    return
+end
+reference = reference/used;
+reference = reference/sqrt(mean(abs(reference).^2));
 end
 
 function distance = circular_distance(values, reference, modulus)
