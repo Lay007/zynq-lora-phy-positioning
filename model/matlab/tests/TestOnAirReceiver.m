@@ -51,6 +51,22 @@ classdef TestOnAirReceiver < matlab.unittest.TestCase
                 PreambleSymbols=12, SyncWord=hex2dec("12")), ...
                 "lora_phy:AcquisitionWindowTooShort");
         end
+
+        function shortPayloadWindowReturnsDecoderFailure(testCase)
+            [capture, ~, sampleRateHz, bandwidthHz] = synthetic_capture(false);
+            symbolSamples = round(sampleRateHz/bandwidthHz)*2^7;
+            payloadStart = 4001+round((12+2+2.25)*symbolSamples);
+            truncated = capture(1:payloadStart+4*symbolSamples-1);
+
+            result = lora_phy.receive_lora_packet(truncated, sampleRateHz, ...
+                bandwidthHz, 7, PreambleSymbols=12, ...
+                SyncWord=hex2dec("12"));
+
+            testCase.verifyFalse(result.success);
+            testCase.verifyEqual(result.decoded.consumedSymbolCount, 0);
+            testCase.verifyEqual(result.decoded.failureReason, ...
+                "fewer than eight first-block symbols");
+        end
     end
 end
 

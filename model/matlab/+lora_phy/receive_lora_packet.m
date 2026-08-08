@@ -167,7 +167,11 @@ for candidate = 1:numel(searchOffsets)
     if softDecoded.success
         score = score+120;
     end
-    if score > bestCandidate.score
+    % When every timing hypothesis contains fewer than eight header
+    % symbols, mean(confidence) is NaN. Still retain the first structured
+    % decoder failure instead of leaving bestCandidate.decoded empty and
+    % throwing while the diagnostic result is assembled below.
+    if candidate == 1 || score > bestCandidate.score
         bestCandidate.offset = searchOffsets(candidate);
         bestCandidate.symbols = symbols;
         bestCandidate.confidence = confidence;
