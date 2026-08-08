@@ -1,9 +1,10 @@
 function results = simulate_coded_ber(snrDb, config, packetsPerPoint, ...
-    payloadLength, randomSeed, softDecoding, combineOversamplingPhases)
+    payloadLength, randomSeed, softDecoding, demodulationMode)
 %SIMULATE_CODED_BER Measure hard/soft packet PHY performance in AWGN.
 % Timing is known. Each failed header/CRC packet contributes all of its user
 % bits to the conservative payload-error count. Optional arguments six and
-% seven enable soft-preferred selection and polyphase combining respectively.
+% seven select soft-preferred decoding and the CSS demodulator respectively.
+% Logical true/false remain aliases for polyphase/single-phase.
 
 if nargin < 3
     packetsPerPoint = 100;
@@ -18,19 +19,18 @@ if nargin < 6
     softDecoding = false;
 end
 if nargin < 7
-    combineOversamplingPhases = true;
+    demodulationMode = "fft-correlator";
 end
 snrDb = double(snrDb(:));
 validateattributes(packetsPerPoint, {'numeric'}, ...
     {"scalar", "integer", ">=", 1});
 validateattributes(payloadLength, {'numeric'}, ...
     {"scalar", "integer", ">=", 1, "<=", 255});
-if ~isscalar(softDecoding) || ~ismember(softDecoding, [0, 1]) || ...
-        ~isscalar(combineOversamplingPhases) || ...
-        ~ismember(combineOversamplingPhases, [0, 1])
+if ~isscalar(softDecoding) || ~ismember(softDecoding, [0, 1])
     error("lora_phy:InvalidBerOption", ...
-        "softDecoding and combineOversamplingPhases must be scalar booleans");
+        "softDecoding must be a scalar boolean");
 end
+mode = normalize_mode(demodulationMode);
 
 previousState = rng;
 restoreState = onCleanup(@() rng(previousState));
@@ -62,8 +62,7 @@ for point = 1:pointCount
         waveform = lora_phy.modulate(encoded.symbols, config);
         noisy = lora_phy.add_awgn(waveform, snrDb(point));
         [detectedSymbols, ~, metrics] = lora_phy.demodulate_metrics( ...
-            noisy, config, CombineOversamplingPhases= ...
-            logical(combineOversamplingPhases));
+            noisy, config, Mode=mode);
         hardDecoded = lora_phy.decode_packet(detectedSymbols, config);
         softDecoded = lora_phy.decode_packet_soft(metrics, config);
         decoded = hardDecoded;
@@ -166,10 +165,6 @@ results.SoftRecoveryRate = softRecoveredPackets/packetsPerPoint;
     lora_phy.binomial_wilson_interval(hardPacketErrors, results.Packets);
 [results.SoftPER_Lower95, results.SoftPER_Upper95] = ...
     lora_phy.binomial_wilson_interval(softPacketErrors, results.Packets);
-mode = "single-phase";
-if combineOversamplingPhases
-    mode = "polyphase";
-end
 results.DemodulationMode = repmat(mode, pointCount, 1);
 decoder = "hard";
 if softDecoding
@@ -180,6 +175,26 @@ probe = lora_phy.encode_packet(zeros(payloadLength, 1, "uint8"), config);
 packetSamples = numel(probe.symbols)*config.samplesPerSymbol;
 results.EbN0_dB = results.SNR_dB+ ...
     10*log10(packetSamples/(payloadLength*8));
+end
+
+function mode = normalize_mode(value)
+if (islogical(value) || isnumeric(value)) && isscalar(value) && ...
+        ismember(value, [0, 1])
+    mode = "single-phase";
+    if logical(value)
+        mode = "polyphase";
+    end
+    return
+end
+if ~(ischar(value) || (isstring(value) && isscalar(value)))
+    error("lora_phy:InvalidBerOption", ...
+        "demodulationMode must be a supported mode or scalar boolean");
+end
+mode = string(value);
+if ~ismember(mode, ["single-phase", "polyphase", "fft-correlator"])
+    error("lora_phy:InvalidBerOption", ...
+        "Unsupported demodulation mode: %s", mode);
+end
 end
 
 function codewords = recover_header_codewords(symbols, config)

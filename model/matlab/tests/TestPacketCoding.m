@@ -90,6 +90,7 @@ classdef TestPacketCoding < matlab.unittest.TestCase
             testCase.verifyEqual(result.PayloadBits, 64);
             testCase.verifyGreaterThan(result.Symbols, 0);
             testCase.verifyGreaterThan(result.PreFecBits, 0);
+            testCase.verifyEqual(result.DemodulationMode, "fft-correlator");
         end
 
         function lowSfCodedBerReportsHardAndSoftResults(testCase)
@@ -104,6 +105,7 @@ classdef TestPacketCoding < matlab.unittest.TestCase
             testCase.verifyEqual(result.UndetectedErrors, 0);
             testCase.verifyEqual(result.SelectedDecoder, "soft-preferred");
             testCase.verifyGreaterThan(result.PreFecBits, 0);
+            testCase.verifyEqual(result.DemodulationMode, "polyphase");
         end
     end
 end

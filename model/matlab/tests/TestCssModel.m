@@ -108,5 +108,52 @@ classdef TestCssModel < matlab.unittest.TestCase
                 ones(config.samplesPerSymbol-1, 1), config), ...
                 "lora_phy:InvalidSampleCount");
         end
+
+        function fftCorrelatorMatchesExactFilterForEveryL(testCase)
+            for samplesPerChip = [1, 2, 4, 8]
+                config = lora_phy.css_config(5, samplesPerChip);
+                transmitted = (0:config.symbolCount-1).';
+                waveform = lora_phy.add_awgn( ...
+                    lora_phy.modulate(transmitted, config), -12, ...
+                    80+samplesPerChip);
+
+                [actual, actualConfidence, actualMetrics] = ...
+                    lora_phy.fft_correlator_metrics(waveform, config);
+                [expected, expectedConfidence, expectedMetrics] = ...
+                    lora_phy.matched_filter_metrics(waveform, config);
+
+                testCase.verifyEqual(actual, expected);
+                testCase.verifyEqual(actualConfidence, expectedConfidence, ...
+                    "AbsTol", 1e-12);
+                testCase.verifyEqual(actualMetrics, expectedMetrics, ...
+                    "RelTol", 1e-11, "AbsTol", 1e-11);
+            end
+        end
+
+        function metricsSelectFftCorrelatorExplicitly(testCase)
+            config = lora_phy.css_config(5, 8);
+            waveform = lora_phy.modulate_symbol(23, config);
+
+            actual = lora_phy.demodulate_metrics( ...
+                waveform, config, Mode="fft-correlator");
+
+            testCase.verifyEqual(actual, 23);
+            testCase.verifyError(@() lora_phy.demodulate_metrics( ...
+                waveform, config, Mode="unknown"), ...
+                "lora_phy:InvalidDemodulationMode");
+        end
+
+        function fftCorrelatorValidatesAdaptiveReference(testCase)
+            config = lora_phy.css_config(5, 8);
+            waveform = lora_phy.modulate_symbol(7, config);
+
+            testCase.verifyError(@() lora_phy.fft_correlator_metrics( ...
+                waveform, config, Reference=ones(7, 1)), ...
+                "lora_phy:InvalidReferenceLength");
+            testCase.verifyError(@() lora_phy.fft_correlator_metrics( ...
+                waveform, config, ...
+                Reference=zeros(config.samplesPerSymbol, 1)), ...
+                "lora_phy:ZeroReference");
+        end
     end
 end

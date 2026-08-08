@@ -14,11 +14,5 @@ end
 
 n = (0:config.samplesPerSymbol-1).';
 compensation = exp(-2j * pi * frequencyOffset * n);
-dechirped = samples .* compensation .* ...
-    conj(lora_phy.reference_chirp(config));
-spectrumPower = lora_phy.polyphase_spectrum( ...
-    dechirped, config.samplesPerChip);
-[~, peakIndex] = max(spectrumPower);
-peakBin = peakIndex - 1;
-symbol = mod(peakBin, config.symbolCount);
+symbol = lora_phy.fft_correlator_metrics(samples.*compensation, config);
 end

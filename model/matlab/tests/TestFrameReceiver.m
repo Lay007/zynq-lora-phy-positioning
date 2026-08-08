@@ -62,6 +62,14 @@ classdef TestFrameReceiver < matlab.unittest.TestCase
                 "lora_phy:InvalidBerOption");
         end
 
+        function uncodedBerSupportsFftCorrelator(testCase)
+            config = lora_phy.css_config(5, 8);
+            result = lora_phy.simulate_uncoded_ber( ...
+                -12, config, 40, 13, "fft-correlator");
+
+            testCase.verifyEqual(result.DemodulationMode, "fft-correlator");
+        end
+
         function wilsonIntervalBoundsZeroErrorRate(testCase)
             [lower, upper] = lora_phy.binomial_wilson_interval(0, 100);
 

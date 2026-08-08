@@ -43,6 +43,9 @@ for point = 1:pointCount
         case "polyphase"
             received = lora_phy.demodulate_metrics(receivedWaveform, ...
                 config, CombineOversamplingPhases=true);
+        case "fft-correlator"
+            received = lora_phy.fft_correlator_metrics( ...
+                receivedWaveform, config);
         case "matched-filter"
             received = lora_phy.matched_filter_metrics( ...
                 receivedWaveform, config);
@@ -91,7 +94,8 @@ if ~(ischar(value) || (isstring(value) && isscalar(value)))
         "demodulationMode must be a supported mode or scalar boolean");
 end
 mode = string(value);
-if ~ismember(mode, ["single-phase", "polyphase", "matched-filter"])
+if ~ismember(mode, ["single-phase", "polyphase", ...
+        "fft-correlator", "matched-filter"])
     error("lora_phy:InvalidBerOption", ...
         "Unsupported demodulation mode: %s", mode);
 end
