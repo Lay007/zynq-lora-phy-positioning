@@ -56,16 +56,24 @@ metric definitions, and the explicit configuration-aided boundary.
 
 ## M2 — Simulink executable architecture
 
-- [ ] Reproduce the verified MATLAB algorithm in a sample-streaming model.
-- [ ] Define frame/control signals, valid/ready behavior, and rate changes.
-- [ ] Convert arithmetic to explicit fixed-point types with saturation/rounding.
-- [ ] Compare every stage against MATLAB golden vectors.
-- [ ] Establish latency, throughput, and reset behavior.
+- [x] Reproduce the verified MATLAB algorithm in a sample-streaming model.
+- [x] Define frame/control signals and flow-control behavior, with the
+  no-backpressure decision backed by a measured full-rate throughput.
+- [x] Convert arithmetic to explicit fixed-point types with saturation/rounding
+  and sweep the word length.
+- [x] Compare every stage against MATLAB golden vectors.
+- [x] Establish latency and throughput.
+- [x] Replay recorded SX1262 symbol windows through the fixed-point model.
+- [ ] Establish reset behavior; the models have no reset port yet.
+- [ ] Model acquisition: chirp-aware preamble detection, sync/SFD validation,
+  and packet-level framing.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
-  timestamp/metadata interface.
+  timestamp/metadata interface, which is specified but not yet implemented.
 
 Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
 boundary, and impairment regressions and is accepted by HDL Coder checks.
+Measurements so far are in [M2 acceptance](simulink-m2-acceptance.md); the
+milestone remains open on the unchecked items above.
 
 ## M3 — HDL Coder Verilog generation
 

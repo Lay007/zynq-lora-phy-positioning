@@ -154,6 +154,17 @@ ambiguity: all 130 committed SX1262 packets now select the FFT correlator and
 decode exactly; none require fallback. This supersedes the earlier 118/130
 nominal result and the 56/74 hybrid split.
 
+`joint_timing_cfo_from_bins` splits whole-chip timing from carrier offset given
+the signed dechirp bins of one upchirp and one downchirp. It works in units of
+half a bin, so `cfoHalfBins` and `timingHalfChips` are exact integers and the
+Simulink and HDL implementation can be bit-exact rather than merely close.
+`receive_lora_packet` delegates to it.
+
+`receive_lora_packet` and `receive_lora_packets` accept `ReturnSymbolWindows`,
+off by default. When enabled they return the corrected per-symbol windows the
+correlator actually consumed, plus the adaptive and nominal references. Those
+windows are the real-signal stimulus for the Simulink DUT.
+
 `tdoa_from_toas` subtracts fixed per-channel delays before differencing against
 receiver 1. `predict_tdoa` and `solve_tdoa` implement the forward model and a
 weighted Gauss-Newton multilateration solver with residual, covariance, and

@@ -14,7 +14,11 @@ Simulink и автоматически сгенерированный Verilog к
 > Текущее состояние: MATLAB M1 завершён. Работают поиск полных пакетов в
 > непрерывном настроенном IQ, hard/soft LoRa decoding, end-to-end BER/PER,
 > дробный ToA и калиброванный 2D TDoA; есть регрессия по реальным IQ SX1262.
-> Следующий этап — Simulink; Verilog и аппаратный приёмник пока не реализованы.
+> Идёт этап M2: собираемый скриптом потоковый коррелятор Simulink совпадает с
+> MATLAB поэтапно, разрядность fixed point выбрана по sweep, подсистема
+> совместной оценки timing/CFO побитово точна. Acquisition, кадрирование
+> пакета, reset и выходы timestamp пока не смоделированы, поэтому M2 не
+> принят. Verilog и аппаратный приёмник остаются следующими этапами.
 
 ## Цели
 
@@ -100,6 +104,29 @@ Simulink FFT-correlator и независимый matched-filter reference. FFT-
 ![Текущий CSS-демодулятор и когерентный эталон](docs/images/css-ber-current-vs-ideal.png)
 
 ![Coded LoRa BER/PER с FFT-correlator](docs/images/lora-coded-ber-sf5-sf7-fft-correlator.png)
+
+## Быстрый запуск Simulink
+
+Модели собираются скриптом и не коммитятся, поэтому сборка — обычный способ их
+получить:
+
+```matlab
+cd model/simulink
+report = report_toolchain;                  % проверка продуктов и лицензий
+info = build_fft_correlator_model;          % SF7, L=8, double
+results = run_simulink_regression;          % toolchain, double, joint sync
+```
+
+Из командной строки регрессия возвращает ненулевой код при любом расхождении
+MATLAB и Simulink:
+
+```bash
+matlab -batch "cd model/simulink; run_simulink_regression"
+```
+
+Измеренные результаты, выбранные форматы fixed point и открытые пункты, из-за
+которых M2 ещё не принят, приведены в
+[приёмке M2](docs/ru/simulink-m2-acceptance.md).
 
 ## Быстрый запуск Python-проверок
 

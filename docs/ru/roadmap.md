@@ -59,17 +59,26 @@
 
 ## M2 — Исполняемая модель Simulink
 
-- [ ] Воспроизвести FFT-correlator потоковой моделью: FFT `N·L`, умножение на
+- [x] Воспроизвести FFT-correlator потоковой моделью: FFT `N·L`, умножение на
   спектр опоры, сумма `L` секций и FFT `N`.
-- [ ] Определить framing, `valid/ready` и смену частот обработки.
-- [ ] Ввести fixed-point типы, округление, насыщение и overflow policy.
-- [ ] Сравнить каждый этап с MATLAB golden-векторами.
-- [ ] Зафиксировать latency, throughput и reset behavior.
+- [x] Определить framing и управление потоком; отказ от backpressure опирается
+  на измеренную полную пропускную способность.
+- [x] Ввести fixed-point типы, округление, насыщение и overflow policy и
+  выполнить sweep разрядности.
+- [x] Сравнить каждый этап с MATLAB golden-векторами.
+- [x] Зафиксировать latency и throughput.
+- [x] Прогнать через fixed-point модель окна символов из реальных записей
+  SX1262.
+- [ ] Зафиксировать reset behavior: порта reset в моделях пока нет.
+- [ ] Смоделировать acquisition: chirp-aware детектор преамбулы, проверку
+  sync/SFD и кадрирование пакета.
 - [ ] Оставить association/TDoA solver вне HDL DUT и проверить интерфейс
-  timestamp/metadata.
+  timestamp/metadata, который описан, но ещё не реализован.
 
 Критерий: Simulink совпадает с MATLAB в документированных допусках и проходит
-проверки HDL Coder.
+проверки HDL Coder. Измеренное на сегодня приведено в
+[приёмке M2](simulink-m2-acceptance.md); этап остаётся открытым по
+неотмеченным пунктам выше.
 
 ## M3 — Генерация Verilog
 
