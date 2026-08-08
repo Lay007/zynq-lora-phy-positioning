@@ -10,15 +10,16 @@ Key conclusions:
 
 - the SF7/BW125 pre-check decoded 10/10 packets;
 - the adaptive local-floor detector acquires 30/30 SF5 and 30/30 SF6 packets;
-  matching payloads improve to 26/30 in both modes, with the remaining losses
-  identified as header/CRC failures rather than missed activity;
+  polyphase FFT-power combining raises exact payload matches to 30/30 in both
+  modes by using all eight oversampling phases;
 - BW500 is usable when recaptured at Fs=4 MS/s: 10/10 packets decode, versus
   0/2 in the historical Fs=1 MS/s recording;
-- the 50-packet SF7 run gives 18.50 us residual standard deviation after
+- the 50-packet SF7 run gives 18.72 us residual standard deviation after
   affine TX/RX clock fitting, but is not an absolute ToA calibration.
 
-The next receiver work should therefore analyze low-SF symbol metrics, timing,
-and residual CFO for the eight header/CRC failures, then validate the change
-with controlled SNR sweeps. The next hardware timing step requires a safely
-attenuated cable path and a timestamp closer to RF than the ESP32 millisecond
-counter.
+All 130 recorded payloads now match with aggregate PER zero, while the 2.23%
+pre-FEC BER confirms that FEC still corrected channel errors. The next receiver
+work should quantify the polyphase gain with controlled SNR sweeps and freeze
+the algorithm boundary for Simulink. The next hardware timing step requires a
+safely attenuated cable path and a timestamp closer to RF than the ESP32
+millisecond counter.

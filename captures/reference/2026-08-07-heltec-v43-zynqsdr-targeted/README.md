@@ -14,18 +14,22 @@ acquisition commit, byte count, and SHA-256 hash.
 
 | Capture | Fs | TX packets | Acquisition | Matching payload | Soft recovered | PER |
 |---|---:|---:|---:|---:|---:|---:|
-| baseline-sf7-bw125 | 1 MS/s | 10 | 10 | 10 | 1 | 0% |
-| sf5-bw125 | 1 MS/s | 30 | 30 | 26 | 1 | 13.3% |
-| sf6-bw125 | 1 MS/s | 30 | 30 | 26 | 0 | 13.3% |
+| baseline-sf7-bw125 | 1 MS/s | 10 | 10 | 10 | 0 | 0% |
+| sf5-bw125 | 1 MS/s | 30 | 30 | 30 | 0 | 0% |
+| sf6-bw125 | 1 MS/s | 30 | 30 | 30 | 0 | 0% |
 | sf7-bw500-fs4m | 4 MS/s | 10 | 10 | 10 | 0 | 0% |
-| toa-sf7-bw125 | 1 MS/s | 50 | 50 | 47 | 6 | 6.0% |
+| toa-sf7-bw125 | 1 MS/s | 50 | 50 | 50 | 0 | 0% |
 
-Across all 130 transmissions, all 130 pass acquisition and 119 payloads match.
-The aggregate PER is 8.46%. The adaptive local-floor detector separates
+Across all 130 transmissions, all 130 pass acquisition, header validation,
+CRC, and exact payload comparison. The aggregate PER is zero. The pre-FEC BER
+is still 2.23%, so this result demonstrates successful correction rather than
+an error-free channel. The adaptive local-floor detector separates
 packets that the original global threshold merged during receiver floor
 changes. A tighter retry from the activity boundary recovers the remaining
-SF5 acquisition ambiguity. The residual low-SF errors have valid acquisition
-and are header/CRC failures; this fixed high-SNR run is not a sensitivity test.
+SF5 acquisition ambiguity. Polyphase FFT-power combining uses all eight
+oversampling phases instead of discarding seven of them; this removes the
+remaining low-SF header/CRC failures. This fixed high-SNR run is not a
+sensitivity test.
 
 The BW 500 kHz result replaces the earlier under-sampled Fs=1 MS/s attempt:
 with Fs=4 MS/s and the signal 500 kHz away from receiver DC, all ten packets
@@ -33,10 +37,10 @@ are acquired and decode without payload bit errors.
 
 ## ToA repeatability
 
-The 50-packet SF7 capture produces 47 matched timing observations. After an
+The 50-packet SF7 capture produces 50 matched timing observations. After an
 affine fit removes the unrelated TX/RX epochs and their 4.95 ppm linear clock
-scale error, the residual standard deviation is 18.50 samples (18.50 us) and
-the 95th absolute residual is 31.81 samples.
+scale error, the residual standard deviation is 18.72 samples (18.72 us) and
+the 95th absolute residual is 33.47 samples.
 
 This is complete-chain fixed-geometry OTA repeatability. It includes TX
 millisecond timestamp quantization, scheduling, RF/baseband latency variation,
@@ -66,8 +70,9 @@ Generated files:
 Набор подтверждает, что прежний провал BW500 был связан с записью при
 недостаточной Fs: при 4 Мвыб/с декодированы все 10 передач. Адаптивная оценка
 локального фона и повторная синхронизация от границы активности подняли
-acquisition SF5/SF6 до 30 из 30 в каждом режиме. Корректный payload получен для
-26 из 30 передач как SF5, так и SF6; оставшиеся ошибки относятся к header/CRC,
-а не к пропуску пакета. Повторяемость всей OTA-цепочки ToA после удаления
-линейного drift равна 18,50 мкс по стандартному отклонению; это ещё не
-аппаратно откалиброванный ToA.
+acquisition SF5/SF6 до 30 из 30 в каждом режиме. Polyphase-объединение мощностей
+FFT использует все восемь фаз передискретизации вместо одной: payload совпал
+во всех 130 передачах, итоговый PER равен нулю. При этом pre-FEC BER равен
+2,23%, поэтому канал не был безошибочным — ошибки исправил FEC. Повторяемость
+всей OTA-цепочки ToA после удаления линейного drift равна 18,72 мкс по
+стандартному отклонению; это ещё не аппаратно откалиброванный ToA.
