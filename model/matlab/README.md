@@ -112,6 +112,12 @@ reference-sweep evaluator rebuilds the deterministic firmware payload from the
 TX log and reports acquisition, header, CRC, pre-FEC BER, payload BER, and PER
 separately.
 
+For `samplesPerChip > 1`, dechirp produces one chip-rate FFT for every
+oversampling phase. `polyphase_spectrum` sums their powers bin by bin instead
+of selecting only the first phase. The LoRa symbol-bin mapping is unchanged,
+while timing-phase sensitivity and metric variance are reduced. This operation
+is an explicit block to carry into the Simulink and RTL architectures.
+
 ## BER definitions
 
 `simulate_uncoded_ber` compares the natural binary labels of transmitted and

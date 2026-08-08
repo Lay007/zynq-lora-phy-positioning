@@ -279,8 +279,8 @@ matrixDb = zeros(symbolCount, config.symbolCount);
 symbols = zeros(symbolCount, 1);
 for k = 1:symbolCount
     corrected = dechirped(:, k).*correction;
-    chipRate = corrected(1:config.samplesPerChip:end);
-    spectrum = abs(fft(chipRate)).^2;
+    spectrum = lora_phy.polyphase_spectrum( ...
+        corrected, config.samplesPerChip);
     spectrumDb = 10*log10(spectrum/max(max(spectrum), eps)+eps);
     matrixDb(k, :) = spectrumDb(:).';
     [~, bin] = max(spectrum);

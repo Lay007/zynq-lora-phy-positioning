@@ -67,6 +67,9 @@ the [capture guide](iq-capture-guide.md).
    Repeated preamble upchirps form repeated bright peaks. Downchirps do not
    collapse to one bin with an upchirp reference and therefore appear spread.
 
+When the working signal is oversampled, each row combines FFT power from every
+polyphase chip-rate view. No single decimation phase is treated as privileged.
+
 The symbol list contains hard FFT-bin decisions. It is diagnostic output, not
 proof that a standards-compliant packet was decoded.
 

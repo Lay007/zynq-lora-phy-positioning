@@ -45,5 +45,34 @@ classdef TestCssModel < matlab.unittest.TestCase
             testCase.verifyError(@() lora_phy.css_config(7, 0), ...
                 "MATLAB:css_config:notGreaterEqual");
         end
+
+        function demodulatorCombinesEveryOversamplingPhase(testCase)
+            config = lora_phy.css_config(5, 8);
+            expected = 19;
+            waveform = lora_phy.modulate_symbol(expected, config);
+            % The former receiver observed only this phase. Erasing it
+            % made every nonzero symbol look like bin zero even though
+            % seven complete chip-rate observations remained available.
+            waveform(1:config.samplesPerChip:end) = 0;
+
+            actual = lora_phy.demodulate_symbol(waveform, config);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function everyOversampledSf5SymbolRoundTrips(testCase)
+            config = lora_phy.css_config(5, 8);
+            transmitted = (0:config.symbolCount-1).';
+
+            received = lora_phy.demodulate( ...
+                lora_phy.modulate(transmitted, config), config);
+
+            testCase.verifyEqual(received, transmitted);
+        end
+
+        function polyphaseSpectrumRejectsIncompleteSymbols(testCase)
+            testCase.verifyError(@() lora_phy.polyphase_spectrum( ...
+                ones(17, 1), 8), "lora_phy:InvalidSampleCount");
+        end
     end
 end

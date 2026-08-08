@@ -154,7 +154,12 @@ for candidate = 1:numel(searchOffsets)
     hardDecoded = lora_phy.decode_packet(symbols, config);
     softDecoded = lora_phy.decode_packet_soft(metrics, config);
     decoded = hardDecoded;
-    if options.SoftDecoding && (softDecoded.success || ~hardDecoded.success)
+    % A failed soft pass must not replace a valid hard header with an
+    % invalid one. When both headers have equal validity, retain the soft
+    % payload candidate because it uses FFT-bin reliability information.
+    if options.SoftDecoding && (softDecoded.success || ...
+            (~hardDecoded.success && (softDecoded.headerValid || ...
+            ~hardDecoded.headerValid)))
         decoded = softDecoded;
     end
     score = mean(confidence);
@@ -241,7 +246,7 @@ bins = zeros(size(starts));
 for index = 1:numel(starts)
     indices = starts(index)+(0:symbolSamples-1);
     dechirped = iq(indices(:)).*conj(reference);
-    spectrum = abs(fft(dechirped(1:samplesPerChip:end))).^2;
+    spectrum = lora_phy.polyphase_spectrum(dechirped, samplesPerChip);
     [peak, peakIndex] = max(spectrum);
     confidence(index) = peak/max(sum(spectrum), eps);
     bins(index) = peakIndex-1;
@@ -282,7 +287,7 @@ for symbol = 1:symbolCount
     carrierTime = (indices(:)-phaseOrigin)/fs;
     window = iq(indices(:)).*exp(-2j*pi*centre*carrierTime);
     dechirped = window.*conj(reference).*residualCorrection;
-    spectrum = abs(fft(dechirped(1:samplesPerChip:end))).^2;
+    spectrum = lora_phy.polyphase_spectrum(dechirped, samplesPerChip);
     [peak, peakIndex] = max(spectrum);
     symbols(symbol) = peakIndex-1;
     confidence(symbol) = peak/max(sum(spectrum), eps);
