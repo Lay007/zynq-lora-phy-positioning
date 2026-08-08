@@ -39,6 +39,28 @@ absolute propagation-delay or hardware calibration claim.
 
 ![Fractional ToA accuracy in AWGN](images/toa-accuracy-awgn.png)
 
+## Calibrated TDoA and 2D solution
+
+`tdoa_from_toas` subtracts the fixed delay of every receiver before forming
+differences relative to receiver 1. `predict_tdoa` implements the geometric
+forward model. `solve_tdoa` uses weighted Gauss-Newton least squares and returns
+the position, time residuals, convergence state, covariance approximation, and
+geometry condition number. It accepts a full observation covariance: TDoA
+errors are correlated because the reference-receiver timestamp appears in
+every difference.
+
+```matlab
+tdoa = lora_phy.tdoa_from_toas(measuredToaSeconds, ...
+    ReceiverDelaySeconds=calibratedChannelDelays);
+position = lora_phy.solve_tdoa(receiverPositionsMeters, tdoa, ...
+    MeasurementStdSeconds=timestampUncertaintySeconds);
+```
+
+The reproducible four-receiver Monte Carlo and its limitations are reported in
+[MATLAB M1 floating-point acceptance](matlab-m1-acceptance.md).
+
+![Calibrated 2D TDoA accuracy](images/tdoa-positioning-accuracy.png)
+
 ## Hardware acceptance sequence
 
 When the bench is available, preserve the same estimator and replace the
@@ -48,7 +70,8 @@ synthetic source in this order:
 2. estimate constant RF/baseband delay and temperature-dependent drift;
 3. report bias, standard deviation, 95th percentile, outlier rate, and raw IQ
    checksum;
-4. only then subtract calibrated receiver timestamps for TDoA.
+4. only then subtract calibrated receiver timestamps for TDoA and propagate
+   their uncertainty into the weighted position solution.
 
 The present estimator does not remove multipath bias, AD936x group delay,
 buffer timestamp uncertainty, or clock offset. Those terms belong in the

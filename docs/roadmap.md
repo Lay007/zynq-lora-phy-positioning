@@ -31,9 +31,9 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
 - [x] Implement the standard LoRa sync-word/downchirp transition and packet
   boundary conventions, including the 2.25-downchirp SFD and the SX126x
   low-spreading-factor padding.
-- [ ] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
-- [ ] Implement coarse/fractional ToA estimators and characterize bias/jitter.
-- [ ] Implement calibrated TDoA observations and 2D multilateration.
+- [x] Model SFO, timing offset, multipath, and AD936x-relevant impairments.
+- [x] Implement coarse/fractional ToA estimators and characterize bias/jitter.
+- [x] Implement calibrated TDoA observations and 2D multilateration.
 - [x] Generate a versioned SF7/CR1 golden packet vector with intermediate
   values for the current HDL-bound bit-processing blocks.
 - [x] Capture Heltec SX1262 packets at BW 125 kHz/SF7 and estimate their packet
@@ -44,10 +44,15 @@ Acceptance: a clean checkout runs both MATLAB and auxiliary Python tests.
   with the transmitter log to report packet BER and PER.
 - [x] Add max-log soft-decision symbol, deinterleaver, and Hamming decoding and
   record how many packets it recovers beyond hard decisions.
+- [x] Build and receive complete packets in continuous configured IQ, including
+  energy/chirp candidate fusion, implicit headers, ADC quantization,
+  false-alarm accounting, and end-to-end BER/PER.
 
-Acceptance: deterministic simulation and processing of at least 1,000 captures
-with recorded detection/symbol/CFO metrics plus ToA bias/jitter and TDoA position
-error for defined geometry and impairments.
+Acceptance: complete. The layered deterministic evidence exceeds 1,000 trials;
+it includes 324 synthetic end-to-end stream packets, 130 real SX1262 packets,
+500 fractional-ToA trials, and 3,000 calibrated TDoA position trials. See
+[MATLAB M1 floating-point acceptance](matlab-m1-acceptance.md) for raw data,
+metric definitions, and the explicit configuration-aided boundary.
 
 ## M2 — Simulink executable architecture
 

@@ -11,10 +11,11 @@ ran `N=2^SF` FFTs, and summed their powers. At `L=8` it lost `5.33 dB` at BER
 Directly instantiating `N` time-domain correlators is not an attractive HDL
 boundary.
 
-A nominal coherent matched filter closes the AWGN gap but decoded only 118 of
-130 committed SX1262→ZynqSDR transmissions. The real RF/baseband path adds
-waveform, filtering, timing, and residual-frequency mismatch that the legacy
-power sum tolerates better.
+An early nominal coherent pass closed the AWGN gap but decoded only 118 of 130
+committed SX1262→ZynqSDR transmissions. Follow-up isolated a synchronization
+ambiguity rather than proving chirp-shape mismatch: the upchirp dechirp peak
+mixes whole-chip timing and CFO. Signed upchirp/downchirp bins separate the two
+because the timing term reverses sign while CFO does not.
 
 ## Decision
 
@@ -45,7 +46,7 @@ first HDL DUT.
 | First decimation phase | Loses oversampling gain | Simple | Low | Rejected |
 | Sum polyphase FFT powers | 5–6 dB from reference at `L=8` | 130/130 | Medium | Retained as fallback |
 | Time-domain template bank | Optimal | Mismatch-sensitive | Very high | Reference only |
-| FFT correlator | Optimal and exact | 118/130 nominal; hybrid 130/130 | To be measured | First DUT |
+| FFT correlator | Optimal and exact | 130/130 after joint timing/CFO | To be measured | First DUT |
 
 ## Consequences
 
@@ -56,8 +57,8 @@ first HDL DUT.
   satisfying one-symbol throughput.
 - Real-waveform robustness cannot be inferred from AWGN alone; the committed
   IQ regression remains mandatory.
-- The current packet result is 130/130: 56 packets selected the FFT correlator
-  and 74 selected the polyphase fallback.
+- The current packet result is 130/130 with all 130 selecting the FFT
+  correlator. The polyphase path remains a guard but was not selected.
 
 ## Follow-up
 

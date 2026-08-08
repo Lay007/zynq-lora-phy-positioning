@@ -21,7 +21,8 @@ All 130 recorded payloads now match with aggregate PER zero, while the 2.23%
 pre-FEC BER confirms that FEC still corrected channel errors. The subsequent
 AWGN campaign measured a 5–6 dB legacy polyphase gap and replaced the first
 Simulink candidate with an exact FFT correlator. Reprocessing this dataset with
-an adaptive preamble reference and CRC-selected fallback retained 130/130:
-56 packets selected the FFT correlator and 74 selected polyphase. The next
-hardware timing step requires a safely attenuated cable path and a timestamp
-closer to RF than the ESP32 millisecond counter.
+an adaptive preamble reference and joint upchirp/downchirp timing-CFO estimate
+retained 130/130: all 130 selected the FFT correlator and none required
+polyphase fallback. The earlier 56/74 split was primarily a synchronization
+defect. The next hardware timing step requires a safely attenuated cable path
+and a timestamp closer to RF than the ESP32 millisecond counter.

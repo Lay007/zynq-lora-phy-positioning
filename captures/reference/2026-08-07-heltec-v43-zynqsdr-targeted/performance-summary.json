@@ -1,5 +1,5 @@
 {
-  "Schema": "zynq-lora-packet-performance-v1",
+  "Schema": "zynq-lora-packet-performance-v2",
   "Transmissions": 130,
   "AcquiredPackets": 130,
   "HeaderValidPackets": 130,
@@ -9,6 +9,8 @@
   "HardSuccessPackets": 130,
   "SoftSuccessPackets": 130,
   "SoftRecoveredPackets": 0,
+  "FftCorrelatorPackets": 130,
+  "PolyphaseFallbackPackets": 0,
   "PacketErrors": 0,
   "PER": 0,
   "PreFecBitErrors": 1020,

@@ -11,10 +11,10 @@ LoRa-трансиверу. Её задача — сделать наблюдае
 воспроизводимый переход от эталонной MATLAB-модели с плавающей точкой через
 Simulink и автоматически сгенерированный Verilog к аппаратной реализации.
 
-> Текущее состояние: работает MATLAB-модель CSS с жёстким и мягким
-> декодированием LoRa-пакета, проверенная на записанных эфирных передачах
-> SX1262. Simulink-архитектура, Verilog и поддержка платы будут добавлены
-> позже.
+> Текущее состояние: MATLAB M1 завершён. Работают поиск полных пакетов в
+> непрерывном настроенном IQ, hard/soft LoRa decoding, end-to-end BER/PER,
+> дробный ToA и калиброванный 2D TDoA; есть регрессия по реальным IQ SX1262.
+> Следующий этап — Simulink; Verilog и аппаратный приёмник пока не реализованы.
 
 ## Цели
 
@@ -42,7 +42,10 @@ Simulink и автоматически сгенерированный Verilog к
 - приём эфирных пакетов SX1262: sync word, SFD и границы пакета;
 - мягкое декодирование по max-log для символов, деинтерливера и Хэмминга;
 - декодирование всех всплесков записи и BER/PER по логу передатчика;
+- объединённый energy/chirp detector полных пакетов в непрерывном IQ;
+- модель SFO, дробной задержки, multipath, I/Q/DC, clipping и ADC quantization;
 - uncoded BER/SER и coded payload BER/PER;
+- дробный ToA, калибровка TDoA и weighted 2D multilateration;
 - детерминированные golden-векторы и MATLAB-тесты;
 - вспомогательные Python-проверки CSS, ToA и TDoA.
 
@@ -130,6 +133,7 @@ hardware/               сведения о платах, тактировани
 - [Оглавление](docs/ru/README.md)
 - [Архитектура](docs/ru/architecture.md)
 - [Дорожная карта](docs/ru/roadmap.md)
+- [Приёмка floating-point MATLAB M1](docs/ru/matlab-m1-acceptance.md)
 - [LoRa PHY: whitening, FEC, interleaving и CRC](docs/ru/lora-phy-coding.md)
 - [Методика BER/SER/PER](docs/ru/ber-methodology.md)
 - [Запись SX1262 с RTL-SDR и PlutoSDR](docs/ru/iq-capture-guide.md)

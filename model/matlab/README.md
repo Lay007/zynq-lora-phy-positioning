@@ -1,9 +1,9 @@
 # MATLAB floating-point model
 
 This directory is the authoritative algorithm layer. It contains the CSS
-waveform model and a hard-decision LoRa packet-coding chain: explicit header,
-payload CRC, whitening, Hamming coding, diagonal interleaving, Gray mapping,
-and the inverse receiver path.
+waveform model, complete LoRa packet TX/RX, hard and soft coding chains,
+continuous-IQ acquisition, fractional ToA, calibrated TDoA observations, and
+weighted 2D multilateration.
 
 Run all tests from MATLAB:
 
@@ -17,6 +17,13 @@ Generate acquisition, uncoded CSS, and coded packet figures plus CSV tables:
 
 ```matlab
 outputs = run_visualizations;
+```
+
+Reproduce the complete M1 packet and positioning acceptance campaign:
+
+```matlab
+addpath examples
+report = run_m1_acceptance;
 ```
 
 The symbol-demodulation figure can also be generated independently without
@@ -112,17 +119,32 @@ reference-sweep evaluator rebuilds the deterministic firmware payload from the
 TX log and reports acquisition, header, CRC, pre-FEC BER, payload BER, and PER
 separately.
 
+`build_lora_packet` and `build_lora_stream` generate standard complete packets
+inside continuous IQ. `receive_lora_stream` fuses energy and chirp-sequence
+candidates, validates sync and SFD transitions, and passes explicit or implicit
+header configuration to the packet decoder. `evaluate_lora_stream` pairs time
+truth and candidates without removing misses, false alarms, duplicates, or CRC
+failures from the denominators. `simulate_lora_stream_performance` supplies
+reproducible acquisition-inclusive BER/PER evidence.
+
 `fft_correlator_metrics` is the selected coherent symbol-demodulation
 candidate. For `M=N·L`, it performs an `M`-point FFT, multiplies by the
 conjugated reference spectrum, aliases frequency bins spaced by `N`, and
 performs an `N`-point forward FFT. It is numerically equivalent to the exact
 matched-filter bank without a full `M`-point IFFT.
 
-The on-air packet receiver additionally learns a phase-aligned reference from
-the repeated preamble and evaluates the coherent and legacy polyphase paths.
-Header/CRC evidence chooses the result. This preserved 130/130 committed
-SX1262 packets while exposing real waveform mismatch: 56 packets selected the
-FFT correlator and 74 used the polyphase fallback.
+The on-air packet receiver learns a phase-aligned reference from the repeated
+preamble and keeps the legacy polyphase path as a packet-level guard. Joint
+timing/CFO resolution from the upchirp/downchirp pair removed the earlier
+ambiguity: all 130 committed SX1262 packets now select the FFT correlator and
+decode exactly; none require fallback. This supersedes the earlier 118/130
+nominal result and the 56/74 hybrid split.
+
+`tdoa_from_toas` subtracts fixed per-channel delays before differencing against
+receiver 1. `predict_tdoa` and `solve_tdoa` implement the forward model and a
+weighted Gauss-Newton multilateration solver with residual, covariance, and
+geometry-condition diagnostics. `simulate_tdoa_accuracy` provides seeded
+position-error Monte Carlo results.
 
 ## BER definitions
 

@@ -11,10 +11,11 @@ PHY processing chain, make internal measurements observable, and provide a
 repeatable path from a MATLAB floating-point reference model through Simulink
 and generated Verilog to a ZynqSDR implementation.
 
-> Status: executable MATLAB floating-point CSS model with hard- and
-> soft-decision LoRa packet decoding, validated against recorded on-air SX1262
-> transmissions. The Simulink architecture, generated Verilog, and board support
-> are planned; the repository does not yet contain a hardware LoRa receiver.
+> Status: MATLAB M1 is complete: continuous configured-IQ packet acquisition,
+> hard/soft LoRa decoding, end-to-end BER/PER, fractional ToA, and calibrated
+> 2D TDoA are executable and regression-tested, including recorded SX1262 IQ.
+> Simulink, generated Verilog, and board support are the next stage; the
+> repository does not yet contain a hardware LoRa receiver.
 
 ## Project goals
 
@@ -121,6 +122,11 @@ definitions, SNR convention, trial counts, zero-error marker rule, and data are 
 **[BER/SER methodology](docs/ber-methodology.md)**. The implemented coding chain is
 described in **[LoRa PHY coding stages](docs/lora-phy-coding.md)**.
 
+The acquisition-inclusive M1 campaign processes continuous IQ, covers all 32
+SF5...SF12 and CR 4/5...4/8 pairs, exercises RF/front-end impairments, and
+publishes calibrated 2D TDoA Monte Carlo results. See the
+**[MATLAB M1 acceptance report](docs/matlab-m1-acceptance.md)**.
+
 ## Auxiliary Python checks
 
 Python 3.10 or newer is recommended.
@@ -159,6 +165,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 
 - [System architecture](docs/architecture.md)
 - [Roadmap and acceptance criteria](docs/roadmap.md)
+- [MATLAB M1 floating-point acceptance](docs/matlab-m1-acceptance.md)
 - [Hardware test bench](docs/test-bench.md)
 - [RTL-SDR and PlutoSDR packet-capture guide](docs/iq-capture-guide.md)
 - [Experiment workflow](experiments/README.md)

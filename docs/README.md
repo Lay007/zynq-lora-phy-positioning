@@ -6,6 +6,7 @@
 
 - [System architecture](architecture.md)
 - [Roadmap and acceptance criteria](roadmap.md)
+- [Completed MATLAB M1 floating-point acceptance](matlab-m1-acceptance.md)
 - [MATLAB modeling flow](../model/README.md)
 - [ADR-0001: coherent FFT correlator and fallback](architecture-decisions/0001-coherent-css-demodulator.md)
 
@@ -20,6 +21,9 @@
 - **[Fractional ToA methodology](toa-methodology.md)** — normalized matched
   filtering, sub-sample interpolation, reproducible AWGN metrics, and the
   hardware calibration sequence.
+- **[MATLAB M1 acceptance](matlab-m1-acceptance.md)** — continuous-packet
+  acquisition/PER, all SF/CR pairs, impairments, real IQ, and calibrated 2D
+  TDoA evidence.
 
 ## Hardware and experiments
 

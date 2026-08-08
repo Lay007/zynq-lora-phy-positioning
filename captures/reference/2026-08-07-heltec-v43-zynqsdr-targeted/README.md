@@ -31,6 +31,12 @@ oversampling phases instead of discarding seven of them; this removes the
 remaining low-SF header/CRC failures. This fixed high-SNR run is not a
 sensitivity test.
 
+The current coherent reprocessing also records the selected demodulation path.
+Joint upchirp/downchirp timing-CFO estimation resolves the former acquisition
+ambiguity: all 130 packets select `fft-correlator`, and zero require the
+retained `polyphase` fallback. `packet-performance.csv` and
+`performance-summary.json` use schema v2 for these fields.
+
 The BW 500 kHz result replaces the earlier under-sampled Fs=1 MS/s attempt:
 with Fs=4 MS/s and the signal 500 kHz away from receiver DC, all ten packets
 are acquired and decode without payload bit errors.
@@ -73,6 +79,8 @@ Generated files:
 acquisition SF5/SF6 до 30 из 30 в каждом режиме. Polyphase-объединение мощностей
 FFT использует все восемь фаз передискретизации вместо одной: payload совпал
 во всех 130 передачах, итоговый PER равен нулю. При этом pre-FEC BER равен
-2,23%, поэтому канал не был безошибочным — ошибки исправил FEC. Повторяемость
+2,23%, поэтому канал не был безошибочным — ошибки исправил FEC. После
+совместной оценки timing/CFO все 130 пакетов выбрали FFT-correlator, fallback
+не потребовался. Повторяемость
 всей OTA-цепочки ToA после удаления линейного drift равна 18,72 мкс по
 стандартному отклонению; это ещё не аппаратно откалиброванный ToA.

@@ -103,15 +103,16 @@ zero error probability; the Wilson upper bound remains part of the CSV.
 
 ## Real-waveform robustness
 
-An exact nominal reference alone decoded 118 of 130 committed SX1262→ZynqSDR
-transmissions. Front-end filtering, residual synchronization error, and
-waveform mismatch make it less robust than its AWGN curve suggests. The packet
-receiver therefore estimates a phase-aligned reference from repeated preamble
-upchirps and evaluates both the FFT-correlator and legacy polyphase metrics for
-each timing hypothesis. Header and CRC evidence select the path. The resulting
-run decoded 130/130 packets: 56 selected the FFT correlator and 74 selected the
-polyphase fallback. This dual-path policy belongs outside the first HDL DUT
-until fixed-point cost and mismatch tolerance are measured.
+An earlier nominal pass decoded only 118 of 130 committed SX1262→ZynqSDR
+transmissions, and the first hybrid pass selected the FFT correlator for 56
+packets and polyphase fallback for 74. The cause was primarily synchronization
+ambiguity: an upchirp dechirp bin mixes whole-chip timing error and CFO. The
+updated receiver combines signed upchirp and downchirp bins, whose timing terms
+have opposite signs, to estimate timing and CFO separately. Reprocessing now
+decodes 130/130 with all 130 selecting the FFT correlator and zero selecting
+polyphase. The fallback remains a guard until broader hardware sensitivity and
+interference campaigns justify its removal; the old split is not evidence of
+proven real-chirp mismatch.
 
 ## Metric definitions
 

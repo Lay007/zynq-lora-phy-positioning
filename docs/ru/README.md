@@ -6,6 +6,7 @@
 
 - [Архитектура системы](architecture.md)
 - [Дорожная карта и критерии готовности](roadmap.md)
+- [Завершённая приёмка floating-point MATLAB M1](matlab-m1-acceptance.md)
 - [MATLAB-модель](matlab-model.md)
 - [Simulink и генерация Verilog](simulink.md)
 - [ADR-0001: когерентный FFT-correlator и fallback](architecture-decisions/0001-coherent-css-demodulator.md)
@@ -15,6 +16,7 @@
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
 - [Методика дробного ToA и будущей аппаратной калибровки](toa-methodology.md)
+- [End-to-end приёмка MATLAB M1: PHY, ToA и TDoA](matlab-m1-acceptance.md)
 - [Запись пакетов SX1262 с RTL-SDR и PlutoSDR](iq-capture-guide.md)
 - [LoRa PHY Inspector: визуальный анализ и оценка параметров](lora-phy-inspector.md)
 - [Передача, запись и анализ с одного компьютера](automated-phy-experiment.md)
