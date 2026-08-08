@@ -1,0 +1,29 @@
+function [names, isComplex] = stage_order
+%STAGE_ORDER Canonical comparison points of the FFT correlator.
+%
+% The order is also the physical layout order inside a `.f64` case file.
+% It follows the dataflow of the HDL-oriented decomposition:
+%
+%   aligned window
+%     -> M-point FFT
+%     -> multiply by the conjugated reference spectrum
+%     -> accumulate frequency partitions m+r*N
+%     -> N-point forward FFT (scaled by 1/M)
+%     -> magnitude squared
+%
+% The peak index and confidence are scalars per symbol and live in the
+% manifest instead of the binary payload.
+
+names = [ ...
+    "input"; ...
+    "reference"; ...
+    "referenceSpectrum"; ...
+    "conjReferenceSpectrum"; ...
+    "fftM"; ...
+    "product"; ...
+    "partition"; ...
+    "fftN"; ...
+    "magnitudeSquared"];
+
+isComplex = [true; true; true; true; true; true; true; true; false];
+end

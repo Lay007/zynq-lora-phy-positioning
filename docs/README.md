@@ -8,6 +8,7 @@
 - [Roadmap and acceptance criteria](roadmap.md)
 - [Completed MATLAB M1 floating-point acceptance](matlab-m1-acceptance.md)
 - [MATLAB modeling flow](../model/README.md)
+- [M2 foundations: toolchain, interfaces, and stage vectors](simulink-m2-interfaces.md)
 - [ADR-0001: coherent FFT correlator and fallback](architecture-decisions/0001-coherent-css-demodulator.md)
 
 ## PHY algorithms and measurements

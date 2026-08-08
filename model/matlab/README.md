@@ -74,6 +74,20 @@ Export the committed deterministic packet vector after changing a coding block:
 vector = export_golden_vectors;
 ```
 
+Export the stage-level FFT-correlator vectors consumed by Simulink and, later,
+by HDL cosimulation:
+
+```matlab
+manifest = export_correlator_stage_vectors;
+```
+
+The 15 committed cases live in `golden/fft-correlator/`. Their construction,
+file format, and guard tests are documented in
+[`docs/simulink-m2-interfaces.md`](../../docs/simulink-m2-interfaces.md).
+`lora_phy.fft_correlator_stages` is the single numerical definition of the
+correlator: `lora_phy.fft_correlator_metrics` is a thin wrapper around it, so
+the exported vectors cannot drift away from the receiver.
+
 Avoid HDL-specific optimizations here; those belong in the Simulink stage.
 
 ## Current frame receiver

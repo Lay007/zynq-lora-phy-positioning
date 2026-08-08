@@ -1,0 +1,1795 @@
+{
+  "schema": "zynq-lora-phy-stage-vectors-v1",
+  "description": "Stage-level golden vectors for the CSS FFT correlator",
+  "generator": "export_correlator_stage_vectors",
+  "numericalSource": "lora_phy.fft_correlator_stages",
+  "matlabRelease": "2025a",
+  "byteOrder": "ieee-le",
+  "elementOrder": "column-major; complex interleaved (real,imag)",
+  "stageOrder": [
+    "input",
+    "reference",
+    "referenceSpectrum",
+    "conjReferenceSpectrum",
+    "fftM",
+    "product",
+    "partition",
+    "fftN",
+    "magnitudeSquared"
+  ],
+  "stageComplex": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false
+  ],
+  "cases": [
+    {
+      "id": "sf7-l1-clean",
+      "note": "L=1 multi-symbol baseline",
+      "dataFile": "sf7-l1-clean.f64",
+      "sha256": "8ddd86efa84659bea5323fda3dc269439d49654f917130cefad7f53ce4323321",
+      "spreadingFactor": 7,
+      "samplesPerChip": 1,
+      "symbolCount": 128,
+      "samplesPerSymbol": 128,
+      "windowSymbols": 3,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 125000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1001,
+      "transmittedSymbols": [
+        0,
+        45,
+        127
+      ],
+      "expectedSymbols": [
+        0,
+        45,
+        127
+      ],
+      "expectedConfidence": [
+        1,
+        1,
+        1
+      ],
+      "expectedPeak": [
+        16384.000000000007,
+        16384.000000000007,
+        16384
+      ],
+      "stages": [
+        {
+          "name": "input",
+          "rows": 128,
+          "cols": 3,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 6144,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 6144,
+          "lengthBytes": 2048,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 8192,
+          "lengthBytes": 2048,
+          "maxAbs": 11.313708498984838,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 10240,
+          "lengthBytes": 2048,
+          "maxAbs": 11.313708498984838,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "fftM",
+          "rows": 128,
+          "cols": 3,
+          "complex": true,
+          "offsetBytes": 12288,
+          "lengthBytes": 6144,
+          "maxAbs": 11.313708498984839,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "product",
+          "rows": 128,
+          "cols": 3,
+          "complex": true,
+          "offsetBytes": 18432,
+          "lengthBytes": 6144,
+          "maxAbs": 128.00000000000176,
+          "rms": 127.99999999999997
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 3,
+          "complex": true,
+          "offsetBytes": 24576,
+          "lengthBytes": 6144,
+          "maxAbs": 128.00000000000176,
+          "rms": 127.99999999999997
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 3,
+          "complex": true,
+          "offsetBytes": 30720,
+          "lengthBytes": 6144,
+          "maxAbs": 128.00000000000003,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 3,
+          "complex": false,
+          "offsetBytes": 36864,
+          "lengthBytes": 3072,
+          "maxAbs": 16384.000000000007,
+          "rms": 1448.1546878700499
+        }
+      ]
+    },
+    {
+      "id": "sf7-l2-clean",
+      "note": "L=2 multi-symbol baseline",
+      "dataFile": "sf7-l2-clean.f64",
+      "sha256": "7c74695eb17a6af6ef733ee8b18601168be59f191ae3bd3900f578f2e28c818a",
+      "spreadingFactor": 7,
+      "samplesPerChip": 2,
+      "symbolCount": 128,
+      "samplesPerSymbol": 256,
+      "windowSymbols": 2,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 250000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1002,
+      "transmittedSymbols": [
+        13,
+        100
+      ],
+      "expectedSymbols": [
+        13,
+        100
+      ],
+      "expectedConfidence": [
+        0.97285174536625507,
+        0.97285174536625552
+      ],
+      "expectedPeak": [
+        65536,
+        65536
+      ],
+      "stages": [
+        {
+          "name": "input",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 8192,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 8192,
+          "lengthBytes": 4096,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 12288,
+          "lengthBytes": 4096,
+          "maxAbs": 26.501981441132322,
+          "rms": 16
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 4096,
+          "maxAbs": 26.501981441132322,
+          "rms": 16
+        },
+        {
+          "name": "fftM",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 20480,
+          "lengthBytes": 8192,
+          "maxAbs": 26.501981441132322,
+          "rms": 15.999999999999996
+        },
+        {
+          "name": "product",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 28672,
+          "lengthBytes": 8192,
+          "maxAbs": 702.35502030612213,
+          "rms": 362.00761469429449
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 36864,
+          "lengthBytes": 4096,
+          "maxAbs": 717.41589927812583,
+          "rms": 519.09474190793685
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 40960,
+          "lengthBytes": 4096,
+          "maxAbs": 256,
+          "rms": 22.940963255086434
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 2,
+          "complex": false,
+          "offsetBytes": 45056,
+          "lengthBytes": 2048,
+          "maxAbs": 65536,
+          "rms": 5792.7000417103991
+        }
+      ]
+    },
+    {
+      "id": "sf7-l4-clean",
+      "note": "L=4 single symbol",
+      "dataFile": "sf7-l4-clean.f64",
+      "sha256": "dbdbbe5df3ebcaa357bfeb39c257cd9c8ecaab314d116ba5bbd7e406f1528685",
+      "spreadingFactor": 7,
+      "samplesPerChip": 4,
+      "symbolCount": 128,
+      "samplesPerSymbol": 512,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 500000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1003,
+      "transmittedSymbols": 63,
+      "expectedSymbols": 63,
+      "expectedConfidence": 0.96936451537263879,
+      "expectedPeak": 262144,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 8192,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 8192,
+          "lengthBytes": 8192,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 8192,
+          "maxAbs": 53.474175855718222,
+          "rms": 22.627416997969522
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 24576,
+          "lengthBytes": 8192,
+          "maxAbs": 53.474175855718222,
+          "rms": 22.627416997969522
+        },
+        {
+          "name": "fftM",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 8192,
+          "maxAbs": 53.474175855718222,
+          "rms": 22.627416997969522
+        },
+        {
+          "name": "product",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 40960,
+          "lengthBytes": 8192,
+          "maxAbs": 2859.4874834482775,
+          "rms": 1027.7212130650157
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 2048,
+          "maxAbs": 2912.3288401183927,
+          "rms": 2080.1104383488869
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 51200,
+          "lengthBytes": 2048,
+          "maxAbs": 512,
+          "rms": 45.964381142919365
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 53248,
+          "lengthBytes": 1024,
+          "maxAbs": 262144,
+          "rms": 23170.859964610565
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-clean",
+      "note": "L=8 nominal operating point",
+      "dataFile": "sf7-l8-clean.f64",
+      "sha256": "e3eed1888fc075f72d758267982ffc1ef2b973071878da7bc23256c448e627cf",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1004,
+      "transmittedSymbols": 1,
+      "expectedSymbols": 1,
+      "expectedConfidence": 0.96854428052572272,
+      "expectedPeak": 1.048576E+6,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 11481.530543373125,
+          "rms": 2909.3965773923783
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 2048,
+          "maxAbs": 11686.204285047275,
+          "rms": 8323.9641901586838
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 100352,
+          "lengthBytes": 2048,
+          "maxAbs": 1024,
+          "rms": 91.967680081487416
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 102400,
+          "lengthBytes": 1024,
+          "maxAbs": 1.048576E+6,
+          "rms": 92683.49636668303
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-awgn-p00",
+      "note": "L=8 at 0 dB SNR",
+      "dataFile": "sf7-l8-awgn-p00.f64",
+      "sha256": "6ce41a4cfa42c0fa82e918e3cc1174fa285de0346bfd376ca6390f8633e4afa6",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": 0,
+      "randomSeed": 1005,
+      "transmittedSymbols": 77,
+      "expectedSymbols": 77,
+      "expectedConfidence": 0.86903651682471128,
+      "expectedPeak": 1.0062458063220067E+6,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 3.2584846717345894,
+          "rms": 1.3937737215332582
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 147.88706541377238,
+          "rms": 44.600759089064255
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 14046.480371427717,
+          "rms": 3010.3191663415473
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 2048,
+          "maxAbs": 13734.592978351911,
+          "rms": 8608.4114359479045
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 100352,
+          "lengthBytes": 2048,
+          "maxAbs": 1003.1180420678349,
+          "rms": 95.110407837540464
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 102400,
+          "lengthBytes": 1024,
+          "maxAbs": 1.0062458063220067E+6,
+          "rms": 88955.5264540191
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-awgn-m10",
+      "note": "L=8 at -10 dB SNR",
+      "dataFile": "sf7-l8-awgn-m10.f64",
+      "sha256": "a5bc9ee5d459c16ab38163fd6aeb102490b850392f24ae491dd40c65d79850fd",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": -10,
+      "randomSeed": 1006,
+      "transmittedSymbols": 77,
+      "expectedSymbols": 77,
+      "expectedConfidence": 0.41061160534820013,
+      "expectedPeak": 951388.02358882606,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 8.5166144935447416,
+          "rms": 3.2755669083447376
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 292.07358335014857,
+          "rms": 104.81814106703159
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 29300.112641460273,
+          "rms": 4298.2093577205414
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 2048,
+          "maxAbs": 28731.318251014458,
+          "rms": 12177.36201225454
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 100352,
+          "lengthBytes": 2048,
+          "maxAbs": 975.39121566109361,
+          "rms": 134.54211337232263
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 102400,
+          "lengthBytes": 1024,
+          "maxAbs": 951388.02358882606,
+          "rms": 85388.009749417324
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-cfo",
+      "note": "carrier offset only",
+      "dataFile": "sf7-l8-cfo.f64",
+      "sha256": "0e3aea4b70b02f07e1c0f7e4f1332c2eb94f4cc49e831edd9bee0041ba206300",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 1500,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1007,
+      "transmittedSymbols": 32,
+      "expectedSymbols": 34,
+      "expectedConfidence": 0.44621747494816866,
+      "expectedPeak": 470414.81666225084,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 1.0000000000000002,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 126.20013311342792,
+          "rms": 32.000000000000007
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 11984.086123880581,
+          "rms": 2880.2289623519146
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 2048,
+          "maxAbs": 12264.217896621714,
+          "rms": 8214.0472356398313
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 100352,
+          "lengthBytes": 2048,
+          "maxAbs": 685.8679294603669,
+          "rms": 90.7532578329303
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 102400,
+          "lengthBytes": 1024,
+          "maxAbs": 470414.81666225084,
+          "rms": 52686.943988850195
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-timing",
+      "note": "integer plus fractional timing offset",
+      "dataFile": "sf7-l8-timing.f64",
+      "sha256": "baed9a5fd4b10d5be14ea3df79241ecf520ea5565d391c7bfa29704b09a3c461",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0.4,
+      "integerOffsetSamples": 3,
+      "snrDb": null,
+      "randomSeed": 1008,
+      "transmittedSymbols": 32,
+      "expectedSymbols": 32,
+      "expectedConfidence": 0.69827342318291241,
+      "expectedPeak": 721491.47187462065,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 0.99999998235177223,
+          "rms": 0.99372683568154763
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 106.90326600446484,
+          "rms": 31.799258741809521
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 11370.505383917498,
+          "rms": 2889.9590881054419
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 2048,
+          "maxAbs": 11233.2530969508,
+          "rms": 8131.9150217008237
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 100352,
+          "lengthBytes": 2048,
+          "maxAbs": 849.40654098883692,
+          "rms": 89.845816498084446
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 102400,
+          "lengthBytes": 1024,
+          "maxAbs": 721491.47187462065,
+          "rms": 65794.475402328026
+        }
+      ]
+    },
+    {
+      "id": "sf7-l8-combined",
+      "note": "CFO, timing offset, and noise",
+      "dataFile": "sf7-l8-combined.f64",
+      "sha256": "b61711c776a08c1a535cf58c20016d65608484dab7bdd93fe9eaacdc4382603e",
+      "spreadingFactor": 7,
+      "samplesPerChip": 8,
+      "symbolCount": 128,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 2,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": -900,
+      "fractionalDelaySamples": 0.25,
+      "integerOffsetSamples": -2,
+      "snrDb": -5,
+      "randomSeed": 1009,
+      "transmittedSymbols": [
+        32,
+        96
+      ],
+      "expectedSymbols": [
+        31,
+        95
+      ],
+      "expectedConfidence": [
+        0.53149698325027461,
+        0.46864539530104726
+      ],
+      "expectedPeak": [
+        777131.10461190937,
+        710520.5172501941
+      ],
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 32768,
+          "maxAbs": 5.3615668824522311,
+          "rms": 2.0144479542529909
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 107.15190405855196,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 32768,
+          "maxAbs": 203.39009139201895,
+          "rms": 64.462334536095668
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 114688,
+          "lengthBytes": 32768,
+          "maxAbs": 19365.0656694933,
+          "rms": 3437.6433329772608
+        },
+        {
+          "name": "partition",
+          "rows": 128,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 147456,
+          "lengthBytes": 4096,
+          "maxAbs": 19464.435005910684,
+          "rms": 9762.410661527616
+        },
+        {
+          "name": "fftN",
+          "rows": 128,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 151552,
+          "lengthBytes": 4096,
+          "maxAbs": 881.55039822571086,
+          "rms": 107.86041842959418
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 128,
+          "cols": 2,
+          "complex": false,
+          "offsetBytes": 155648,
+          "lengthBytes": 2048,
+          "maxAbs": 777131.10461190937,
+          "rms": 67290.151382290016
+        }
+      ]
+    },
+    {
+      "id": "sf5-l8-clean",
+      "note": "shortest FFT with L=8",
+      "dataFile": "sf5-l8-clean.f64",
+      "sha256": "1322ec6bd449cf4f6e87d6a23834c92d8db411a96477e009f15ecda7809a2073",
+      "spreadingFactor": 5,
+      "samplesPerChip": 8,
+      "symbolCount": 32,
+      "samplesPerSymbol": 256,
+      "windowSymbols": 2,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 1.0E+6,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1010,
+      "transmittedSymbols": [
+        17,
+        3
+      ],
+      "expectedSymbols": [
+        17,
+        3
+      ],
+      "expectedConfidence": [
+        0.93613051814760984,
+        0.93613051814760984
+      ],
+      "expectedPeak": [
+        65536,
+        65535.999999999985
+      ],
+      "stages": [
+        {
+          "name": "input",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 8192,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 8192,
+          "lengthBytes": 4096,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 12288,
+          "lengthBytes": 4096,
+          "maxAbs": 54.357966436354793,
+          "rms": 16
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 256,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 4096,
+          "maxAbs": 54.357966436354793,
+          "rms": 16
+        },
+        {
+          "name": "fftM",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 20480,
+          "lengthBytes": 8192,
+          "maxAbs": 54.3579664363548,
+          "rms": 16
+        },
+        {
+          "name": "product",
+          "rows": 256,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 28672,
+          "lengthBytes": 8192,
+          "maxAbs": 2954.788515095875,
+          "rms": 733.73667166651057
+        },
+        {
+          "name": "partition",
+          "rows": 32,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 36864,
+          "lengthBytes": 1024,
+          "maxAbs": 3000.5397445408066,
+          "rms": 2116.71189570422
+        },
+        {
+          "name": "fftN",
+          "rows": 32,
+          "cols": 2,
+          "complex": true,
+          "offsetBytes": 37888,
+          "lengthBytes": 1024,
+          "maxAbs": 256,
+          "rms": 46.773166727208931
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 32,
+          "cols": 2,
+          "complex": false,
+          "offsetBytes": 38912,
+          "lengthBytes": 512,
+          "maxAbs": 65536,
+          "rms": 11587.301018256589
+        }
+      ]
+    },
+    {
+      "id": "sf5-l4-awgn",
+      "note": "SF5 with noise",
+      "dataFile": "sf5-l4-awgn.f64",
+      "sha256": "de3a9aec46071aee17cad3c4da29a1c727ef9fd7d15c7c2cc2f23d4ca9f8930e",
+      "spreadingFactor": 5,
+      "samplesPerChip": 4,
+      "symbolCount": 32,
+      "samplesPerSymbol": 128,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 500000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": -5,
+      "randomSeed": 1011,
+      "transmittedSymbols": 30,
+      "expectedSymbols": 30,
+      "expectedConfidence": 0.47062390005392535,
+      "expectedPeak": 18141.97298057978,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 2048,
+          "maxAbs": 6.0901916970727825,
+          "rms": 2.1577508348498657
+        },
+        {
+          "name": "reference",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 2048,
+          "lengthBytes": 2048,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 4096,
+          "lengthBytes": 2048,
+          "maxAbs": 27.078166678534039,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 6144,
+          "lengthBytes": 2048,
+          "maxAbs": 27.078166678534039,
+          "rms": 11.313708498984761
+        },
+        {
+          "name": "fftM",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 8192,
+          "lengthBytes": 2048,
+          "maxAbs": 71.831945383513059,
+          "rms": 24.412163958932389
+        },
+        {
+          "name": "product",
+          "rows": 128,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 10240,
+          "lengthBytes": 2048,
+          "maxAbs": 1622.0989069563645,
+          "rms": 386.12888774096569
+        },
+        {
+          "name": "partition",
+          "rows": 32,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 12288,
+          "lengthBytes": 512,
+          "maxAbs": 1624.5855438018473,
+          "rms": 785.35363819698568
+        },
+        {
+          "name": "fftN",
+          "rows": 32,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 12800,
+          "lengthBytes": 512,
+          "maxAbs": 134.69214149526238,
+          "rms": 34.708055199913446
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 32,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 13312,
+          "lengthBytes": 256,
+          "maxAbs": 18141.97298057978,
+          "rms": 3354.5000384462865
+        }
+      ]
+    },
+    {
+      "id": "sf9-l2-clean",
+      "note": "SF9 baseline",
+      "dataFile": "sf9-l2-clean.f64",
+      "sha256": "309113793d3c82ff41a211389b28d6a009c7fe8707f782d3cbbe8e7abd1dda68",
+      "spreadingFactor": 9,
+      "samplesPerChip": 2,
+      "symbolCount": 512,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 250000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1012,
+      "transmittedSymbols": 300,
+      "expectedSymbols": 300,
+      "expectedConfidence": 0.98615565113502479,
+      "expectedPeak": 1.048576E+6,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 52.95238823750951,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 52.95238823750951,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 52.9523882375095,
+          "rms": 32
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 2803.9554200559351,
+          "rms": 1448.1390868276769
+        },
+        {
+          "name": "partition",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 8192,
+          "maxAbs": 2868.4776279495086,
+          "rms": 2062.3255317881549
+        },
+        {
+          "name": "fftN",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 106496,
+          "lengthBytes": 8192,
+          "maxAbs": 1024,
+          "rms": 45.571386516923667
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 512,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 114688,
+          "lengthBytes": 4096,
+          "maxAbs": 1.048576E+6,
+          "rms": 46341.029685124166
+        }
+      ]
+    },
+    {
+      "id": "sf9-l2-combined",
+      "note": "SF9 with CFO, timing, and noise",
+      "dataFile": "sf9-l2-combined.f64",
+      "sha256": "be15bc21a7a8cb75b71695101568045001c1fdee972d4a3b53dcfbd47bb00d06",
+      "spreadingFactor": 9,
+      "samplesPerChip": 2,
+      "symbolCount": 512,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 250000,
+      "frequencyOffsetHz": 600,
+      "fractionalDelaySamples": 0.75,
+      "integerOffsetSamples": 1,
+      "snrDb": 0,
+      "randomSeed": 1013,
+      "transmittedSymbols": 511,
+      "expectedSymbols": 2,
+      "expectedConfidence": 0.33300330444902781,
+      "expectedPeak": 441492.23240804172,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 3.0461133355211523,
+          "rms": 1.3141228538220082
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 52.95238823750951,
+          "rms": 32
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 52.95238823750951,
+          "rms": 32
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 103.77261338827472,
+          "rms": 42.05193132230427
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 4770.0480378311395,
+          "rms": 1631.971554094285
+        },
+        {
+          "name": "partition",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 8192,
+          "maxAbs": 4786.9059955401972,
+          "rms": 2302.8585224088433
+        },
+        {
+          "name": "fftN",
+          "rows": 512,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 106496,
+          "lengthBytes": 8192,
+          "maxAbs": 664.44881850150182,
+          "rms": 50.886464915891445
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 512,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 114688,
+          "lengthBytes": 4096,
+          "maxAbs": 441492.23240804172,
+          "rms": 24087.534483029296
+        }
+      ]
+    },
+    {
+      "id": "sf10-l1-clean",
+      "note": "SF10 critically sampled",
+      "dataFile": "sf10-l1-clean.f64",
+      "sha256": "59da2b92af3090b7225359e5b09021f9438e88d74756a3d447b32dfafebcd139",
+      "spreadingFactor": 10,
+      "samplesPerChip": 1,
+      "symbolCount": 1024,
+      "samplesPerSymbol": 1024,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 125000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1014,
+      "transmittedSymbols": 1000,
+      "expectedSymbols": 1000,
+      "expectedConfidence": 1,
+      "expectedPeak": 1.048576E+6,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 16384,
+          "lengthBytes": 16384,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 32768,
+          "lengthBytes": 16384,
+          "maxAbs": 32.00000000000157,
+          "rms": 31.999999999999996
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 49152,
+          "lengthBytes": 16384,
+          "maxAbs": 32.00000000000157,
+          "rms": 31.999999999999996
+        },
+        {
+          "name": "fftM",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 16384,
+          "maxAbs": 32.000000000001563,
+          "rms": 31.999999999999996
+        },
+        {
+          "name": "product",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 81920,
+          "lengthBytes": 16384,
+          "maxAbs": 1024.0000000001003,
+          "rms": 1023.9999999999999
+        },
+        {
+          "name": "partition",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 98304,
+          "lengthBytes": 16384,
+          "maxAbs": 1024.0000000001003,
+          "rms": 1023.9999999999999
+        },
+        {
+          "name": "fftN",
+          "rows": 1024,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 114688,
+          "lengthBytes": 16384,
+          "maxAbs": 1024,
+          "rms": 32
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 1024,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 131072,
+          "lengthBytes": 8192,
+          "maxAbs": 1.048576E+6,
+          "rms": 32768
+        }
+      ]
+    },
+    {
+      "id": "sf12-l1-clean",
+      "note": "largest committed FFT length",
+      "dataFile": "sf12-l1-clean.f64",
+      "sha256": "f078eeb6174ae84f9731aefcacff177b54b8cfcf361cd07138b56e387f496d15",
+      "spreadingFactor": 12,
+      "samplesPerChip": 1,
+      "symbolCount": 4096,
+      "samplesPerSymbol": 4096,
+      "windowSymbols": 1,
+      "bandwidthHz": 125000,
+      "sampleRateHz": 125000,
+      "frequencyOffsetHz": 0,
+      "fractionalDelaySamples": 0,
+      "integerOffsetSamples": 0,
+      "snrDb": null,
+      "randomSeed": 1015,
+      "transmittedSymbols": 4095,
+      "expectedSymbols": 4095,
+      "expectedConfidence": 1,
+      "expectedPeak": 1.6777216E+7,
+      "stages": [
+        {
+          "name": "input",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 0,
+          "lengthBytes": 65536,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "reference",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 65536,
+          "lengthBytes": 65536,
+          "maxAbs": 1,
+          "rms": 1
+        },
+        {
+          "name": "referenceSpectrum",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 131072,
+          "lengthBytes": 65536,
+          "maxAbs": 64.000000000018829,
+          "rms": 63.999999999999986
+        },
+        {
+          "name": "conjReferenceSpectrum",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 196608,
+          "lengthBytes": 65536,
+          "maxAbs": 64.000000000018829,
+          "rms": 63.999999999999986
+        },
+        {
+          "name": "fftM",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 262144,
+          "lengthBytes": 65536,
+          "maxAbs": 64.000000000018829,
+          "rms": 63.999999999999986
+        },
+        {
+          "name": "product",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 327680,
+          "lengthBytes": 65536,
+          "maxAbs": 4096.00000000241,
+          "rms": 4096.0000000000009
+        },
+        {
+          "name": "partition",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 393216,
+          "lengthBytes": 65536,
+          "maxAbs": 4096.00000000241,
+          "rms": 4096.0000000000009
+        },
+        {
+          "name": "fftN",
+          "rows": 4096,
+          "cols": 1,
+          "complex": true,
+          "offsetBytes": 458752,
+          "lengthBytes": 65536,
+          "maxAbs": 4096,
+          "rms": 64
+        },
+        {
+          "name": "magnitudeSquared",
+          "rows": 4096,
+          "cols": 1,
+          "complex": false,
+          "offsetBytes": 524288,
+          "lengthBytes": 32768,
+          "maxAbs": 1.6777216E+7,
+          "rms": 262144
+        }
+      ]
+    }
+  ]
+}

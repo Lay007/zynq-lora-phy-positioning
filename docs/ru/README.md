@@ -9,6 +9,7 @@
 - [Завершённая приёмка floating-point MATLAB M1](matlab-m1-acceptance.md)
 - [MATLAB-модель](matlab-model.md)
 - [Simulink и генерация Verilog](simulink.md)
+- [Основания M2: инструментарий, интерфейсы и stage-векторы](simulink-m2-interfaces.md)
 - [ADR-0001: когерентный FFT-correlator и fallback](architecture-decisions/0001-coherent-css-demodulator.md)
 
 ## PHY и измерения

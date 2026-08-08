@@ -1,8 +1,24 @@
 # Simulink implementation
 
-This is stage two, after the MATLAB floating-point behavior is stable. No empty
-placeholder `.slx` is committed: the first model will be created with explicit
-interfaces and regression vectors from MATLAB M1.
+This is stage two, after the MATLAB floating-point behavior is stable. No `.slx`
+is committed: every model is rebuilt from a generation script, so deleting the
+`.slx` and regenerating it is the normal workflow rather than a recovery step.
+
+The measured toolchain, the frozen M2 interface contract, and the stage-vector
+format are in
+[`docs/simulink-m2-interfaces.md`](../../docs/simulink-m2-interfaces.md).
+
+Verify the products and licenses M2 depends on:
+
+```matlab
+cd model/simulink
+report = report_toolchain;
+```
+
+Presence in `ver` is not accepted as proof; every feature is checked out. Note
+that HDL Coder is licensed as `Simulink_HDL_Coder` and HDL Verifier as
+`eda_simulator_link`, so checking `HDL_Coder` or `HDL_Verifier` wrongly reports
+them as absent.
 
 ## First DUT
 
