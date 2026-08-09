@@ -317,6 +317,74 @@ meaningless in floating point too — it simply agrees with itself and hides. An
 fixed point turned a silent nonsense into a loud zero, which is the more
 useful failure mode.
 
+## HDL Coder compatibility
+
+The M2 criterion is not only that Simulink matches MATLAB but that the design
+is accepted by HDL Coder's checks. `run_hdl_compatibility_check` runs `checkhdl`
+on each named DUT with `TargetLanguage` set to Verilog.
+
+| Target | DUT | Errors | Warnings |
+|---|---|---:|---:|
+| `fft-correlator-double` | `lora_fft_correlator_hdl/DUT` | 7 | 2 |
+| **`fft-correlator-fixed`** | `lora_fft_correlator_hdl/DUT` | **0** | 2 |
+| **`joint-timing-cfo`** | `lora_joint_sync_hdl/DUT` | **0** | 2 |
+
+The two DUTs that are meant to become hardware pass with zero errors. The
+double model's seven errors are the expected and correct result: `Double and
+Single data types are not supported for HDL code generation`. A double model is
+a simulation reference, not an HDL target, and it is checked only so that
+the difference is on record.
+
+The two warnings are identical on all three and are informational: Verilog
+flattens vector signals regardless of `ScalarizePorts`, and sharing HDL between
+identical atomic subsystems needs `Default parameter behavior` set to
+`Inlined`. One message on the fixed DUT is worth carrying into M3: the
+confidence divider uses a `ShiftAdd` architecture and therefore adds latency
+that the current sample-clock latency table does not include.
+
+Raw tables:
+[`simulink-m2-hdl-compatibility.csv`](data/simulink-m2-hdl-compatibility.csv),
+[`simulink-m2-hdl-messages.csv`](data/simulink-m2-hdl-messages.csv).
+
+### Two defects this check found
+
+`checkhdl` earned its place by rejecting a real boundary error rather than a
+style issue:
+
+```text
+Illegal conversion to or from floating-point in .../DUT/CastInput
+```
+
+The DUT contained a `Data Type Conversion` turning a `double` input port into
+the fixed-point sample type. That is convenient in simulation and meaningless
+in hardware, where the ADC already delivers fixed-point samples. The quantizer
+now sits in the harness, one block earlier; the numbers are identical and the
+HDL boundary no longer contains floating point.
+
+The divider was the second: HDL Coder accepts only `Zero` or `Simplest`
+rounding on a divide and requires saturation. Confidence is a ratio of
+non-negative quantities, so rounding toward zero is identical to the `Floor`
+used everywhere else and the change costs nothing.
+
+Two mechanical traps are recorded because they cost time. `checkhdl` compiles
+the model, so the harness `From Workspace` sources must have stimulus in the
+base workspace or the model fails to initialize before any check runs. And HDL
+Coder settings go through `hdlset_param`; `set_param`'s `TargetLang` is
+Simulink Coder's C/C++ selector and rejects `"Verilog"`.
+
+A third trap produced a wrong result rather than an error. In the `checkhdl`
+message struct the `type` field is `model` or `block` — the severity is in
+`level`. Counting errors by `type` reported "0 errors, 0 warnings" while real
+findings were present. The first published version of this table was wrong for
+exactly that reason.
+
+### What this does not prove
+
+`checkhdl` is a compatibility checker, not a compiler. `makehdl` has not been
+run, no Verilog exists, no cosimulation has been performed, and nothing has
+been synthesized. There are no resource, `Fmax`, or power numbers, and none are
+claimed.
+
 ## Limitations and open items
 
 Blocking full M2 acceptance:
@@ -336,7 +404,8 @@ Blocking full M2 acceptance:
    Nothing carries it yet.
 4. **Verification taps are ordinary outports.** They would appear in generated
    HDL. Gating them out is an M3 task.
-5. **No Verilog, cosimulation, or synthesis.** `makehdl` has not been run, so
+5. **No Verilog, cosimulation, or synthesis.** `checkhdl` passes with zero
+   errors on both hardware-bound DUTs, but `makehdl` has not been run, so
    there are no resource, `Fmax`, or power numbers, and none are claimed.
 6. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and

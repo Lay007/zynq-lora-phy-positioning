@@ -64,6 +64,8 @@ metric definitions, and the explicit configuration-aided boundary.
 - [x] Compare every stage against MATLAB golden vectors.
 - [x] Establish latency and throughput.
 - [x] Replay recorded SX1262 symbol windows through the fixed-point model.
+- [x] Pass HDL Coder compatibility checks: `checkhdl` reports zero errors on
+  the fixed-point correlator and the joint timing/CFO DUT.
 - [ ] Establish reset behavior; the models have no reset port yet.
 - [ ] Model acquisition: chirp-aware preamble detection, sync/SFD validation,
   and packet-level framing.

@@ -69,6 +69,8 @@
 - [x] Зафиксировать latency и throughput.
 - [x] Прогнать через fixed-point модель окна символов из реальных записей
   SX1262.
+- [x] Пройти проверки HDL Coder: `checkhdl` даёт ноль ошибок на fixed-point
+  корреляторе и на DUT совместной оценки timing/CFO.
 - [ ] Зафиксировать reset behavior: порта reset в моделях пока нет.
 - [ ] Смоделировать acquisition: chirp-aware детектор преамбулы, проверку
   sync/SFD и кадрирование пакета.
