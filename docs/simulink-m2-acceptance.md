@@ -14,8 +14,9 @@ what still blocks acceptance.
 
 ```matlab
 cd model/simulink
-results = run_simulink_regression;                       % toolchain, double, joint
+results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition
 results = run_simulink_regression(Suites=["fixed" "real"]);   % long campaigns
+report = run_hdl_generation;         % Verilog and resource counts
 ```
 
 The command raises an error on any mismatch, so
@@ -333,7 +334,14 @@ The checked DUTs are built with `IncludeVerificationTaps=false`, so the HDL
 boundary carries only production signals and the stage taps used by the
 regression never reach generated hardware.
 
-The two DUTs that are meant to become hardware pass with zero errors. The
+| Target | Errors | Warnings |
+|---|---:|---:|
+| `fft-correlator-double` | 7 | 2 |
+| `fft-correlator-fixed` | 0 | 2 |
+| `acquisition` | 0 | 2 |
+| `joint-timing-cfo` | 0 | 2 |
+
+The three DUTs that are meant to become hardware pass with zero errors. The
 double model's seven errors are the expected and correct result: `Double and
 Single data types are not supported for HDL code generation`. A double model is
 a simulation reference, not an HDL target, and it is checked only so that
@@ -349,6 +357,36 @@ that the current sample-clock latency table does not include.
 Raw tables:
 [`simulink-m2-hdl-compatibility.csv`](data/simulink-m2-hdl-compatibility.csv),
 [`simulink-m2-hdl-messages.csv`](data/simulink-m2-hdl-messages.csv).
+
+### checkhdl is not the gate; generation is
+
+An earlier version of this document treated a clean `checkhdl` as proof that a
+DUT is HDL-ready. That is wrong, and the acquisition subsystem is the
+counterexample: `checkhdl` reported **0 errors**, and `makehdl` then refused to
+generate it.
+
+```text
+Found unsupported division expression for HDL code generation;
+Signed input data type is not supported for division with Floor RoundMode
+```
+
+The cause was `mod(bin - target + N/2, N)` in the circular-distance
+calculation. `mod` on a signed value is a division, and HDL Coder will not
+generate a signed division with Floor rounding. Both bins are in `[0, N)`, so
+the difference is in `(-N, N)` and one comparison fixes the wrap without any
+division:
+
+```text
+delta = bin - target;
+if delta >=  N/2, delta = delta - N; end
+if delta <  -N/2, delta = delta + N; end
+```
+
+The joint estimator had avoided `mod` from the start and generated cleanly,
+which is why the difference showed up only here. The rule this establishes:
+**a subsystem counts as HDL-ready when `makehdl` produces Verilog, not when
+`checkhdl` is quiet.** `run_hdl_generation` is therefore part of the
+acceptance path rather than an optional extra.
 
 ### Two defects this check found
 
@@ -427,6 +465,44 @@ count and the fractional refinement stays in software.
 
 Raw table: [`simulink-m2-reset.csv`](data/simulink-m2-reset.csv).
 
+## Acquisition: preamble and sync-word acceptance
+
+The third subsystem consumes the correlator's symbol stream and decides whether
+what it has seen looks like a LoRa acquisition sequence: `PreambleSymbols`
+upchirps near bin 0, then two sync symbols near the bins the sync word encodes,
+each within one bin on a circular metric.
+
+Like the joint estimator this is integer arithmetic on bins, so the DUT is
+compared with `lora_phy.validate_acquisition_bins` on **exact equality**.
+
+| SF | Preamble symbols | N | Sequences | Accepted by MATLAB | Sync mismatches | Preamble mismatches | Failed-flag mismatches |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 7 | 8 | 128 | 205 | 2 | 0 | 0 | 0 |
+| 5 | 8 | 32 | 205 | 2 | 0 | 0 | 0 |
+| 9 | 6 | 512 | 205 | 2 | 0 | 0 | 0 |
+
+615 sequences, zero mismatches on all three outputs. Each configuration mixes
+the cases that matter — exact acquisition, one bin of drift including
+wrap-around at bin 0, drift outside tolerance on the preamble, drift outside
+tolerance on the sync word, an entirely wrong sync word — with 200 seeded
+random sequences that are essentially always rejections. Only 2 of 205 are
+accepted, which is the point: a detector that accepts everything would pass a
+test that only fed it valid input.
+
+Raw table: [`simulink-m2-acquisition.csv`](data/simulink-m2-acquisition.csv).
+
+One constant is pinned by its own test because getting it wrong is a classic
+and expensive error: LoRa encodes each sync-word nibble as a symbol index
+multiplied by **8**, a fixed scale, not `2^(SF-4)`. The MATLAB test checks the
+mapping exhaustively over all 256 sync words and across SF7…SF12.
+
+### What this subsystem is not
+
+It validates a **symbol-aligned candidate**. It does not search for the packet
+start. The blind search over sample offsets is the expensive part of
+acquisition — a sliding correlation rather than a state machine — and it is not
+built. Until it is, the model still needs to be told where a packet begins.
+
 ## M3 spike: generated Verilog and first resource numbers
 
 Verilog generation was pulled forward out of order, deliberately. The largest
@@ -435,25 +511,30 @@ resource question: whether to reuse the correlator at a coarse stride or add a
 cheaper dedicated detector depends on what the correlator already costs. That
 number did not exist, so it was measured.
 
-`run_hdl_generation` generates Verilog for both hardware-bound DUTs and reads
+`run_hdl_generation` generates Verilog for the hardware-bound DUTs and reads
 HDL Coder's own reports.
 
 | Target | Verilog files | Multipliers | Adders/Subtractors | Registers | 1-bit registers | RAMs | Multiplexers | I/O bits | Added latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 437 | 1868 | 28169 | 64 | 989 | 185 | 34 |
+| `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
 
-Both generate with zero HDL errors. The generated code is committed under
+All three generate with zero HDL errors. The generated code is committed under
 [`fpga/generated/`](../fpga/generated) and is never edited by hand: behavior
 changes go back into MATLAB and Simulink and the code is regenerated.
 
-Two results matter for planning. The correlator costs **34 multipliers and 64
-RAMs** at the first hardware operating point, which is the budget acquisition
-has to fit around. And HDL Coder's delay balancing adds **34 cycles** on top of
-the model, so hardware symbol latency at SF7/L=8 is 2414 + 34 = **2448 sample
-clocks**, not the 2414 the Simulink table reports. The joint estimator costs
-essentially nothing: no multipliers, no RAM, nine adders, and no added latency,
-which is what integer arithmetic buys.
+Three results matter for planning. The correlator costs **34 multipliers and 64
+RAMs** at the first hardware operating point, which is the budget the rest of
+acquisition has to fit around. HDL Coder's delay balancing adds **34 cycles** on
+top of the model, so hardware symbol latency at SF7/L=8 is 2414 + 34 = **2448
+sample clocks**, not the 2414 the Simulink table reports. And the two integer
+subsystems cost almost nothing between them — 14 adders, 3 registers, no
+multipliers, no RAM, no added latency — which is what keeping acquisition
+decisions in integer arithmetic buys.
+
+The blind packet search that is still missing therefore has the whole remaining
+budget to itself, and it is the part that will actually consume it.
 
 ### What these numbers are not
 
@@ -475,12 +556,11 @@ translate directly into BRAM.
 
 Blocking full M2 acceptance:
 
-1. **No acquisition or packet framing.** The chirp-aware preamble detector, the
-   blind search for the packet start, sync-word and SFD validation, and the
-   packet-level framing state machine are not in the model. Symbol framing
-   inside a known window (`symbolBoundary`) exists; packet framing does not.
-   M2 is explicitly not complete with only the demodulator and the joint
-   estimator verified.
+1. **No blind packet search and no packet framing.** Preamble and sync-word
+   acceptance now exists and is exact, but it validates a symbol-aligned
+   candidate rather than finding one. The sliding search over sample offsets,
+   SFD downchirp validation, and the packet-level framing state machine that
+   routes header and payload symbols are not in the model.
 2. **Fractional ToA is not implemented.** The coarse sample count and its
    valid flag are implemented and checked, but `fractionalToaSamples` needs the
    sample-rate matched filter that belongs to acquisition, so the metadata

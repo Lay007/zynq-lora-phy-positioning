@@ -1,0 +1,2 @@
+lora_acquisition_gen/DUT/AcquisitionFsm --> AcquisitionFsm
+lora_acquisition_gen/DUT --> DUT

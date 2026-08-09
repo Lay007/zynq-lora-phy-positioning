@@ -68,8 +68,9 @@ metric definitions, and the explicit configuration-aided boundary.
   the fixed-point correlator and the joint timing/CFO DUT.
 - [x] Establish reset behavior: `resetIn` returns the DUT to its power-up
   state, proven by driving a second waveform after a mid-stream reset.
-- [ ] Model acquisition: chirp-aware preamble detection, sync/SFD validation,
-  and packet-level framing.
+- [x] Model preamble and sync-word acceptance on the symbol stream, exact
+  against MATLAB over 615 sequences.
+- [ ] Model the blind packet search, SFD validation, and packet-level framing.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
   timestamp/metadata interface. The coarse sample count and its valid flag are
   implemented and checked; the fractional ToA is not, because it needs the

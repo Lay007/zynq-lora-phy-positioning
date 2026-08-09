@@ -1,4 +1,5 @@
 Target,Dut,SF,L,Errors,Warnings,Failure
 fft-correlator-double,lora_fft_correlator_hdl/DUT,7,8,7,2,
 fft-correlator-fixed,lora_fft_correlator_hdl/DUT,7,8,0,2,
+acquisition,lora_acquisition_hdl/DUT,7,8,0,2,
 joint-timing-cfo,lora_joint_sync_hdl/DUT,7,8,0,2,

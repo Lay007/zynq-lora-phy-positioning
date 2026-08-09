@@ -34,6 +34,10 @@ HDL Coder's traceability HTML, the generated model, and its `.mat` are ignored:
 they are large and regenerable. The Verilog is committed so that resource and
 interface claims can be audited.
 
+Regenerating with an unchanged model produces byte-identical Verilog apart from
+the `Created:` timestamp in each file header, so a diff that touches only those
+lines means the design did not change.
+
 Measured operator counts and the added pipeline latency are published in
 [`docs/simulink-m2-acceptance.md`](../docs/simulink-m2-acceptance.md). They are
 HDL Coder counts, not synthesis results. Nothing here has been cosimulated or

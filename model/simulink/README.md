@@ -130,6 +130,29 @@ estimator is integer arithmetic and the DUT is **bit-exact** against
 none is claimed. `run_joint_sync_regression` enumerates the entire `N × N`
 input domain where that is affordable.
 
+## Third DUT: acquisition acceptance
+
+```matlab
+info = build_acquisition_model(SpreadingFactor=7, PreambleSymbols=8);
+```
+
+`lora_acquisition/DUT` consumes the correlator's symbol stream and decides
+whether it looks like a LoRa acquisition sequence: `PreambleSymbols` upchirps
+near bin 0, then two sync symbols near the bins the sync word encodes, each
+within `BinTolerance` on a circular metric. Outputs are `preambleDetected`,
+`syncValid`, `acquisitionFailed`, and `symbolsSeen`.
+
+Integer arithmetic again, so it is bit-exact against
+`lora_phy.validate_acquisition_bins`. `run_acquisition_regression` compares
+them over exact, drifted, wrapped, and rejected sequences plus seeded random
+ones.
+
+The sync-word scale is a fixed **8** per nibble, not `2^(SF-4)`; a MATLAB test
+pins that over all 256 sync words and SF7…SF12.
+
+It validates a symbol-aligned candidate. It does not search for the packet
+start; that sliding search is not built.
+
 ## Regression
 
 One command runs everything and fails loudly:
