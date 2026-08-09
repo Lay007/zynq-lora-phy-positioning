@@ -67,25 +67,28 @@ if any(bins >= n)
     error("lora_phy:BinOutOfRange", "Bins must be in [0, %d]", n-1);
 end
 
-preambleBins = double(bins(1:preambleSymbols));
+% The preamble half is delegated so a receiver can take the same decision
+% from PreambleSymbols bins alone, without waiting for the two sync windows.
+% See LORA_PHY.DETECT_PREAMBLE_ONLY for why that matters.
+preamble = lora_phy.detect_preamble_only(bins(1:preambleSymbols), config, ...
+    BinTolerance=options.BinTolerance);
 syncBins = double(bins(preambleSymbols+(1:2)));
 
-preambleBin = preambleBins(1);
+preambleBin = preamble.preambleBin;
 syncScale = 8;
 expectedSyncBins = mod(preambleBin+syncScale*double([ ...
     bitshift(uint8(syncWord), -4); bitand(uint8(syncWord), 15)]), n);
 
-preambleDistances = circularDistance(preambleBins, preambleBin, n);
 syncDistances = circularDistance(syncBins, expectedSyncBins, n);
 
 result = struct;
 result.preambleBin = preambleBin;
-result.chipsSinceBoundary = preambleBin;
-result.chipsToBoundary = mod(-preambleBin, n);
+result.chipsSinceBoundary = preamble.chipsSinceBoundary;
+result.chipsToBoundary = preamble.chipsToBoundary;
 result.expectedSyncBins = expectedSyncBins;
-result.preambleDistances = preambleDistances;
+result.preambleDistances = preamble.distances;
 result.syncDistances = syncDistances;
-result.preambleValid = all(preambleDistances <= options.BinTolerance);
+result.preambleValid = preamble.preambleValid;
 result.syncValid = all(syncDistances <= options.BinTolerance);
 result.valid = result.preambleValid && result.syncValid;
 result.binTolerance = options.BinTolerance;
