@@ -1,0 +1,4 @@
+SF,L,M,Packets,Symbols,FixedMatchesFloat,FloatMatchesReceiver,FixedMatchesReceiver,WorstRelativeRms,WorstMaxAbsError,WorstConfidenceAbsError,InputType,ReferenceType,ProductType,AccumulatorType,FftNType,MagnitudeType
+5,8,256,30,2340,2340,2340,2340,0.000840926281073372,103.541363579614,0.00150710942095011,sfix16_En13,sfix16_En8,sfix16_En2,sfix16_En2,sfix16_En6,ufix16_En-1
+6,8,512,30,2040,2040,2040,2040,0.000877151561941211,352.080142610561,0.00261233328732291,sfix16_En13,sfix16_En7,sfix16_En1,sfix16_En1,sfix16_En5,ufix16_En-3
+7,8,1024,70,4060,4060,4060,4060,0.00139903061297383,1505.4170405902,0.00670435649035728,sfix16_En13,sfix16_En7,sfix16_En0,sfix16_En0,sfix16_En3,ufix16_En-6

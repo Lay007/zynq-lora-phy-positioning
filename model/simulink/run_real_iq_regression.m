@@ -14,6 +14,11 @@ function report = run_real_iq_regression(options)
 %      with the packet receiver, which uses a preamble-estimated adaptive
 %      reference that the DUT does not implement yet?
 %
+% Only the windows the decoder actually consumed are replayed. The receiver
+% demodulates past the packet while searching timing, and that tail is the
+% noise floor: replaying it would score argmax on noise and would stretch the
+% fixed-point range analysis across seven decades for no signal.
+%
 % Range analysis is collected from the real windows themselves, because the
 % integer bits of a fixed-point design must follow the stimulus it will see.
 % The word length is the parameter carried over from the synthetic sweep.

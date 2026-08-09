@@ -44,14 +44,20 @@ iqIn / validIn
     → BinCounter            frequency bin index q = 0…M-1
     → RomReal / RomImag     conj(fft(reference)) as two ROMs addressed by q
     → Multiply              product = fftM .* conjReferenceSpectrum
-    → PartitionAccumulate   y[q] = product[q] + y[q-N], an N-deep comb whose
+    → AccumSum/AccumDelay   y[q] = product[q] + y[q-N], an N-deep comb whose
                             last N outputs are the frequency partitions
     → FFT_N                 dsphdl.FFT, length N
     → ScaleByM              1/M, an exact power-of-two shift
     → MagnitudeSquared      |.|²
-    → PeakTracker           first-maximum bin, peak, spectrum sum
-    → Confidence            peak / max(spectrumSum, eps)
+    → SpectrumSum           running sum of the N magnitudes of one symbol
+    → PeakTracker           first-maximum bin and its value
+    → Confidence            peak / max(spectrumSum, peak, floor)
 ```
+
+The accumulators are primitive blocks rather than MATLAB Function code, so
+every fixed-point output type, rounding mode, and overflow policy is an
+explicit block setting. Only the counters and the argmax comparison, which
+never change word length, live in MATLAB Function blocks.
 
 The partition accumulator is the one place where the Simulink structure
 deliberately differs from the MATLAB expression. MATLAB reshapes the `M`
@@ -71,6 +77,12 @@ eight verification taps (`stageFftM`, `stageProduct`, `stagePartition`,
 `fftNValid`). The taps carry signals that already exist internally, so they
 cost ports rather than logic; gating them out of the HDL target is an M3 task
 and is not done yet.
+
+The confidence denominator is `max(spectrumSum, peak, floor)`. At the decision
+instant the running sum already contains the peak, so this equals the MATLAB
+definition exactly; on the intermediate cycles of a symbol it keeps the ratio
+at or below one, which stops the fixed-point divider saturating on values that
+are never sampled.
 
 The first DUT implements only the coherent FFT-correlator path. Adaptive
 preamble-reference estimation, the legacy polyphase fallback, packet decoding,
@@ -129,7 +141,7 @@ Measured results are published in
 ## Fixed point
 
 ```matlab
-info = build_fft_correlator_model(DataType="fixed", WordLength=14);
+info = build_fft_correlator_model(DataType="fixed", WordLength=16);
 report = run_fixed_point_sweep;
 ```
 
@@ -153,7 +165,7 @@ point can be told from a lucky one.
 ## Real SX1262 windows
 
 ```matlab
-report = run_real_iq_regression(WordLength=14);
+report = run_real_iq_regression(WordLength=16);
 ```
 
 The committed captures are decoded by the MATLAB receiver, the corrected symbol
@@ -162,6 +174,12 @@ unit RMS, and replayed through the fixed-point DUT. Range analysis for this run
 comes from the real windows themselves: the integer bits of a fixed-point design
 must follow the stimulus it will see, and the capture gain of one recording
 session must not decide the word length.
+
+Only the windows the decoder actually consumed are replayed. The receiver
+demodulates past the end of a packet while searching timing, and that tail is
+the noise floor; replaying it scores `argmax` on noise and stretches the range
+analysis across seven decades for no signal. The first version of this
+regression did replay it, and reported 45% agreement until the cause was found.
 
 The report separates two questions that must never be mixed: whether fixed point
 reproduces floating point on real signal statistics (both use the nominal
@@ -172,7 +190,7 @@ reference, which the DUT does not implement.
 ## HDL compatibility
 
 ```matlab
-report = run_hdl_compatibility_check(WordLength=14);
+report = run_hdl_compatibility_check(WordLength=16);
 ```
 
 Runs `checkhdl` on each named DUT with `TargetLanguage` set to Verilog and

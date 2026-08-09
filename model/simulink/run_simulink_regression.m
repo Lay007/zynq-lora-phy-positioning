@@ -23,7 +23,7 @@ arguments
     options.Suites string = ["toolchain", "double", "joint"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
-    options.RealWordLength (1,1) double = 14
+    options.RealWordLength (1,1) double = 16
 end
 
 simulinkRoot = fileparts(mfilename("fullpath"));

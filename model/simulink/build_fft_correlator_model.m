@@ -7,13 +7,12 @@ function info = build_fft_correlator_model(options)
 %
 %   info = build_fft_correlator_model;
 %   info = build_fft_correlator_model(SpreadingFactor=9, SamplesPerChip=2);
-%   info = build_fft_correlator_model(DataType="fixed", WordLength=14);
+%   info = build_fft_correlator_model(DataType="fixed", WordLength=16);
 %
 % Architecture inside the `DUT` subsystem, matching
 % LORA_PHY.FFT_CORRELATOR_STAGES one comparison point at a time:
 %
-%   iqIn/validIn
-%     -> CastInput           explicit DUT input type
+%   iqIn/validIn (already the DUT sample type; the harness quantizes)
 %     -> InputFraming        symbol boundary from a mod-M sample counter
 %     -> FFT_M               dsphdl.FFT, length M, natural order, unnormalized
 %     -> BinCounter          bin index q, feedback gate, partition valid
@@ -77,7 +76,20 @@ if isfile(modelPath)
 end
 
 new_system(modelName);
-cleanupOnFailure = onCleanup(@() closeIfLoaded(modelName));
+% A plain try/catch rather than onCleanup: clearing an onCleanup guard at the
+% end of the function runs its action, which would close the very model the
+% caller is about to simulate.
+try
+    info = populateModel(modelName, config, isFixed, types, options, modelPath);
+catch err
+    closeIfLoaded(modelName);
+    rethrow(err);
+end
+end
+
+function info = populateModel(modelName, config, isFixed, types, options, modelPath)
+n = config.symbolCount;
+m = config.samplesPerSymbol;
 
 referenceChirp = lora_phy.reference_chirp(config);
 conjReferenceSpectrum = conj(fft(referenceChirp));
@@ -91,7 +103,7 @@ assignin(workspace, "refConjReal", real(conjReferenceSpectrum));
 assignin(workspace, "refConjImag", imag(conjReferenceSpectrum));
 
 buildDut(modelName, n, m, isFixed, types);
-buildHarness(modelName);
+buildHarness(modelName, isFixed, types);
 
 set_param(modelName, ...
     SolverType="Fixed-step", Solver="FixedStepDiscrete", ...
@@ -122,8 +134,6 @@ info.conjReferenceSpectrum = conjReferenceSpectrum;
 info.dataType = options.DataType;
 info.types = types;
 info.outputVariables = harnessVariables;
-
-clear cleanupOnFailure;
 end
 
 function closeIfLoaded(modelName)
@@ -142,8 +152,8 @@ names = [ ...
     "fftMValid"; "partitionValid"; "fftNValid"];
 end
 
-function buildHarness(modelName)
-%BUILDHARNESS Stimulus sources and logging outside the DUT.
+function buildHarness(modelName, isFixed, types)
+%BUILDHARNESS Stimulus sources, input quantizer, and logging outside the DUT.
 
 add_block("simulink/Sources/From Workspace", modelName+"/StimulusIq", ...
     Position=[40 100 160 140]);
@@ -157,7 +167,14 @@ set_param(modelName+"/StimulusValid", VariableName="stimulusValid", ...
     SampleTime="1", Interpolate="off", ...
     OutputAfterFinalValue="Setting to zero");
 
-add_line(modelName, "StimulusIq/1", "DUT/1", autorouting="on");
+% Quantizing here rather than inside the DUT keeps the HDL boundary free of
+% a floating-point conversion while producing identical numbers.
+add_block("simulink/Signal Attributes/Data Type Conversion", ...
+    modelName+"/QuantizeInput", Position=[200 100 260 140]);
+applyType(modelName+"/QuantizeInput", isFixed, types, "input", "double");
+
+add_line(modelName, "StimulusIq/1", "QuantizeInput/1", autorouting="on");
+add_line(modelName, "QuantizeInput/1", "DUT/1", autorouting="on");
 add_line(modelName, "StimulusValid/1", "DUT/2", autorouting="on");
 
 names = harnessVariables;
@@ -186,11 +203,9 @@ delete_block(dut+"/Out1");
 addInport(dut, "iqIn", 1, [40 100]);
 addInport(dut, "validIn", 2, [40 170]);
 
-% --- explicit DUT input type ----------------------------------------------
-add_block("simulink/Signal Attributes/Data Type Conversion", ...
-    dut+"/CastInput", Position=[100 90 150 130]);
-applyType(dut+"/CastInput", isFixed, types, "input", "double");
-add_line(dut, "iqIn/1", "CastInput/1", autorouting="on");
+% The DUT input port carries the sample type directly. The quantizer lives
+% in the harness: in hardware the ADC already delivers fixed-point samples,
+% and a float-to-fixed conversion inside the DUT is rejected by checkhdl.
 
 % --- symbol framing on the input stream -----------------------------------
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
@@ -224,7 +239,7 @@ set_param(dut+"/FFT_M", FFTLength=num2str(m), BitReversedOutput="off", ...
 if isFixed
     set_param(dut+"/FFT_M", RoundingMethod=char(types.rounding));
 end
-add_line(dut, "CastInput/1", "FFT_M/1", autorouting="on");
+add_line(dut, "iqIn/1", "FFT_M/1", autorouting="on");
 add_line(dut, "validIn/1", "FFT_M/2", autorouting="on");
 
 % --- frequency bin counter and partition control ---------------------------
@@ -456,7 +471,11 @@ add_line(dut, "SumFloor/1", "GuardedSum/3", autorouting="on");
 add_block("simulink/Math Operations/Divide", dut+"/Confidence", ...
     Position=[1850 380 1900 440]);
 set_param(dut+"/Confidence", Inputs="*/");
-applyType(dut+"/Confidence", isFixed, types, "confidence");
+% HDL Coder accepts only Zero or Simplest rounding on a divide, and requires
+% saturation. Confidence is a ratio of non-negative values, so rounding
+% toward zero is identical to the Floor used everywhere else.
+applyType(dut+"/Confidence", isFixed, types, "confidence", ...
+    "Inherit: Inherit via internal rule", "Zero");
 add_line(dut, "PeakTracker/2", "Confidence/1", autorouting="on");
 add_line(dut, "GuardedSum/1", "Confidence/2", autorouting="on");
 
@@ -480,7 +499,7 @@ addOutport(dut, "fftNValid", 14, [1990 730], "FFT_N/2");
 set_param(dut, TreatAsAtomicUnit="on");
 end
 
-function applyType(blockPath, isFixed, types, field, doubleType)
+function applyType(blockPath, isFixed, types, field, doubleType, rounding)
 %APPLYTYPE Output type, rounding, and overflow policy for one boundary.
 arguments
     blockPath (1,1) string
@@ -488,14 +507,18 @@ arguments
     types
     field (1,1) string
     doubleType (1,1) string = "Inherit: Inherit via internal rule"
+    rounding (1,1) string = ""
 end
 if ~isFixed
     set_param(blockPath, OutDataTypeStr=char(doubleType));
     return;
 end
+if rounding == ""
+    rounding = types.rounding;
+end
 type = types.(field);
 set_param(blockPath, OutDataTypeStr=char(type.expression), ...
-    RndMeth=char(types.rounding));
+    RndMeth=char(rounding));
 if ismember("SaturateOnIntegerOverflow", fieldnames( ...
         get_param(blockPath, "DialogParameters")))
     if types.saturate

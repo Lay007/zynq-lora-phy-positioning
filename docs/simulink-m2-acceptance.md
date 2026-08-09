@@ -253,6 +253,70 @@ Simulink run now pin it as inactive rather than leaving it silently dead.
 The estimator consumes bins, not samples. Producing those bins — the chirp-aware
 preamble detector and the blind search for the packet start — is not built.
 
+## Real SX1262 symbol windows
+
+The committed SX1262 → ZynqSDR captures are decoded by the authoritative MATLAB
+receiver, the corrected symbol windows the correlator actually consumed are
+extracted, normalized to unit RMS per packet, and replayed through the
+fixed-point DUT at 16 bits.
+
+| SF | L | M | Packets | Symbols | fixed == float | nominal == receiver | worst relative RMS |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 5 | 8 | 256 | 30 | 2340 | 2340 | 2340 | `8.409e-04` |
+| 6 | 8 | 512 | 30 | 2040 | 2040 | 2040 | `8.772e-04` |
+| 7 | 8 | 1024 | 70 | 4060 | 4060 | 4060 | `1.399e-03` |
+| **total** | | | **130** | **8440** | **8440** | **8440** | `1.399e-03` |
+
+All 130 committed packets, all 8440 consumed symbols: the 16-bit fixed-point
+DUT decides exactly the symbol the floating-point correlator decides, and both
+decide exactly what the MATLAB packet receiver decided. Worst confidence error
+is `6.704e-03`. Zero packets contain a single differing symbol.
+
+The `nominal == receiver` column is worth its own sentence. The DUT uses the
+nominal reference chirp; the packet receiver additionally estimates a
+phase-aligned reference from the preamble. On these captures that adaptive
+reference changes **no** symbol decision, so the feature the DUT does not
+implement is, for this corpus, not load-bearing at the symbol level. That is a
+measurement on 130 packets, not a general claim.
+
+Range analysis for this run is collected from the real windows themselves.
+Selected types:
+
+| SF | L | input | reference | product | accumulator | fftN | magnitude² |
+|---:|---:|---|---|---|---|---|---|
+| 5 | 8 | `sfix16_En13` | `sfix16_En8` | `sfix16_En2` | `sfix16_En2` | `sfix16_En6` | `ufix16_En-1` |
+| 6 | 8 | `sfix16_En13` | `sfix16_En7` | `sfix16_En1` | `sfix16_En1` | `sfix16_En5` | `ufix16_En-3` |
+| 7 | 8 | `sfix16_En13` | `sfix16_En7` | `sfix16_En0` | `sfix16_En0` | `sfix16_En3` | `ufix16_En-6` |
+
+Raw tables:
+
+- [`simulink-m2-real-iq-groups.csv`](data/simulink-m2-real-iq-groups.csv)
+- [`simulink-m2-real-iq-packets.csv`](data/simulink-m2-real-iq-packets.csv)
+
+### What 8440 symbols means, and a defect this run found
+
+8440 is the number of symbols the decoder **consumed**: 78 per packet at SF5,
+68 at SF6, 58 at SF7. It is not the number of windows the receiver produced.
+While searching timing, the receiver demodulates every window up to an
+energy-derived packet end, which overshoots: an SF7 packet yields about 133
+windows of which 58 carry signal and the rest are the noise floor after the
+transmission stopped.
+
+The first version of this regression replayed all of them and reported 45%
+agreement. The stage errors did not agree with that number — SF5 showed 0.6%
+relative RMS with 46% of decisions differing, which is impossible — and the
+contradiction is what exposed the cause. In the noise windows the fixed-point
+`magnitudeSquared` was **identically zero across every bin**: their peak is
+around `0.13` against a corpus range of `2.4e6`, so the whole spectrum fell
+below the LSB and `argmax` returned bin 0. The double DUT on the same packet
+was 133/133, which is what proved the structure was sound and the stimulus was
+not.
+
+Two things are worth keeping from that. Scoring `argmax` on noise is
+meaningless in floating point too — it simply agrees with itself and hides. And
+fixed point turned a silent nonsense into a loud zero, which is the more
+useful failure mode.
+
 ## Limitations and open items
 
 Blocking full M2 acceptance:
@@ -274,6 +338,9 @@ Blocking full M2 acceptance:
    HDL. Gating them out is an M3 task.
 5. **No Verilog, cosimulation, or synthesis.** `makehdl` has not been run, so
    there are no resource, `Fmax`, or power numbers, and none are claimed.
+6. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
+   `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
+   does not cover SF8–SF12, other `L`, or weak signals.
 
 Deliberately out of scope for M2, with a documented software interface instead:
 deinterleaving, Hamming FEC, dewhitening, and CRC. Also out of scope and staying

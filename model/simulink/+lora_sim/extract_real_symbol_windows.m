@@ -61,6 +61,25 @@ for index = 1:numel(manifest.captures)
         if isempty(windows)
             continue;
         end
+
+        % The receiver demodulates every window up to the energy-derived
+        % packet end, which overshoots the packet: only the first
+        % consumedSymbolCount windows carry signal, the rest are the noise
+        % floor after the transmission stopped. Replaying that tail would
+        % measure argmax on noise, and would drag the fixed-point range
+        % analysis across seven decades for nothing.
+        consumed = 0;
+        if isfield(packet, "decoded") && ...
+                isfield(packet.decoded, "consumedSymbolCount")
+            consumed = double(packet.decoded.consumedSymbolCount);
+        end
+        if consumed <= 0
+            continue;
+        end
+        consumed = min(consumed, size(windows, 2));
+        windows = windows(:, 1:consumed);
+        receiverSymbols = packet.symbols(1:consumed);
+
         rmsLevel = sqrt(mean(abs(windows(:)).^2));
         if rmsLevel <= 0
             continue;
@@ -76,7 +95,8 @@ for index = 1:numel(manifest.captures)
         entry.sampleRateHz = item.receiver.sample_rate_hz;
         entry.scale = 1/rmsLevel;
         entry.windows = windows*entry.scale;
-        entry.receiverSymbols = packet.symbols(:);
+        entry.consumedSymbolCount = consumed;
+        entry.receiverSymbols = receiverSymbols(:);
         entry.adaptiveReference = packet.correlationReference;
         entry.crcValid = packet.decoded.crcValid;
         entries = [entries; entry]; %#ok<AGROW>

@@ -9,10 +9,10 @@ function report = run_hdl_compatibility_check(options)
 % and synthesizing it are M3 and are not attempted here.
 %
 %   report = run_hdl_compatibility_check;
-%   report = run_hdl_compatibility_check(WordLength=14);
+%   report = run_hdl_compatibility_check(WordLength=16);
 
 arguments
-    options.WordLength (1,1) double {mustBeInteger, mustBePositive} = 14
+    options.WordLength (1,1) double {mustBeInteger, mustBePositive} = 16
     options.SpreadingFactor (1,1) double = 7
     options.SamplesPerChip (1,1) double = 8
     options.OutputDirectory string = string.empty
