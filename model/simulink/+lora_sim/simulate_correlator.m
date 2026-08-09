@@ -43,14 +43,22 @@ end
 end
 
 function result = runOnce(info, waveform, m, n, count, tail)
-stimulus = [double(waveform(:)); zeros(tail, 1)];
-validVector = [true(numel(waveform), 1); false(tail, 1)];
+% One idle lead-in cycle carries the reset pulse. Asserting reset on the same
+% cycle as the first valid sample makes the streaming FFT discard that frame,
+% so the pulse has to land before data starts.
+leadIn = 1;
+stimulus = [zeros(leadIn, 1); double(waveform(:)); zeros(tail, 1)];
+validVector = [false(leadIn, 1); true(numel(waveform), 1); false(tail, 1)];
+resetVector = false(numel(stimulus), 1);
+resetVector(1:leadIn) = true;
 timeAxis = (0:numel(stimulus)-1).';
 
 stimulusIq = timeseries(complex(stimulus), timeAxis);
 stimulusValid = timeseries(validVector, timeAxis);
+stimulusReset = timeseries(resetVector, timeAxis);
 assignin("base", "stimulusIq", stimulusIq);
 assignin("base", "stimulusValid", stimulusValid);
+assignin("base", "stimulusReset", stimulusReset);
 
 if ~bdIsLoaded(info.modelName)
     load_system(info.modelPath);
@@ -86,6 +94,12 @@ result.spectrumSum = double(pick(simulationOutput.spectrumSum, ...
 boundary = logical(simulationOutput.symbolBoundary(:));
 result.symbolBoundarySteps = find(boundary);
 
+timestampValid = logical(simulationOutput.timestampValid(:));
+result.symbolSampleCount = double(pick( ...
+    simulationOutput.symbolSampleCount, timestampValid, count, ...
+    "symbolSampleCount"));
+result.timestampValidSteps = find(timestampValid);
+
 symbolSteps = find(symbolValid);
 result.symbolValidSteps = symbolSteps;
 result.fftMFirstValidStep = find(fftMValid, 1);
@@ -94,8 +108,8 @@ result.fftNFirstValidStep = find(fftNValid, 1);
 
 % Latency is counted from the last input sample of a symbol window, which
 % is the earliest instant at which that symbol could possibly be decided.
-result.fftMLatencySamples = result.fftMFirstValidStep-m;
-result.symbolLatencySamples = symbolSteps(1)-m;
+result.fftMLatencySamples = result.fftMFirstValidStep-m-leadIn;
+result.symbolLatencySamples = symbolSteps(1)-m-leadIn;
 if numel(symbolSteps) > 1
     result.symbolIntervalSamples = unique(diff(symbolSteps));
 else

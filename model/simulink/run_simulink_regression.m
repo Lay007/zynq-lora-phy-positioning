@@ -20,7 +20,7 @@ function results = run_simulink_regression(options)
 %       "joint" "fixed" "real"]);
 
 arguments
-    options.Suites string = ["toolchain", "double", "joint"]
+    options.Suites string = ["toolchain", "double", "joint", "reset"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -31,7 +31,7 @@ repositoryRoot = fileparts(fileparts(simulinkRoot));
 addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
-known = ["toolchain", "double", "joint", "fixed", "real"];
+known = ["toolchain", "double", "joint", "reset", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -65,6 +65,14 @@ if any(options.Suites == "joint")
     end
 end
 
+if any(options.Suites == "reset")
+    fprintf("\n=== reset behavior ===\n");
+    results.reset = run_reset_regression(WriteCsv=options.WriteCsv);
+    if ~results.reset.passed
+        problems = [problems; results.reset.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -95,6 +103,10 @@ end
 if isfield(results, "joint")
     fprintf("joint  : %d bin pairs, exact match\n", ...
         results.joint.totalPairs);
+end
+if isfield(results, "reset")
+    fprintf("reset  : %d configurations return to the power-up state\n", ...
+        height(results.reset.summary));
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...

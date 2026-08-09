@@ -70,13 +70,29 @@ lengths and the ROM depth, so a different configuration is a different
 generated model. Everything else in the frozen interface contract is tunable
 or a run-time signal.
 
-The DUT exposes six production outputs (`symbolIndex`, `symbolValid`,
-`confidence`, `peakMagnitudeSquared`, `spectrumSum`, `symbolBoundary`) and
-eight verification taps (`stageFftM`, `stageProduct`, `stagePartition`,
-`stageFftN`, `stageMagnitudeSquared`, `fftMValid`, `partitionValid`,
-`fftNValid`). The taps carry signals that already exist internally, so they
-cost ports rather than logic; gating them out of the HDL target is an M3 task
-and is not done yet.
+The DUT exposes eight production outputs (`symbolIndex`, `symbolValid`,
+`confidence`, `peakMagnitudeSquared`, `spectrumSum`, `symbolBoundary`,
+`symbolSampleCount`, `timestampValid`) and eight verification taps
+(`stageFftM`, `stageProduct`, `stagePartition`, `stageFftN`,
+`stageMagnitudeSquared`, `fftMValid`, `partitionValid`, `fftNValid`).
+
+The taps are optional: `build_fft_correlator_model(IncludeVerificationTaps=false)`
+omits them, and `run_hdl_compatibility_check` builds that way so the HDL
+boundary carries only production signals. Production outputs come first in the
+port order, so dropping the taps renumbers nothing.
+
+`resetIn` clears the three counters and both streaming FFTs. Nothing else needs
+reset: the accumulator delay line is gated off for the first `N` bins of a
+symbol and the peak tracker re-initializes at bin 0, so neither can read
+pre-reset state once the counters restart. `run_reset_regression` proves it by
+driving one waveform, asserting reset, driving a second in the same simulation,
+and requiring the second half to match a standalone run exactly.
+
+`symbolSampleCount` carries the sample index of each symbol's first sample,
+latched at `symbolBoundary` and queued through the pipeline. That is the
+timestamp half of the metadata contract; the fractional ToA is not implemented
+and stays in software, because it needs the sample-rate matched filter that
+belongs to acquisition.
 
 The confidence denominator is `max(spectrumSum, peak, floor)`. At the decision
 instant the running sum already contains the peak, so this equals the MATLAB

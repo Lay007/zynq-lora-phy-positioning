@@ -66,11 +66,14 @@ metric definitions, and the explicit configuration-aided boundary.
 - [x] Replay recorded SX1262 symbol windows through the fixed-point model.
 - [x] Pass HDL Coder compatibility checks: `checkhdl` reports zero errors on
   the fixed-point correlator and the joint timing/CFO DUT.
-- [ ] Establish reset behavior; the models have no reset port yet.
+- [x] Establish reset behavior: `resetIn` returns the DUT to its power-up
+  state, proven by driving a second waveform after a mid-stream reset.
 - [ ] Model acquisition: chirp-aware preamble detection, sync/SFD validation,
   and packet-level framing.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
-  timestamp/metadata interface, which is specified but not yet implemented.
+  timestamp/metadata interface. The coarse sample count and its valid flag are
+  implemented and checked; the fractional ToA is not, because it needs the
+  sample-rate matched filter that belongs to acquisition.
 
 Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
 boundary, and impairment regressions and is accepted by HDL Coder checks.

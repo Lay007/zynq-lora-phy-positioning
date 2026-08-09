@@ -25,7 +25,14 @@ function info = build_fft_correlator_model(options)
 %     -> MagnitudeSquared    |.|^2
 %     -> SpectrumSum         running sum of the N magnitudes of one symbol
 %     -> PeakTracker         first-maximum bin and its value
-%     -> Confidence          peak / max(spectrumSum, floor)
+%     -> Confidence          peak / max(spectrumSum, peak, floor)
+%     -> TimestampFifo       sample index of each symbol's first sample,
+%                            queued from the boundary to the decision
+%
+% resetIn clears the three counters and both streaming FFTs. The accumulator
+% delay line and the peak tracker need no reset: the comb feedback is gated
+% off for the first N bins of a symbol and the peak tracker re-initializes at
+% bin 0, so neither can read pre-reset state once the counters restart.
 %
 % The accumulators are primitive blocks rather than MATLAB Function code so
 % that every fixed-point output type, rounding mode, and overflow policy is
@@ -46,6 +53,7 @@ arguments
     options.Rounding (1,1) string = "Floor"
     options.Overflow (1,1) string = "Saturate"
     options.Ranges struct = struct.empty
+    options.IncludeVerificationTaps (1,1) logical = true
     options.ModelName (1,1) string = "lora_fft_correlator"
     options.OutputDirectory (1,1) string = lora_sim.generated_directory
     options.Save (1,1) logical = true
@@ -102,8 +110,8 @@ assignin(workspace, "M", m);
 assignin(workspace, "refConjReal", real(conjReferenceSpectrum));
 assignin(workspace, "refConjImag", imag(conjReferenceSpectrum));
 
-buildDut(modelName, n, m, isFixed, types);
-buildHarness(modelName, isFixed, types);
+buildDut(modelName, n, m, isFixed, types, options.IncludeVerificationTaps);
+buildHarness(modelName, isFixed, types, options.IncludeVerificationTaps);
 
 set_param(modelName, ...
     SolverType="Fixed-step", Solver="FixedStepDiscrete", ...
@@ -133,7 +141,8 @@ info.samplesPerSymbol = m;
 info.conjReferenceSpectrum = conjReferenceSpectrum;
 info.dataType = options.DataType;
 info.types = types;
-info.outputVariables = harnessVariables;
+info.includeVerificationTaps = options.IncludeVerificationTaps;
+info.outputVariables = harnessVariables(options.IncludeVerificationTaps);
 end
 
 function closeIfLoaded(modelName)
@@ -143,16 +152,25 @@ if bdIsLoaded(modelName)
 end
 end
 
-function names = harnessVariables
+function names = harnessVariables(includeTaps)
+%HARNESSVARIABLES DUT output order. Production outputs come first so that
+% dropping the verification taps does not renumber anything before them.
+arguments
+    includeTaps (1,1) logical = true
+end
 names = [ ...
     "symbolIndex"; "symbolValid"; "confidence"; "peakMagnitudeSquared"; ...
     "spectrumSum"; "symbolBoundary"; ...
-    "stageFftM"; "stageProduct"; "stagePartition"; "stageFftN"; ...
-    "stageMagnitudeSquared"; ...
-    "fftMValid"; "partitionValid"; "fftNValid"];
+    "symbolSampleCount"; "timestampValid"];
+if includeTaps
+    names = [names; ...
+        "stageFftM"; "stageProduct"; "stagePartition"; "stageFftN"; ...
+        "stageMagnitudeSquared"; ...
+        "fftMValid"; "partitionValid"; "fftNValid"];
+end
 end
 
-function buildHarness(modelName, isFixed, types)
+function buildHarness(modelName, isFixed, types, includeTaps)
 %BUILDHARNESS Stimulus sources, input quantizer, and logging outside the DUT.
 
 add_block("simulink/Sources/From Workspace", modelName+"/StimulusIq", ...
@@ -173,11 +191,18 @@ add_block("simulink/Signal Attributes/Data Type Conversion", ...
     modelName+"/QuantizeInput", Position=[200 100 260 140]);
 applyType(modelName+"/QuantizeInput", isFixed, types, "input", "double");
 
+add_block("simulink/Sources/From Workspace", modelName+"/StimulusReset", ...
+    Position=[40 240 160 280]);
+set_param(modelName+"/StimulusReset", VariableName="stimulusReset", ...
+    SampleTime="1", Interpolate="off", ...
+    OutputAfterFinalValue="Setting to zero");
+
 add_line(modelName, "StimulusIq/1", "QuantizeInput/1", autorouting="on");
 add_line(modelName, "QuantizeInput/1", "DUT/1", autorouting="on");
 add_line(modelName, "StimulusValid/1", "DUT/2", autorouting="on");
+add_line(modelName, "StimulusReset/1", "DUT/3", autorouting="on");
 
-names = harnessVariables;
+names = harnessVariables(includeTaps);
 for k = 1:numel(names)
     block = modelName+"/Log_"+names(k);
     top = 40+(k-1)*45;
@@ -190,7 +215,7 @@ for k = 1:numel(names)
 end
 end
 
-function buildDut(modelName, n, m, isFixed, types)
+function buildDut(modelName, n, m, isFixed, types, includeTaps)
 %BUILDDUT Streaming correlator with production and verification outputs.
 
 dut = modelName+"/DUT";
@@ -202,6 +227,13 @@ delete_block(dut+"/Out1");
 
 addInport(dut, "iqIn", 1, [40 100]);
 addInport(dut, "validIn", 2, [40 170]);
+addInport(dut, "resetIn", 3, [40 240]);
+
+% Reset only has to clear the counters and the two FFTs. The accumulator
+% delay line and the peak tracker are self-flushing: the comb feedback is
+% gated off for the first N bins of a symbol and the peak tracker
+% re-initializes at bin 0, so neither can read pre-reset state once the
+% counters restart. TestSimulinkReset pins that property.
 
 % The DUT input port carries the sample type directly. The quantizer lives
 % in the harness: in hardware the ADC already delivers fixed-point samples,
@@ -211,14 +243,21 @@ addInport(dut, "validIn", 2, [40 170]);
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
     dut+"/InputFraming", Position=[170 160 300 220]);
 lora_sim.set_function_script(dut+"/InputFraming", [
-    "function symbolBoundary = fcn(validIn)"
+    "function [symbolBoundary, sampleCount] = fcn(validIn, resetIn)"
     "%#codegen"
-    "% First input sample of every M-sample symbol window."
-    "persistent counter"
+    "% First input sample of every M-sample symbol window, plus the"
+    "% free-running PL sample counter that timestamps it."
+    "persistent counter samples"
     "if isempty(counter)"
     "    counter = uint32(0);"
+    "    samples = uint64(0);"
+    "end"
+    "if resetIn"
+    "    counter = uint32(0);"
+    "    samples = uint64(0);"
     "end"
     "symbolBoundary = false;"
+    "sampleCount = samples;"
     "if validIn"
     "    symbolBoundary = counter == uint32(0);"
     "    if counter == uint32(" + (m-1) + ")"
@@ -226,33 +265,39 @@ lora_sim.set_function_script(dut+"/InputFraming", [
     "    else"
     "        counter = counter + uint32(1);"
     "    end"
+    "    samples = samples + uint64(1);"
     "end"
     "end"]);
 add_line(dut, "validIn/1", "InputFraming/1", autorouting="on");
+add_line(dut, "resetIn/1", "InputFraming/2", autorouting="on");
 
 % --- M-point streaming FFT -------------------------------------------------
 add_block("simulink/User-Defined Functions/MATLAB System", dut+"/FFT_M", ...
     Position=[200 80 300 140]);
 set_param(dut+"/FFT_M", System="dsphdl.FFT");
 set_param(dut+"/FFT_M", FFTLength=num2str(m), BitReversedOutput="off", ...
-    BitReversedInput="off", Normalize="off");
+    BitReversedInput="off", Normalize="off", ResetInputPort="on");
 if isFixed
     set_param(dut+"/FFT_M", RoundingMethod=char(types.rounding));
 end
 add_line(dut, "iqIn/1", "FFT_M/1", autorouting="on");
 add_line(dut, "validIn/1", "FFT_M/2", autorouting="on");
+add_line(dut, "resetIn/1", "FFT_M/3", autorouting="on");
 
 % --- frequency bin counter and partition control ---------------------------
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
     dut+"/BinCounter", Position=[350 70 480 160]);
 lora_sim.set_function_script(dut+"/BinCounter", [
-    "function [binIndex, feedbackGate, partitionValid] = fcn(fftValid)"
+    "function [binIndex, feedbackGate, partitionValid] = fcn(fftValid, resetIn)"
     "%#codegen"
     "% Natural-order frequency bin index q of the M-point FFT output."
     "% feedbackGate opens the comb feedback once q >= N."
     "% partitionValid marks the final N accumulator outputs of a symbol."
     "persistent counter"
     "if isempty(counter)"
+    "    counter = uint32(0);"
+    "end"
+    "if resetIn"
     "    counter = uint32(0);"
     "end"
     "binIndex = counter;"
@@ -267,6 +312,7 @@ lora_sim.set_function_script(dut+"/BinCounter", [
     "end"
     "end"]);
 add_line(dut, "FFT_M/2", "BinCounter/1", autorouting="on");
+add_line(dut, "resetIn/1", "BinCounter/2", autorouting="on");
 
 % --- conjugated reference spectrum ROMs ------------------------------------
 add_block("simulink/Lookup Tables/Direct Lookup Table (n-D)", ...
@@ -340,12 +386,13 @@ add_block("simulink/User-Defined Functions/MATLAB System", dut+"/FFT_N", ...
     Position=[1080 70 1180 140]);
 set_param(dut+"/FFT_N", System="dsphdl.FFT");
 set_param(dut+"/FFT_N", FFTLength=num2str(n), BitReversedOutput="off", ...
-    BitReversedInput="off", Normalize="off");
+    BitReversedInput="off", Normalize="off", ResetInputPort="on");
 if isFixed
     set_param(dut+"/FFT_N", RoundingMethod=char(types.rounding));
 end
 add_line(dut, "AccumSum/1", "FFT_N/1", autorouting="on");
 add_line(dut, "BinCounter/3", "FFT_N/2", autorouting="on");
+add_line(dut, "resetIn/1", "FFT_N/3", autorouting="on");
 
 add_block("simulink/Math Operations/Gain", dut+"/ScaleByM", ...
     Position=[1240 80 1290 120]);
@@ -363,11 +410,14 @@ add_line(dut, "ScaleByM/1", "MagnitudeSquared/1", autorouting="on");
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
     dut+"/OutputBinCounter", Position=[1340 200 1470 270]);
 lora_sim.set_function_script(dut+"/OutputBinCounter", [
-    "function [binIndex, sumGate] = fcn(magValid)"
+    "function [binIndex, sumGate] = fcn(magValid, resetIn)"
     "%#codegen"
     "% Bin index within the N-point spectrum of one symbol."
     "persistent counter"
     "if isempty(counter)"
+    "    counter = uint32(0);"
+    "end"
+    "if resetIn"
     "    counter = uint32(0);"
     "end"
     "binIndex = counter;"
@@ -381,6 +431,7 @@ lora_sim.set_function_script(dut+"/OutputBinCounter", [
     "end"
     "end"]);
 add_line(dut, "FFT_N/2", "OutputBinCounter/1", autorouting="on");
+add_line(dut, "resetIn/1", "OutputBinCounter/2", autorouting="on");
 
 add_block("simulink/Math Operations/Sum", dut+"/SpectrumSum", ...
     Position=[1520 80 1560 140]);
@@ -479,6 +530,46 @@ applyType(dut+"/Confidence", isFixed, types, "confidence", ...
 add_line(dut, "PeakTracker/2", "Confidence/1", autorouting="on");
 add_line(dut, "GuardedSum/1", "Confidence/2", autorouting="on");
 
+% --- timestamp metadata ----------------------------------------------------
+% The sample index of a symbol's first sample is captured at the boundary and
+% queued until that symbol's decision emerges, which is hundreds to thousands
+% of cycles later. A short circular buffer is enough because the pipeline
+% holds only a couple of symbols at a time; a fixed delay line would have to
+% be re-sized for every SF/L.
+add_block("simulink/User-Defined Functions/MATLAB Function", ...
+    dut+"/TimestampFifo", Position=[1620 520 1780 620]);
+lora_sim.set_function_script(dut+"/TimestampFifo", [
+    "function [symbolSampleCount, timestampValid] = fcn(sampleCount, symbolBoundary, symbolValid, resetIn)"
+    "%#codegen"
+    "persistent queue writeIndex readIndex"
+    "depth = uint32(8);"
+    "if isempty(queue)"
+    "    queue = zeros(8, 1, 'uint64');"
+    "    writeIndex = uint32(0);"
+    "    readIndex = uint32(0);"
+    "end"
+    "if resetIn"
+    "    queue = zeros(8, 1, 'uint64');"
+    "    writeIndex = uint32(0);"
+    "    readIndex = uint32(0);"
+    "end"
+    "if symbolBoundary"
+    "    queue(writeIndex + uint32(1)) = sampleCount;"
+    "    writeIndex = mod(writeIndex + uint32(1), depth);"
+    "end"
+    "symbolSampleCount = uint64(0);"
+    "timestampValid = false;"
+    "if symbolValid"
+    "    symbolSampleCount = queue(readIndex + uint32(1));"
+    "    readIndex = mod(readIndex + uint32(1), depth);"
+    "    timestampValid = true;"
+    "end"
+    "end"]);
+add_line(dut, "InputFraming/2", "TimestampFifo/1", autorouting="on");
+add_line(dut, "InputFraming/1", "TimestampFifo/2", autorouting="on");
+add_line(dut, "PeakTracker/3", "TimestampFifo/3", autorouting="on");
+add_line(dut, "resetIn/1", "TimestampFifo/4", autorouting="on");
+
 % --- outputs ---------------------------------------------------------------
 addOutport(dut, "symbolIndex", 1, [1990 60], "PeakTracker/1");
 addOutport(dut, "symbolValid", 2, [1990 110], "PeakTracker/3");
@@ -486,15 +577,20 @@ addOutport(dut, "confidence", 3, [1990 160], "Confidence/1");
 addOutport(dut, "peakMagnitudeSquared", 4, [1990 210], "PeakTracker/2");
 addOutport(dut, "spectrumSum", 5, [1990 260], "SpectrumSum/1");
 addOutport(dut, "symbolBoundary", 6, [1990 310], "InputFraming/1");
+addOutport(dut, "symbolSampleCount", 7, [1990 360], "TimestampFifo/1");
+addOutport(dut, "timestampValid", 8, [1990 410], "TimestampFifo/2");
 
-addOutport(dut, "stageFftM", 7, [1990 380], "FFT_M/1");
-addOutport(dut, "stageProduct", 8, [1990 430], "Multiply/1");
-addOutport(dut, "stagePartition", 9, [1990 480], "AccumSum/1");
-addOutport(dut, "stageFftN", 10, [1990 530], "ScaleByM/1");
-addOutport(dut, "stageMagnitudeSquared", 11, [1990 580], "MagnitudeSquared/1");
-addOutport(dut, "fftMValid", 12, [1990 630], "FFT_M/2");
-addOutport(dut, "partitionValid", 13, [1990 680], "BinCounter/3");
-addOutport(dut, "fftNValid", 14, [1990 730], "FFT_N/2");
+if includeTaps
+    addOutport(dut, "stageFftM", 9, [1990 480], "FFT_M/1");
+    addOutport(dut, "stageProduct", 10, [1990 530], "Multiply/1");
+    addOutport(dut, "stagePartition", 11, [1990 580], "AccumSum/1");
+    addOutport(dut, "stageFftN", 12, [1990 630], "ScaleByM/1");
+    addOutport(dut, "stageMagnitudeSquared", 13, [1990 680], ...
+        "MagnitudeSquared/1");
+    addOutport(dut, "fftMValid", 14, [1990 730], "FFT_M/2");
+    addOutport(dut, "partitionValid", 15, [1990 780], "BinCounter/3");
+    addOutport(dut, "fftNValid", 16, [1990 830], "FFT_N/2");
+end
 
 set_param(dut, TreatAsAtomicUnit="on");
 end

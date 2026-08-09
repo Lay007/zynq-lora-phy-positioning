@@ -165,6 +165,21 @@ model unchanged.
 | `fractionalToaSamples` | out | `sfix<W_r>_En<F_r>` | sub-sample refinement |
 | `timestampValid` | out | `boolean` | qualifies both timestamp fields |
 
+**Implementation note, added after the timestamp path was built.** The DUT now
+carries `symbolSampleCount` (`uint64`) and `timestampValid`: a free-running
+sample counter is latched at each `symbolBoundary` and queued until that
+symbol's decision emerges hundreds to thousands of cycles later. A short
+circular buffer does the queueing, because a fixed delay line would have to be
+re-sized for every SF/L.
+
+`fractionalToaSamples` is **not** implemented and is not claimed. MATLAB's
+`estimate_fractional_toa` fits a three-point parabola to correlation power on
+the **sample** lag grid, which needs the sample-rate matched filter that
+belongs to acquisition. The correlator's own spectrum only resolves lags spaced
+by `L` samples, so a parabola on it would be a fractional *bin*, not a
+sub-sample ToA. Calling those the same thing would be wrong, so the DUT
+provides the coarse count and the software keeps the fractional refinement.
+
 Cross-station association, per-channel delay calibration, and 2D
 multilateration are **software**. They are not in the DUT and will not be
 generated to HDL. What M2 must verify is that the timestamp/metadata interface

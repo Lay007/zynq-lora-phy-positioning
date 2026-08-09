@@ -329,6 +329,10 @@ on each named DUT with `TargetLanguage` set to Verilog.
 | **`fft-correlator-fixed`** | `lora_fft_correlator_hdl/DUT` | **0** | 2 |
 | **`joint-timing-cfo`** | `lora_joint_sync_hdl/DUT` | **0** | 2 |
 
+The checked DUTs are built with `IncludeVerificationTaps=false`, so the HDL
+boundary carries only production signals and the stage taps used by the
+regression never reach generated hardware.
+
 The two DUTs that are meant to become hardware pass with zero errors. The
 double model's seven errors are the expected and correct result: `Double and
 Single data types are not supported for HDL code generation`. A double model is
@@ -385,6 +389,44 @@ run, no Verilog exists, no cosimulation has been performed, and nothing has
 been synthesized. There are no resource, `Fmax`, or power numbers, and none are
 claimed.
 
+## Reset behavior and timestamp metadata
+
+`resetIn` clears the three counters and both streaming FFTs. Nothing else needs
+it: the accumulator delay line is gated off for the first `N` bins of a symbol
+and the peak tracker re-initializes at bin 0, so neither can read pre-reset
+state once the counters restart. That is an architectural property rather than
+an assumption, so it is tested rather than asserted.
+
+`run_reset_regression` drives one waveform, asserts reset, drives a second
+waveform in the same simulation, and requires the second half to match a
+standalone run of that waveform exactly. It also requires the sample counter to
+restart at zero.
+
+| SF | L | M | Symbols before reset | Symbols after reset | Match standalone | Timestamps restart |
+|---:|---:|---:|---:|---:|---|---|
+| 5 | 2 | 64 | 3 | 2 | yes | yes |
+| 7 | 8 | 1024 | 3 | 2 | yes | yes |
+
+One detail cost a debugging cycle and is worth recording: asserting reset on the
+same cycle as the first valid sample makes the streaming FFT discard that frame.
+The reset pulse has to land on an idle cycle before data starts, which is what
+the harness now does.
+
+`symbolSampleCount` carries the sample index of each symbol's first sample,
+latched at `symbolBoundary` and queued through the pipeline until the decision
+emerges. The stage regression checks it on every acceptance case: the timestamps
+must be exactly `0, M, 2M, …`, and the maximum error is `0` in all 15.
+
+`fractionalToaSamples` is **not implemented**, deliberately. MATLAB's
+`estimate_fractional_toa` fits a three-point parabola to correlation power on
+the sample lag grid, which needs the sample-rate matched filter that belongs to
+acquisition. The correlator spectrum only resolves lags spaced by `L` samples,
+so the same parabola applied there would yield a fractional *bin*, not a
+sub-sample ToA. The two are not interchangeable, so the DUT provides the coarse
+count and the fractional refinement stays in software.
+
+Raw table: [`simulink-m2-reset.csv`](data/simulink-m2-reset.csv).
+
 ## Limitations and open items
 
 Blocking full M2 acceptance:
@@ -395,19 +437,14 @@ Blocking full M2 acceptance:
    inside a known window (`symbolBoundary`) exists; packet framing does not.
    M2 is explicitly not complete with only the demodulator and the joint
    estimator verified.
-2. **No reset port.** The interface defines `resetIn`, but the generated models
-   have no reset input and persistent state is only cleared between
-   simulations. Reset behavior is therefore unverified.
-3. **Timestamp and metadata outputs are not implemented.** The interface
-   contract defines `coarseSampleCount`, `fractionalToaSamples`, and
-   `timestampValid`, and the M2 roadmap item requires verifying that interface.
-   Nothing carries it yet.
-4. **Verification taps are ordinary outports.** They would appear in generated
-   HDL. Gating them out is an M3 task.
-5. **No Verilog, cosimulation, or synthesis.** `checkhdl` passes with zero
+2. **Fractional ToA is not implemented.** The coarse sample count and its
+   valid flag are implemented and checked, but `fractionalToaSamples` needs the
+   sample-rate matched filter that belongs to acquisition, so the metadata
+   contract is only half satisfied.
+3. **No Verilog, cosimulation, or synthesis.** `checkhdl` passes with zero
    errors on both hardware-bound DUTs, but `makehdl` has not been run, so
    there are no resource, `Fmax`, or power numbers, and none are claimed.
-6. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
+4. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
    does not cover SF8–SF12, other `L`, or weak signals.
 
