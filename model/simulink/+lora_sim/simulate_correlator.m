@@ -59,6 +59,13 @@ stimulusReset = timeseries(resetVector, timeAxis);
 assignin("base", "stimulusIq", stimulusIq);
 assignin("base", "stimulusValid", stimulusValid);
 assignin("base", "stimulusReset", stimulusReset);
+% Resync idle throughout. This path drives the correlator on its own, with
+% no detector to realign it, so the window grid stays free-running and every
+% existing comparison against the golden vectors is unaffected.
+assignin("base", "stimulusResyncValid", ...
+    timeseries(false(numel(stimulus), 1), timeAxis));
+assignin("base", "stimulusResyncSkip", ...
+    timeseries(zeros(numel(stimulus), 1, "uint32"), timeAxis));
 
 if ~bdIsLoaded(info.modelName)
     load_system(info.modelPath);

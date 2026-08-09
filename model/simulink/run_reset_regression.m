@@ -62,6 +62,10 @@ for k = 1:size(options.Configurations, 1)
     assignin("base", "stimulusIq", timeseries(complex(iq), timeAxis));
     assignin("base", "stimulusValid", timeseries(valid, timeAxis));
     assignin("base", "stimulusReset", timeseries(resetVector, timeAxis));
+    assignin("base", "stimulusResyncValid", ...
+        timeseries(false(numel(iq), 1), timeAxis));
+    assignin("base", "stimulusResyncSkip", ...
+        timeseries(zeros(numel(iq), 1, "uint32"), timeAxis));
     if ~bdIsLoaded(info.modelName)
         load_system(info.modelPath);
     end

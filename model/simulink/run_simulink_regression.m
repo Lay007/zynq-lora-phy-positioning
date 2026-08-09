@@ -23,7 +23,7 @@ function results = run_simulink_regression(options)
 
 arguments
     options.Suites string = ["toolchain", "double", "joint", "reset", ...
-        "acquisition", "blind"]
+        "acquisition", "blind", "frontend"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -35,7 +35,7 @@ addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
 known = ["toolchain", "double", "joint", "reset", "acquisition", ...
-    "blind", "fixed", "real"];
+    "blind", "frontend", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -93,6 +93,14 @@ if any(options.Suites == "blind")
     end
 end
 
+if any(options.Suites == "frontend")
+    fprintf("\n=== composed receiver front-end ===\n");
+    results.frontend = run_frontend_regression(WriteCsv=options.WriteCsv);
+    if ~results.frontend.passed
+        problems = [problems; results.frontend.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -137,6 +145,11 @@ if isfield(results, "blind")
         "sync %.0f%% on the free-running grid\n", ...
         results.blind.totalSymbols, 100*results.blind.preambleRate, ...
         100*results.blind.syncRate);
+end
+if isfield(results, "frontend")
+    fprintf("front  : %d offsets recover the same %d payload symbols\n", ...
+        height(results.frontend.summary), ...
+        numel(results.frontend.referencePayload));
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...

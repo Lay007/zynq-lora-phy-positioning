@@ -60,6 +60,21 @@ contract that the Simulink model and, later, the generated Verilog must honor.
 | `iqIn` | in | complex, `double` then `sfix<W_in>_En<F_in>` | baseband sample at `Fs = L·BW` |
 | `validIn` | in | `boolean` | `iqIn` carries a sample this cycle |
 | `resetIn` | in | `boolean` | synchronous flush of all framing state |
+| `resyncValid` | in | `boolean` | apply a window-grid advance this cycle |
+| `resyncSkip` | in | `uint32` | samples to withhold, advancing the grid |
+
+**Implementation note, added when the subsystems were composed.** Realignment
+is defined as *withholding samples*, not as loading a framing phase. The
+streaming FFT frames on its own count of valid samples, so writing a phase
+into the framing counter moves the boundary flag and the timestamps while
+leaving the FFT framing untouched — measured, and the symbol bins did not
+move. Withholding `s` samples shifts the whole grid by `s` relative to the
+stream, and for a preamble at bin `d` the required advance is
+`chipsToBoundary * L`.
+
+`sampleCount` is deliberately **not** gated by the skip: it timestamps the PL
+stream rather than the packet, and skipping samples in it would break the
+monotonic count TDoA depends on.
 
 **Flow control decision: no `ready` backpressure.** The DUT is a fixed-rate
 sample-clocked pipeline. It accepts one sample per `validIn` cycle and can never

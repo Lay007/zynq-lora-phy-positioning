@@ -186,6 +186,33 @@ sync at 97 %. Sync belongs after realignment by `chipsToBoundary`.
 
 Generated Verilog: 0 multipliers, 0 RAMs, 168 register bits.
 
+`preambleDetected` is evaluated on the newest `PreambleSymbols` bins as soon
+as they exist, not on the full register. Gating it on the full register makes
+it wait for the two sync windows, and a realignment derived from it can then
+never take effect before the sync word has gone past — at any preamble length.
+`lora_phy.detect_preamble_only` is the shared definition.
+
+## Composed front-end
+
+```matlab
+info = build_receiver_frontend_model(SpreadingFactor=7, SamplesPerChip=4);
+```
+
+`lora_receiver_frontend/DUT` wires the correlator, the blind detector, and a
+thin `ResyncPolicy` into one loop. The subsystems are copied from their own
+builders rather than rebuilt, so there is one definition of each.
+
+Realignment works by **withholding samples**, not by loading a counter. The
+streaming FFT frames on its own count of valid samples, so writing a phase
+into `InputFraming` moves the boundary flag and the timestamps and leaves the
+FFT framing where it was — measured, and the bins did not move. Dropping `s`
+samples shifts the grid by `s`, and `s = chipsToBoundary * L`.
+
+`run_frontend_regression` checks the property that only exists once the blocks
+are connected: a packet at a sample offset the receiver is never told must
+demodulate to the same payload as an aligned one. Four offsets, none a
+multiple of `L`, all recover the same 34 payload symbols.
+
 ## Regression
 
 One command runs everything and fails loudly:

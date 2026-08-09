@@ -14,7 +14,7 @@ what still blocks acceptance.
 
 ```matlab
 cd model/simulink
-results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind
+results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind, frontend
 results = run_simulink_regression(Suites=["fixed" "real"]);   % long campaigns
 report = run_hdl_generation;         % Verilog and resource counts
 ```
@@ -501,8 +501,10 @@ mapping exhaustively over all 256 sync words and across SF7…SF12.
 
 It validates a **symbol-aligned candidate** using absolute bin targets: the
 preamble at bin 0 and the sync word at `8 x nibble`. That is the correct check
-once timing and CFO have already been corrected, and it is the wrong one before
-that. Finding a packet in the first place is the next section.
+once timing has already been corrected, and it is the wrong one before that.
+Finding a packet in the first place is the next section; the section after it
+shows realignment putting the preamble back on bin 0 and the sync word back on
+8 and 16, which is precisely the domain this FSM was written for.
 
 ## Blind packet-start detection
 
@@ -622,6 +624,87 @@ streams — roughly 600 sliding windows with no signal present — there are **z
 detections. Requiring 8 consecutive bins within one bin of the first, plus two
 sync bins on target, is a demanding predicate for uniform noise.
 
+## Composing the subsystems: realignment
+
+Each subsystem above is exact against MATLAB on its own. Wiring them into one
+model checks something none of those regressions can see, and it immediately
+found a defect that all of them passed.
+
+### Realignment is a skip, not a phase
+
+The correlator gained `resyncValid`/`resyncSkip`. The first implementation
+loaded a new value into the framing counter, which looked right and was not:
+the streaming FFT frames on its own count of valid samples, so the boundary
+flag and the timestamps moved while the FFT framing stayed exactly where it
+was. Measured, the symbol bins did not budge — the timestamp of the first
+window moved from 2048 to 1673 and every bin was unchanged.
+
+Withholding samples is what moves the grid. Dropping `s` samples shifts the
+window grid by `s` relative to the stream, and for a preamble at bin `d` the
+required advance is `chipsToBoundary * L = mod(-d, N) * L`. With that,
+realignment does what it claims:
+
+```text
+free:   0 0 0  94 94 94 94 94 94 94 94  102 110      sync at 94+8, 94+16
+resync: 0 0 0  94 94 | 0 0 0 0 0 0 |      8  16      absolute bins
+```
+
+After realignment the preamble sits at bin 0 and the sync word at 8 and 16 —
+the domain where `lora_phy.validate_acquisition_bins` is the correct check.
+The residual is sub-chip: at offset 137 the true offset is 93.75 chips, so
+whole-chip alignment lands within a quarter of a chip.
+
+### The preamble flag cannot wait for the sync word
+
+Composition then exposed a real defect in the blind detector. It evaluated
+`preambleDetected` only once the whole `PreambleSymbols + 2` register had
+filled — that is, only after two windows of *sync word* had gone past. A
+realignment derived from that flag therefore always arrived too late for the
+packet that produced it, and lengthening the preamble does not help, because
+the decision waits on the windows that follow the preamble rather than on the
+preamble itself. Measured with a 20-symbol preamble, realignment landed at
+symbol 26, well past the sync word at 24 and 25.
+
+The fix is to define the preamble decision on preamble bins alone.
+`lora_phy.detect_preamble_only` is now that definition and
+`detect_preamble_run` calls it for its preamble half, so there is one rule
+with two call sites. The DUT evaluates the preamble flag on the newest
+`PreambleSymbols` bins as soon as they exist, and the joint decision on the
+full window once it fills; the two deliberately refer to different windows.
+Detection then moves from symbol 26 to symbol 12.
+
+### What the composed model proves
+
+The property worth checking is not "the blocks agree with MATLAB" — that was
+already true while the front-end could not acquire a packet. It is that a
+packet placed at a sample offset the receiver is never told ends up
+demodulating to the same payload as an aligned one.
+
+| Offset (samples) | Skip | chipsToBoundary·L | Detected at symbol | Common payload symbols |
+|---:|---:|---:|---:|---:|
+| 0 | 0 | 0 | 9 | 34 |
+| 137 | 136 | 136 | 12 | 34 |
+| 259 | 260 | 260 | 12 | 34 |
+| 511 | 0 | 0 | 13 | 34 |
+
+All four offsets recover the same 34 payload symbols, and every skip equals
+`chipsToBoundary * L`. The offsets are deliberately not multiples of the
+oversampling factor, so alignment is only ever recovered to within a chip and
+the payload has to survive the sub-chip remainder.
+
+The symbols around the SFD are excluded automatically rather than by index:
+the check finds the longest run common to every offset, and the windows
+consumed by the realignment transition are expected to differ.
+
+Raw table: [`simulink-m2-frontend.csv`](data/simulink-m2-frontend.csv).
+
+### What this still is not
+
+Realignment fires once per reset. Re-arming after a packet ends belongs to
+the framing state machine, which is not built. There is no SFD validation, so
+nothing confirms that what follows the sync word is a downchirp pair, and
+nothing routes header and payload symbols anywhere.
+
 ## M3 spike: generated Verilog and first resource numbers
 
 Verilog generation was pulled forward out of order, deliberately. The largest
@@ -694,13 +777,14 @@ translate directly into BRAM.
 
 Blocking full M2 acceptance:
 
-1. **No packet framing, and sync is not yet validated on an aligned grid.**
-   Blind preamble detection now exists, is exact against MATLAB, and recovers
-   the whole-chip offset. What is missing is the stage that consumes it: the
-   window-grid realignment by `chipsToBoundary`, SFD downchirp validation, and
-   the packet-level framing state machine that routes header and payload
-   symbols. Until realignment exists, `syncValid` is only measured on the
-   free-running grid, where it passes at 97 % of alignments rather than 100 %.
+1. **No packet framing and no SFD validation.** Blind detection and
+   window-grid realignment now exist and compose: a packet at an unknown
+   sample offset is acquired and demodulated to the same payload as an
+   aligned one. What is still missing is SFD downchirp validation — nothing
+   confirms that what follows the sync word is a downchirp pair — and the
+   packet-level framing state machine that routes header and payload symbols.
+   Realignment also fires once per reset, so re-arming after a packet ends is
+   not implemented.
 2. **Fractional ToA is not implemented.** The coarse sample count and its
    valid flag are implemented and checked, but `fractionalToaSamples` needs a
    matched filter at the sample rate, so the metadata contract is only half

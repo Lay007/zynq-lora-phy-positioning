@@ -74,9 +74,13 @@ metric definitions, and the explicit configuration-aided boundary.
   exact against MATLAB over 2000 symbols and all 256 sync words. No sliding
   correlation is involved: the preamble bin equals the whole-chip offset, so
   detection costs 0 multipliers and 0 RAMs.
-- [ ] Realign the window grid by `chipsToBoundary`, then validate SFD and
-  packet-level framing. Sync currently passes at 97 % of alignments because a
-  window can straddle the preamble-to-sync boundary on the free-running grid.
+- [x] Realign the window grid by `chipsToBoundary` and compose the correlator,
+  detector, and realignment into one front-end. A packet at an unknown sample
+  offset is acquired and demodulates to the same payload as an aligned one,
+  verified at four offsets.
+- [ ] Validate the SFD downchirp pair and build the packet-level framing state
+  machine. Realignment also fires once per reset; re-arming after a packet
+  ends belongs to that state machine.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
   timestamp/metadata interface. The coarse sample count and its valid flag are
   implemented and checked; the fractional ToA is not, because it needs the

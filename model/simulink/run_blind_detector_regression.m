@@ -213,15 +213,23 @@ expected.preambleDetected = false(total, 1);
 expected.syncValid = false(total, 1);
 expected.preambleBin = zeros(total, 1);
 expected.chipsToBoundary = zeros(total, 1);
+% The preamble flag is evaluated on the newest PreambleSymbols bins as soon
+% as they exist, and the joint decision on the full window once it fills.
+% The two therefore refer to different windows on purpose; see
+% lora_phy.detect_preamble_only.
+for t = preambleSymbols:total
+    early = lora_phy.detect_preamble_only(bins(t-preambleSymbols+1:t), ...
+        config);
+    expected.preambleDetected(t) = early.preambleValid;
+    expected.preambleBin(t) = early.preambleBin;
+    expected.chipsToBoundary(t) = early.chipsToBoundary;
+end
 for t = runLength:total
     window = bins(t-runLength+1:t);
     result = lora_phy.detect_preamble_run(window, syncWords(t), config, ...
         PreambleSymbols=preambleSymbols);
     expected.detected(t) = result.valid;
-    expected.preambleDetected(t) = result.preambleValid;
     expected.syncValid(t) = result.syncValid;
-    expected.preambleBin(t) = result.preambleBin;
-    expected.chipsToBoundary(t) = result.chipsToBoundary;
 end
 end
 

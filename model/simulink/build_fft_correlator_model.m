@@ -197,10 +197,24 @@ set_param(modelName+"/StimulusReset", VariableName="stimulusReset", ...
     SampleTime="1", Interpolate="off", ...
     OutputAfterFinalValue="Setting to zero");
 
+add_block("simulink/Sources/From Workspace", ...
+    modelName+"/StimulusResyncValid", Position=[40 310 160 350]);
+set_param(modelName+"/StimulusResyncValid", ...
+    VariableName="stimulusResyncValid", SampleTime="1", Interpolate="off", ...
+    OutputAfterFinalValue="Setting to zero");
+
+add_block("simulink/Sources/From Workspace", ...
+    modelName+"/StimulusResyncSkip", Position=[40 380 160 420]);
+set_param(modelName+"/StimulusResyncSkip", ...
+    VariableName="stimulusResyncSkip", SampleTime="1", Interpolate="off", ...
+    OutputAfterFinalValue="Holding final value");
+
 add_line(modelName, "StimulusIq/1", "QuantizeInput/1", autorouting="on");
 add_line(modelName, "QuantizeInput/1", "DUT/1", autorouting="on");
 add_line(modelName, "StimulusValid/1", "DUT/2", autorouting="on");
 add_line(modelName, "StimulusReset/1", "DUT/3", autorouting="on");
+add_line(modelName, "StimulusResyncValid/1", "DUT/4", autorouting="on");
+add_line(modelName, "StimulusResyncSkip/1", "DUT/5", autorouting="on");
 
 names = harnessVariables(includeTaps);
 for k = 1:numel(names)
@@ -228,6 +242,10 @@ delete_block(dut+"/Out1");
 addInport(dut, "iqIn", 1, [40 100]);
 addInport(dut, "validIn", 2, [40 170]);
 addInport(dut, "resetIn", 3, [40 240]);
+% Appended rather than inserted: ports 1..3 keep their numbers, so every
+% existing regression and its stimulus stay valid unchanged.
+addInport(dut, "resyncValid", 4, [40 310]);
+addInport(dut, "resyncSkip", 5, [40 380]);
 
 % Reset only has to clear the counters and the two FFTs. The accumulator
 % delay line and the peak tracker are self-flushing: the comb feedback is
@@ -243,33 +261,63 @@ addInport(dut, "resetIn", 3, [40 240]);
 add_block("simulink/User-Defined Functions/MATLAB Function", ...
     dut+"/InputFraming", Position=[170 160 300 220]);
 lora_sim.set_function_script(dut+"/InputFraming", [
-    "function [symbolBoundary, sampleCount] = fcn(validIn, resetIn)"
+    "function [symbolBoundary, sampleCount, gatedValid] = fcn(validIn, resetIn, resyncValid, resyncSkip)"
     "%#codegen"
     "% First input sample of every M-sample symbol window, plus the"
     "% free-running PL sample counter that timestamps it."
-    "persistent counter samples"
+    "%"
+    "% Realignment works by dropping samples, not by loading a phase. The"
+    "% streaming FFT frames on its own count of valid samples, so writing a"
+    "% different value into a counter here would move the boundary flag and"
+    "% the timestamps while leaving the FFT framing exactly where it was --"
+    "% measured, and the symbol bins did not budge. Withholding s samples"
+    "% from the processing chain shifts the whole window grid by s relative"
+    "% to the stream, which is the thing that was wanted."
+    "%"
+    "% counter stays in lockstep with the FFT frame phase because both"
+    "% advance only on gatedValid. sampleCount is deliberately not gated: it"
+    "% timestamps the PL stream rather than the packet, and skipping samples"
+    "% in it would break the monotonic count TDoA depends on."
+    "%"
+    "% Mechanism, not policy. Choosing s belongs to the front-end that owns"
+    "% the detector; for a preamble at bin d the required advance is"
+    "% chipsToBoundary*L = mod(-d, N)*L."
+    "persistent counter samples skip"
     "if isempty(counter)"
     "    counter = uint32(0);"
     "    samples = uint64(0);"
+    "    skip = uint32(0);"
     "end"
     "if resetIn"
     "    counter = uint32(0);"
     "    samples = uint64(0);"
+    "    skip = uint32(0);"
     "end"
     "symbolBoundary = false;"
     "sampleCount = samples;"
+    "gatedValid = false;"
     "if validIn"
-    "    symbolBoundary = counter == uint32(0);"
-    "    if counter == uint32(" + (m-1) + ")"
-    "        counter = uint32(0);"
+    "    if resyncValid && skip == uint32(0)"
+    "        skip = resyncSkip;"
+    "    end"
+    "    if skip > uint32(0)"
+    "        skip = skip - uint32(1);"
     "    else"
-    "        counter = counter + uint32(1);"
+    "        gatedValid = true;"
+    "        symbolBoundary = counter == uint32(0);"
+    "        if counter >= uint32(" + (m-1) + ")"
+    "            counter = uint32(0);"
+    "        else"
+    "            counter = counter + uint32(1);"
+    "        end"
     "    end"
     "    samples = samples + uint64(1);"
     "end"
     "end"]);
 add_line(dut, "validIn/1", "InputFraming/1", autorouting="on");
 add_line(dut, "resetIn/1", "InputFraming/2", autorouting="on");
+add_line(dut, "resyncValid/1", "InputFraming/3", autorouting="on");
+add_line(dut, "resyncSkip/1", "InputFraming/4", autorouting="on");
 
 % --- M-point streaming FFT -------------------------------------------------
 add_block("simulink/User-Defined Functions/MATLAB System", dut+"/FFT_M", ...
@@ -281,7 +329,11 @@ if isFixed
     set_param(dut+"/FFT_M", RoundingMethod=char(types.rounding));
 end
 add_line(dut, "iqIn/1", "FFT_M/1", autorouting="on");
-add_line(dut, "validIn/1", "FFT_M/2", autorouting="on");
+% Gated, not raw: this is the line that actually moves the window grid.
+% Withholding samples here is what shifts the FFT framing relative to the
+% incoming stream, and InputFraming's counter tracks it because both
+% advance on the same signal.
+add_line(dut, "InputFraming/3", "FFT_M/2", autorouting="on");
 add_line(dut, "resetIn/1", "FFT_M/3", autorouting="on");
 
 % --- frequency bin counter and partition control ---------------------------
