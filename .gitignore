@@ -54,3 +54,10 @@ Thumbs.db
 
 # Script-generated Simulink models and reports
 model/simulink/generated/
+
+# HDL Coder traceability reports are large regenerable HTML; the Verilog and
+# the resource report summary are what matter for review.
+fpga/generated/**/html/
+fpga/generated/**/_htmllib/
+fpga/generated/**/*.slx
+fpga/generated/**/*.mat

@@ -427,6 +427,50 @@ count and the fractional refinement stays in software.
 
 Raw table: [`simulink-m2-reset.csv`](data/simulink-m2-reset.csv).
 
+## M3 spike: generated Verilog and first resource numbers
+
+Verilog generation was pulled forward out of order, deliberately. The largest
+remaining M2 item is acquisition, and how to build a blind preamble search is a
+resource question: whether to reuse the correlator at a coarse stride or add a
+cheaper dedicated detector depends on what the correlator already costs. That
+number did not exist, so it was measured.
+
+`run_hdl_generation` generates Verilog for both hardware-bound DUTs and reads
+HDL Coder's own reports.
+
+| Target | Verilog files | Multipliers | Adders/Subtractors | Registers | 1-bit registers | RAMs | Multiplexers | I/O bits | Added latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 437 | 1868 | 28169 | 64 | 989 | 185 | 34 |
+| `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
+
+Both generate with zero HDL errors. The generated code is committed under
+[`fpga/generated/`](../fpga/generated) and is never edited by hand: behavior
+changes go back into MATLAB and Simulink and the code is regenerated.
+
+Two results matter for planning. The correlator costs **34 multipliers and 64
+RAMs** at the first hardware operating point, which is the budget acquisition
+has to fit around. And HDL Coder's delay balancing adds **34 cycles** on top of
+the model, so hardware symbol latency at SF7/L=8 is 2414 + 34 = **2448 sample
+clocks**, not the 2414 the Simulink table reports. The joint estimator costs
+essentially nothing: no multipliers, no RAM, nine adders, and no added latency,
+which is what integer arithmetic buys.
+
+### What these numbers are not
+
+They are HDL Coder's count of operators inferred from the generated code. They
+are **not** synthesis results and must not be read as LUT/FF/DSP/BRAM. A
+multiplier here may map to one DSP48 slice or to several, and RAM counts do not
+translate directly into BRAM.
+
+### What is blocked, and by what
+
+- **HDL cosimulation** is not run. No HDL simulator is installed; HDL Verifier
+  is licensed but has nothing to drive. This is a tooling gap, not a design
+  problem.
+- **Synthesis, `Fmax`, timing, and power** are not measured. Vivado is not
+  installed on this host. Only ISE 14.7 is present, which is not the tool this
+  flow targets for Zynq. No frequency or power figure is claimed anywhere.
+
 ## Limitations and open items
 
 Blocking full M2 acceptance:

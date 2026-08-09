@@ -1,0 +1,3 @@
+Target,Dut,SF,L,WordLength,VerilogFiles,Multipliers,AddersSubtractors,Registers,RegisterBits,RAMs,Multiplexers,IoBits,AddedPipelineLatency,Failure
+fft-correlator-fixed,lora_fft_correlator_gen/DUT,7,8,16,77,34,437,1868,28169,64,989,185,34,
+joint-timing-cfo,lora_joint_sync_gen/DUT,7,8,16,2,0,9,0,0,0,16,131,0,

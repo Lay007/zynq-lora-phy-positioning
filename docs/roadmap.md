@@ -82,12 +82,16 @@ milestone remains open on the unchecked items above.
 
 ## M3 — HDL Coder Verilog generation
 
-- [ ] Generate Verilog for dechirp, FFT, peak detection, and ToA blocks from
-  Simulink.
-- [ ] Run HDL cosimulation against the same golden vectors.
-- [ ] Add generated-IP packaging and reproducible generation scripts.
+- [x] Generate Verilog for the fixed-point FFT correlator and the joint
+  timing/CFO estimator, with HDL Coder operator counts recorded.
+- [ ] Generate Verilog for the acquisition and ToA blocks once they exist.
+- [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
+  simulator is installed.
+- [x] Add a reproducible generation script (`run_hdl_generation`).
+- [ ] Add generated-IP packaging.
 - [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers.
-- [ ] Synthesis, timing, resource, and power reports.
+- [ ] Synthesis, timing, resource, and power reports. Blocked: no Vivado on
+  the development host.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.

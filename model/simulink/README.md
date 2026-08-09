@@ -217,6 +217,23 @@ records every message. Note that HDL Coder settings go through `hdlset_param`;
 This stops at the compatibility checker. Generating Verilog, cosimulating it,
 and synthesizing it are M3 and are not attempted.
 
+## HDL generation (first M3 step)
+
+```matlab
+report = run_hdl_generation(WordLength=16);
+```
+
+Generates Verilog for both hardware-bound DUTs into `fpga/generated/` and reads
+HDL Coder's own operator counts and delay-balancing report. It stops there:
+cosimulation needs an HDL simulator and synthesis needs Vivado, neither of
+which is installed on this host, so no `Fmax`, timing, or power figure is
+produced or claimed.
+
+The measured counts are in
+[`docs/simulink-m2-acceptance.md`](../../docs/simulink-m2-acceptance.md). The
+headline for planning: the correlator costs 34 multipliers and 64 RAMs at
+SF7/L=8/16 bits, and HDL Coder adds 34 cycles of latency on top of the model.
+
 ## HDL generation rules
 
 - Use a named DUT subsystem as the only HDL Coder target.

@@ -87,11 +87,16 @@
 
 ## M3 — Генерация Verilog
 
-- [ ] Сгенерировать Verilog для FFT-correlator, peak detector и ToA.
-- [ ] Выполнить HDL cosimulation на тех же golden-векторах.
-- [ ] Добавить воспроизводимые скрипты генерации и упаковки IP.
+- [x] Сгенерировать Verilog для fixed-point FFT-correlator и оценщика
+  timing/CFO; счётчики операторов HDL Coder зафиксированы.
+- [ ] Сгенерировать Verilog для блоков acquisition и ToA, когда они появятся.
+- [ ] Выполнить HDL cosimulation на тех же golden-векторах. Заблокировано:
+  HDL-симулятор не установлен.
+- [x] Добавить воспроизводимый скрипт генерации (`run_hdl_generation`).
+- [ ] Добавить упаковку IP.
 - [ ] Интегрировать IP с clock/reset/AXI-обвязкой.
-- [ ] Получить отчёты synthesis, timing, resources и power.
+- [ ] Получить отчёты synthesis, timing, resources и power. Заблокировано:
+  Vivado на машине разработки отсутствует.
 
 Критерий: Verilog воспроизводимо генерируется, проходит cosimulation, выполняет
 timing и выдаёт те же символы, что MATLAB/Simulink.
