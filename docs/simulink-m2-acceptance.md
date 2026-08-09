@@ -14,7 +14,7 @@ what still blocks acceptance.
 
 ```matlab
 cd model/simulink
-results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition
+results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind
 results = run_simulink_regression(Suites=["fixed" "real"]);   % long campaigns
 report = run_hdl_generation;         % Verilog and resource counts
 ```
@@ -251,8 +251,9 @@ signed bins bound `|timingChips|` by `(N-1)/2`, so the correction cannot exceed
 callers that might search a wider range, and both the MATLAB test and this
 Simulink run now pin it as inactive rather than leaving it silently dead.
 
-The estimator consumes bins, not samples. Producing those bins — the chirp-aware
-preamble detector and the blind search for the packet start — is not built.
+The estimator consumes bins, not samples. What produces those bins is now in the
+model: blind packet-start detection is described below and yields the coarse
+whole-chip offset that this estimator refines to half a chip.
 
 ## Real SX1262 symbol windows
 
@@ -498,18 +499,136 @@ mapping exhaustively over all 256 sync words and across SF7…SF12.
 
 ### What this subsystem is not
 
-It validates a **symbol-aligned candidate**. It does not search for the packet
-start. The blind search over sample offsets is the expensive part of
-acquisition — a sliding correlation rather than a state machine — and it is not
-built. Until it is, the model still needs to be told where a packet begins.
+It validates a **symbol-aligned candidate** using absolute bin targets: the
+preamble at bin 0 and the sync word at `8 x nibble`. That is the correct check
+once timing and CFO have already been corrected, and it is the wrong one before
+that. Finding a packet in the first place is the next section.
+
+## Blind packet-start detection
+
+This subsystem finds packets rather than confirming them, and it turned out to
+be far cheaper than this document previously predicted. The prediction is quoted
+and corrected in the resource section below.
+
+### Why no sliding correlation is needed
+
+The expected cost came from assuming a search over sample offsets. There is no
+such search, because of a property of the waveform itself.
+
+The preamble is a literal repetition of one upchirp, so the transmitted block is
+periodic with `samplesPerSymbol`. Any window of that length is therefore a
+cyclic rotation of the reference chirp, and a rotation still dechirps to a clean
+tone. Take a window starting `d` chips after a symbol boundary: at local chip
+`c` it carries signal chip `mod(c + d, N)`, whose normalised frequency is
+`mod(c + d, N)/N - 1/2`, while the conjugate reference contributes
+`-(c/N - 1/2)`. The product sits at `d/N` for every `c`. So
+
+```text
+bin = d, the number of chips elapsed since the last symbol boundary
+```
+
+Two consequences. Consecutive windows one symbol apart land on the **same** bin
+whatever the alignment is, so the preamble shows up as a run of equal bins in a
+correlator that is simply left running. And the bin is not a nuisance value: it
+*is* the whole-chip timing offset, so acquisition and coarse timing come out of
+the same measurement.
+
+Measured against real samples at SF7, `L = 8`, the identity holds to the
+rounding:
+
+| Sample offset | CFO (bins) | Predicted `d + cfo` | Measured bin |
+|---:|---:|---:|---:|
+| 137 | 0 | 110.875 | 111 |
+| 137 | 3 | 113.875 | 114 |
+| 999 | 0 | 3.125 | 3 |
+| 1023 | 3 | 3.125 | 3 |
+
+### Why the sync check is relative
+
+CFO displaces the dechirped tone as well, so the bin is `d + cfoBins` rather
+than `d`. On an upchirp-only preamble the two are indistinguishable — separating
+them is what the SFD downchirp pair is for.
+
+That is why this subsystem checks the sync word at `preambleBin + 8 x nibble`
+instead of at absolute positions. CFO moves the preamble and the sync symbols by
+the same number of bins, so a relative check is invariant to it and an absolute
+one is not. In the table above the sync pair at offset 137 moves from
+`[119 127]` to `[122 2]` under 3 bins of CFO, wrapping past `N`, while staying
+exactly 8 and 16 bins from the preamble. The absolute checker rejects those very
+same samples.
+
+### Equivalence
+
+Integer arithmetic throughout, so the DUT is compared with
+`lora_phy.detect_preamble_run` on **exact equality**, per symbol rather than per
+sequence — the DUT slides, re-evaluating on every symbol against a shift
+register of the last `PreambleSymbols + 2` bins.
+
+| SF | Preamble symbols | N | Symbols | Preamble found | Decision mismatches | Bin mismatches |
+|---:|---:|---:|---:|---:|---:|---:|
+| 7 | 8 | 128 | 669 | 4 of 4 | 0 | 0 |
+| 5 | 8 | 32 | 718 | 4 of 4 | 0 | 0 |
+| 9 | 6 | 512 | 613 | 4 of 4 | 0 | 0 |
+
+2000 symbols, zero mismatches on all five outputs. The stimulus is correlator
+bins from packets placed at sample offsets that are deliberately **not**
+multiples of the oversampling factor, with noise down to −10 dB and CFO, plus
+seeded random bins and hand-built edge cases at bins 0, 1, `N-1`, and `N-8`.
+
+All **256 sync words** are swept on one configuration, because that is where the
+DUT and the reference could most plausibly disagree: the DUT reduces the sync
+target with a bitmask where the reference uses `mod()`. Zero mismatches. The
+mask is exact here only because `N` is a power of two — and it is not a
+micro-optimisation, since `mod()` on a signed value is a division with Floor
+rounding that HDL Coder refuses to generate at all.
+
+### The straddle: why preamble and sync are separate outputs
+
+Splitting `preambleDetected` from `syncValid` is not cosmetic. On the
+free-running grid a window can straddle two symbols. Deep inside the preamble
+that costs nothing, because both halves are the same chirp and the bin is
+unchanged. At the preamble-to-sync boundary it does cost: the window carries
+half a preamble symbol and half a sync symbol, the N-point spectrum holds two
+comparable peaks, and the peak tracker returns whichever is larger.
+
+Measured at an offset near `M/2`, the first sync symbol is skipped entirely:
+
+```text
+SF9 place3: 258 258 258 258 258 258 258  274 274     (expected sync 266, 274)
+SF5 place3:  18  18  18  18  18  18  18   26  26 2   (expected sync 26,  2)
+```
+
+An alignment sweep across one whole symbol, noiseless so that alignment is the
+only variable, quantifies the gap:
+
+| Decision | Alignments passing |
+|---|---:|
+| `preambleDetected` | 100 % (32 of 32) |
+| `syncValid` on the free-running grid | 97 % |
+
+Preamble detection is therefore usable as it stands, and sync validation on this
+grid is not. The intended composition is to detect the preamble here, realign
+the window grid by `chipsToBoundary` — which this subsystem already outputs and
+which the sweep confirms to within one chip at every alignment — and validate
+sync on the aligned grid, where no straddle exists.
+
+Raw tables: [`simulink-m2-blind-detector.csv`](data/simulink-m2-blind-detector.csv)
+and [`simulink-m2-blind-detector-offsets.csv`](data/simulink-m2-blind-detector-offsets.csv).
+
+### False alarms
+
+A detector that fires on noise is worse than none. Over 20 seeded noise-only
+streams — roughly 600 sliding windows with no signal present — there are **zero**
+detections. Requiring 8 consecutive bins within one bin of the first, plus two
+sync bins on target, is a demanding predicate for uniform noise.
 
 ## M3 spike: generated Verilog and first resource numbers
 
 Verilog generation was pulled forward out of order, deliberately. The largest
-remaining M2 item is acquisition, and how to build a blind preamble search is a
-resource question: whether to reuse the correlator at a coarse stride or add a
-cheaper dedicated detector depends on what the correlator already costs. That
-number did not exist, so it was measured.
+remaining M2 item was acquisition, and how to build a blind preamble search
+looked like a resource question: whether to reuse the correlator at a coarse
+stride or add a cheaper dedicated detector depends on what the correlator
+already costs. That number did not exist, so it was measured.
 
 `run_hdl_generation` generates Verilog for the hardware-bound DUTs and reads
 HDL Coder's own reports.
@@ -517,24 +636,43 @@ HDL Coder's own reports.
 | Target | Verilog files | Multipliers | Adders/Subtractors | Registers | 1-bit registers | RAMs | Multiplexers | I/O bits | Added latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 437 | 1868 | 28169 | 64 | 989 | 185 | 34 |
+| `blind-detector` | 2 | 0 | 44 | 11 | 168 | 0 | 72 | 73 | 0 |
 | `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
 
-All three generate with zero HDL errors. The generated code is committed under
+All four generate with zero HDL errors. The generated code is committed under
 [`fpga/generated/`](../fpga/generated) and is never edited by hand: behavior
 changes go back into MATLAB and Simulink and the code is regenerated.
 
-Three results matter for planning. The correlator costs **34 multipliers and 64
-RAMs** at the first hardware operating point, which is the budget the rest of
-acquisition has to fit around. HDL Coder's delay balancing adds **34 cycles** on
-top of the model, so hardware symbol latency at SF7/L=8 is 2414 + 34 = **2448
-sample clocks**, not the 2414 the Simulink table reports. And the two integer
-subsystems cost almost nothing between them — 14 adders, 3 registers, no
-multipliers, no RAM, no added latency — which is what keeping acquisition
-decisions in integer arithmetic buys.
+The correlator costs **34 multipliers and 64 RAMs** at the first hardware
+operating point, which is the budget everything else has to fit around. HDL
+Coder's delay balancing adds **34 cycles** on top of the model, so hardware
+symbol latency at SF7/L=8 is 2414 + 34 = **2448 sample clocks**, not the 2414
+the Simulink table reports. The three integer subsystems together cost 58
+adders, 14 registers, no multipliers, no RAM, and no added latency, which is
+what keeping acquisition decisions in integer arithmetic buys.
 
-The blind packet search that is still missing therefore has the whole remaining
-budget to itself, and it is the part that will actually consume it.
+### A prediction this document got wrong
+
+An earlier version of this section said, of the blind packet search:
+
+> The blind packet search that is still missing therefore has the whole
+> remaining budget to itself, and it is the part that will actually consume it.
+
+That was wrong, and the reason is worth recording. The estimate assumed a
+sliding correlation over sample offsets, which would indeed have dominated the
+design. The preamble's periodicity removes the search entirely: detection reuses
+the correlator output that already exists and adds a predicate over a shift
+register of ten bins.
+
+Measured rather than predicted, the blind detector costs **0 multipliers, 0
+RAMs, no added latency, and 168 register bits** — against the correlator's 34
+multipliers, 64 RAMs, and 28169 register bits. It is roughly 0.6 % of the
+correlator's register bits and 10 % of its adders.
+
+The remaining expensive item is not detection. It is fractional ToA, which needs
+a matched filter at the sample rate rather than the chip rate, and that is the
+one part of the receiver where the sliding-correlation cost was never avoidable.
 
 ### What these numbers are not
 
@@ -556,18 +694,21 @@ translate directly into BRAM.
 
 Blocking full M2 acceptance:
 
-1. **No blind packet search and no packet framing.** Preamble and sync-word
-   acceptance now exists and is exact, but it validates a symbol-aligned
-   candidate rather than finding one. The sliding search over sample offsets,
-   SFD downchirp validation, and the packet-level framing state machine that
-   routes header and payload symbols are not in the model.
+1. **No packet framing, and sync is not yet validated on an aligned grid.**
+   Blind preamble detection now exists, is exact against MATLAB, and recovers
+   the whole-chip offset. What is missing is the stage that consumes it: the
+   window-grid realignment by `chipsToBoundary`, SFD downchirp validation, and
+   the packet-level framing state machine that routes header and payload
+   symbols. Until realignment exists, `syncValid` is only measured on the
+   free-running grid, where it passes at 97 % of alignments rather than 100 %.
 2. **Fractional ToA is not implemented.** The coarse sample count and its
-   valid flag are implemented and checked, but `fractionalToaSamples` needs the
-   sample-rate matched filter that belongs to acquisition, so the metadata
-   contract is only half satisfied.
-3. **No Verilog, cosimulation, or synthesis.** `checkhdl` passes with zero
-   errors on both hardware-bound DUTs, but `makehdl` has not been run, so
-   there are no resource, `Fmax`, or power numbers, and none are claimed.
+   valid flag are implemented and checked, but `fractionalToaSamples` needs a
+   matched filter at the sample rate, so the metadata contract is only half
+   satisfied. This is now the most expensive unbuilt item in the receiver.
+3. **No cosimulation and no synthesis.** Verilog is generated for all four
+   hardware-bound DUTs with zero HDL errors, and HDL Coder's operator counts
+   are recorded above. There are still no `Fmax`, timing, or power numbers,
+   and none are claimed: no HDL simulator and no Vivado on this host.
 4. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
    does not cover SF8–SF12, other `L`, or weak signals.

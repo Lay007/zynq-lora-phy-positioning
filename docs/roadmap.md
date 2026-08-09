@@ -70,7 +70,13 @@ metric definitions, and the explicit configuration-aided boundary.
   state, proven by driving a second waveform after a mid-stream reset.
 - [x] Model preamble and sync-word acceptance on the symbol stream, exact
   against MATLAB over 615 sequences.
-- [ ] Model the blind packet search, SFD validation, and packet-level framing.
+- [x] Model blind packet-start detection on the free-running symbol stream,
+  exact against MATLAB over 2000 symbols and all 256 sync words. No sliding
+  correlation is involved: the preamble bin equals the whole-chip offset, so
+  detection costs 0 multipliers and 0 RAMs.
+- [ ] Realign the window grid by `chipsToBoundary`, then validate SFD and
+  packet-level framing. Sync currently passes at 97 % of alignments because a
+  window can straddle the preamble-to-sync boundary on the free-running grid.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
   timestamp/metadata interface. The coarse sample count and its valid flag are
   implemented and checked; the fractional ToA is not, because it needs the
@@ -83,9 +89,10 @@ milestone remains open on the unchecked items above.
 
 ## M3 — HDL Coder Verilog generation
 
-- [x] Generate Verilog for the fixed-point FFT correlator and the joint
-  timing/CFO estimator, with HDL Coder operator counts recorded.
-- [ ] Generate Verilog for the acquisition and ToA blocks once they exist.
+- [x] Generate Verilog for the fixed-point FFT correlator, the blind detector,
+  the acquisition FSM, and the joint timing/CFO estimator, with HDL Coder
+  operator counts recorded.
+- [ ] Generate Verilog for the ToA block once it exists.
 - [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
   simulator is installed.
 - [x] Add a reproducible generation script (`run_hdl_generation`).

@@ -150,8 +150,41 @@ ones.
 The sync-word scale is a fixed **8** per nibble, not `2^(SF-4)`; a MATLAB test
 pins that over all 256 sync words and SF7…SF12.
 
-It validates a symbol-aligned candidate. It does not search for the packet
-start; that sliding search is not built.
+It validates a symbol-aligned candidate against **absolute** bin targets, which
+is the right check only after timing and CFO have been corrected. Finding a
+packet in the first place is the next DUT.
+
+## Fourth DUT: blind packet-start detection
+
+```matlab
+info = build_blind_detector_model(SpreadingFactor=7, PreambleSymbols=8);
+```
+
+`lora_blind_detector/DUT` finds packets without being told where they begin,
+and it does so without a sliding correlation. The preamble repeats one upchirp,
+so it is periodic with a symbol; a window starting `d` chips after a boundary
+dechirps to bin `d` whatever `d` is, and consecutive windows repeat that bin.
+Detection is therefore a predicate over the last `PreambleSymbols + 2` bins of a
+correlator that is simply left running, and the bin itself carries the
+whole-chip timing offset.
+
+Outputs are `detected`, `preambleDetected`, `syncValid`, `preambleBin`,
+`chipsToBoundary`, and `binsSeen`. Sync is checked at
+`preambleBin + 8 x nibble` rather than at absolute bins, which also makes the
+check invariant to CFO — CFO displaces preamble and sync equally.
+
+Integer arithmetic again, so it is bit-exact against
+`lora_phy.detect_preamble_run`. `run_blind_detector_regression` compares them
+per symbol over placed packets at non-chip-aligned offsets, with noise and CFO,
+plus random and edge-case bins, and sweeps all 256 sync words.
+
+`preambleDetected` and `syncValid` are separate for a measured reason: on the
+free-running grid a window can straddle the preamble-to-sync boundary and lose
+the first sync symbol to the stronger half of its own window. Across an
+alignment sweep of one whole symbol, preamble detection passes at 100 % and
+sync at 97 %. Sync belongs after realignment by `chipsToBoundary`.
+
+Generated Verilog: 0 multipliers, 0 RAMs, 168 register bits.
 
 ## Regression
 

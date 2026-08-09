@@ -13,6 +13,7 @@ function results = run_simulink_regression(options)
 %   double     double DUT against the committed stage vectors (~15 min)
 %   joint      joint timing/CFO DUT, bit-exact over the input domain
 %   acquisition preamble/sync acceptance FSM, exact over sequences
+%   blind      blind packet-start detector, exact over sliding windows
 %   fixed      fixed-point word-length sweep (hours, opt in)
 %   real       committed SX1262 symbol windows through the fixed DUT (opt in)
 %
@@ -21,7 +22,8 @@ function results = run_simulink_regression(options)
 %       "joint" "fixed" "real"]);
 
 arguments
-    options.Suites string = ["toolchain", "double", "joint", "reset", "acquisition"]
+    options.Suites string = ["toolchain", "double", "joint", "reset", ...
+        "acquisition", "blind"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -32,7 +34,8 @@ repositoryRoot = fileparts(fileparts(simulinkRoot));
 addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
-known = ["toolchain", "double", "joint", "reset", "acquisition", "fixed", "real"];
+known = ["toolchain", "double", "joint", "reset", "acquisition", ...
+    "blind", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -82,6 +85,14 @@ if any(options.Suites == "acquisition")
     end
 end
 
+if any(options.Suites == "blind")
+    fprintf("\n=== blind packet-start detector ===\n");
+    results.blind = run_blind_detector_regression(WriteCsv=options.WriteCsv);
+    if ~results.blind.passed
+        problems = [problems; results.blind.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -120,6 +131,12 @@ end
 if isfield(results, "acquisition")
     fprintf("acq    : %d sequences, exact match\n", ...
         results.acquisition.totalSequences);
+end
+if isfield(results, "blind")
+    fprintf("blind  : %d symbols exact; preamble %.0f%% of alignments, " + ...
+        "sync %.0f%% on the free-running grid\n", ...
+        results.blind.totalSymbols, 100*results.blind.preambleRate, ...
+        100*results.blind.syncRate);
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...

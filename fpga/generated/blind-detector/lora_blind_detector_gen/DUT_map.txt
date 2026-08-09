@@ -1,0 +1,2 @@
+lora_blind_detector_gen/DUT/BlindDetector --> BlindDetector
+lora_blind_detector_gen/DUT --> DUT

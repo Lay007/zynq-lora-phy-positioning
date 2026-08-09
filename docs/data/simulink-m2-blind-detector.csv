@@ -1,0 +1,4 @@
+SF,PreambleSymbols,N,Symbols,RunLength,PlacedPackets,PreambleFound,SyncOnFreeGrid,Detections,DecisionMismatches,PreambleBinMismatches,ChipsToBoundaryMismatches,SyncWordsSwept,SyncWordMismatches
+7,8,128,669,10,4,4,4,8,0,0,0,256,0
+5,8,32,718,10,4,4,3,7,0,0,0,0,0
+9,6,512,613,8,4,4,3,7,0,0,0,0,0

@@ -122,6 +122,8 @@ switch it off.
 |---|---|---|---|
 | `preambleDetected` | out | `boolean` | chirp-sequence detector asserted |
 | `syncValid` | out | `boolean` | sync word and SFD transition confirmed |
+| `preambleBin` | out | `uint16` | bin the preamble settled on |
+| `chipsToBoundary` | out | `uint16` | chips to advance to the symbol boundary |
 | `timingOffset` | out | `sfix<W_t>` | whole-chip correction, from `(up-down)/2` |
 | `cfoEstimate` | out | `sfix<W_f>_En<F_f>` | normalized CFO, from `(up+down)/2` |
 | `acquisitionFailed` | out | `boolean` | candidate rejected before framing |
@@ -129,6 +131,21 @@ switch it off.
 The joint estimator is the M1 result restated as an interface: the upchirp
 dechirp bin mixes whole-chip timing and CFO; the downchirp bin flips the sign
 of the timing term only. Half-sum gives CFO, half-difference gives timing.
+
+**Implementation note, added after blind detection was built.** `preambleBin`
+and `chipsToBoundary` were not in the original freeze because the coarse timing
+offset was expected to come from a sliding search. It does not. On a
+free-running correlator the preamble bin *equals* the number of chips elapsed
+since the last symbol boundary, so detection and whole-chip timing are the same
+measurement, and `chipsToBoundary` is its complement `mod(-preambleBin, N)`.
+Both are added as outputs rather than replacing anything: the joint estimator
+still resolves the CFO/timing ambiguity that a single upchirp bin cannot.
+
+`preambleDetected` and `syncValid` are separate signals and must stay separate.
+A window on the free-running grid can straddle the preamble-to-sync boundary,
+in which case the first sync symbol is lost to the stronger half of its own
+window. Sync is therefore only trustworthy after the grid has been realigned by
+`chipsToBoundary`. Measurements for both are in the acceptance document.
 
 **Implementation note, added after the estimator was built.** Both halves are
 exact multiples of `1/2`, so the DUT carries them as `cfoHalfBins` and
