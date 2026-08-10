@@ -103,6 +103,38 @@ classdef TestCorrelatorStageVectors < matlab.unittest.TestCase
             end
         end
 
+        function comparisonToleratesPlatformRoundingButNotDrift(testCase)
+            % Reproduces the defect that kept CI red from the day the
+            % committed-vector check was added: it demanded bit-identity
+            % between vectors written on one machine and the model
+            % recomputed on another. Linux CI lands up to 7.3e-12 absolute
+            % away from Windows-generated vectors on stages reaching 1e6 --
+            % double rounding in a different FFT implementation, not a
+            % different answer -- so the check passed only on the machine
+            % that wrote the vectors.
+            %
+            % Platform rounding cannot be reproduced on one host, so what is
+            % pinned here is the contract the check has to satisfy: noise at
+            % the observed scale passes, a real change does not.
+            definitions = lora_verify.stage_case_definitions;
+            [window, info] = lora_verify.build_stage_case(definitions(1));
+            reference = lora_phy.fft_correlator_stages(window, info.config);
+            tolerance = lora_verify.stage_tolerance;
+
+            rounded = perturb(reference, 1e-15);
+            report = lora_verify.compare_stages(reference, rounded);
+            testCase.verifyGreaterThan(max(report.MaxAbsError), 0, ...
+                "the perturbation must actually change the values");
+            testCase.verifyTrue(lora_verify.stage_vectors_match(report), ...
+                "last-bit rounding must not fail the committed vectors");
+
+            drifted = perturb(reference, 1e-6);
+            report = lora_verify.compare_stages(reference, drifted);
+            testCase.verifyFalse(lora_verify.stage_vectors_match(report), ...
+                "a real algorithmic change must still be caught");
+            testCase.verifyGreaterThan(tolerance, 0);
+        end
+
         function committedVectorsMatchTheModel(testCase)
             manifest = lora_verify.load_stage_manifest;
             definitions = lora_verify.stage_case_definitions;
@@ -122,12 +154,27 @@ classdef TestCorrelatorStageVectors < matlab.unittest.TestCase
                     window, info.config);
 
                 report = lora_verify.compare_stages(stored, recomputed);
-                testCase.verifyEqual(max(report.MaxAbsError), 0, ...
+                [matched, worst] = lora_verify.stage_vectors_match(report);
+                testCase.verifyTrue(matched, ...
                     "Committed vectors for "+string(entry.id)+ ...
-                    " are not bit-identical to the model");
+                    " differ from the model by relative RMS "+ ...
+                    string(worst)+", above "+ ...
+                    string(lora_verify.stage_tolerance));
                 testCase.verifyEqual(recomputed.symbols(:).', ...
                     double(entry.expectedSymbols(:).'));
             end
         end
     end
+end
+
+function stages = perturb(stages, relative)
+%PERTURB Scale every compared stage by 1+relative, deterministically.
+% A multiplicative nudge keeps the relative error the same everywhere, so
+% the test says what it means regardless of each stage's magnitude.
+names = lora_verify.stage_order();
+for name = names(:).'
+    if isfield(stages, name) && isnumeric(stages.(name))
+        stages.(name) = stages.(name)*(1+relative);
+    end
+end
 end
