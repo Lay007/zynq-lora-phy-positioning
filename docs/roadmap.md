@@ -102,8 +102,11 @@ milestone remains open on the unchecked items above.
 - [x] Add a reproducible generation script (`run_hdl_generation`).
 - [ ] Add generated-IP packaging.
 - [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers.
-- [ ] Synthesis, timing, resource, and power reports. Blocked: no Vivado on
-  the development host.
+- [x] Out-of-context synthesis with resource and timing reports
+  (`run_synthesis`, Vivado 2021.1, `xc7z020clg400-1`). An earlier entry here
+  claimed Vivado was not installed on the development host; that was wrong.
+- [ ] Place, route, and power reports, which need the board wrapper, clocking,
+  and AXI that do not exist yet.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.

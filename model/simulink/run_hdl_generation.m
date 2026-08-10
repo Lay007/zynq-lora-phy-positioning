@@ -5,11 +5,14 @@ function report = run_hdl_generation(options)
 % stops. It generates Verilog with HDL Coder and collects the resource
 % utilization report that HDL Coder derives from the generated code.
 %
-% It does NOT synthesize and it does NOT cosimulate. Neither is a design
-% limitation: no Vivado and no HDL simulator are installed on this host, so
-% `Fmax`, timing, and power cannot be measured here and are not claimed.
-% The resource numbers below are HDL Coder's count of inferred operators,
-% not a synthesis result.
+% It does NOT synthesize and it does NOT cosimulate. The resource numbers
+% below are HDL Coder's count of inferred operators, not a synthesis result,
+% and must never be reported as LUT/FF/DSP/BRAM.
+%
+% For silicon numbers use RUN_SYNTHESIS, which drives Vivado out of context.
+% Earlier versions of this file claimed no Vivado was installed; that was a
+% wrong finding on my part, not a property of the host. Cosimulation is still
+% not run, because no HDL simulator is installed.
 %
 %   report = run_hdl_generation;
 %   report = run_hdl_generation(WordLength=16, SpreadingFactor=7);
@@ -154,8 +157,8 @@ if options.Verbose
     fprintf("\n");
     disp(report.summary);
     if report.passed
-        fprintf("Verilog generated. Not synthesized and not cosimulated: " + ...
-            "no Vivado and no HDL simulator on this host.\n");
+        fprintf("Verilog generated. Operator counts, not synthesis " + ...
+            "results -- run run_synthesis for LUT/FF/DSP/BRAM.\n");
     else
         fprintf("FAILURES:\n  %s\n", strjoin(failures, newline+"  "));
     end

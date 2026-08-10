@@ -306,11 +306,17 @@ and synthesizing it are M3 and are not attempted.
 report = run_hdl_generation(WordLength=16);
 ```
 
-Generates Verilog for both hardware-bound DUTs into `fpga/generated/` and reads
-HDL Coder's own operator counts and delay-balancing report. It stops there:
-cosimulation needs an HDL simulator and synthesis needs Vivado, neither of
-which is installed on this host, so no `Fmax`, timing, or power figure is
-produced or claimed.
+Generates Verilog for all four hardware-bound DUTs into `fpga/generated/` and
+reads HDL Coder's own operator counts and delay-balancing report. Those counts
+are inferred operators and must not be read as LUT/FF/DSP/BRAM.
+
+```matlab
+report = run_synthesis(Part="xc7z020clg400-1");
+```
+
+Drives Vivado out of context for silicon numbers. Cosimulation is still not
+run — no HDL simulator is installed — and nothing is placed or routed, so
+there is no power figure.
 
 The measured counts are in
 [`docs/simulink-m2-acceptance.md`](../../docs/simulink-m2-acceptance.md). The
@@ -324,5 +330,6 @@ SF7/L=8/16 bits, and HDL Coder adds 34 cycles of latency on top of the model.
 - Version the model, initialization script, HDL configuration, and vector-export
   script together.
 - Generate Verilog, not VHDL, for the first ZynqSDR integration.
-- Run fixed-point comparison and HDL cosimulation before Vivado synthesis.
+- Run fixed-point comparison before synthesis; HDL cosimulation still has no
+  simulator to run on.
 - Never hand-edit generated algorithmic Verilog.

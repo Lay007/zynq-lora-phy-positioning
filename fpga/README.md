@@ -22,13 +22,14 @@ Every DSP block should define:
 
 ## Current generated output
 
-`model/simulink/run_hdl_generation.m` writes Verilog for the two hardware-bound
-DUTs into `generated/`:
+`model/simulink/run_hdl_generation.m` writes Verilog for the four
+hardware-bound DUTs into `generated/`, all with 0 HDL errors:
 
 - `generated/fft-correlator-fixed/` — 16-bit fixed-point FFT correlator,
-  77 Verilog files, 0 HDL errors.
-- `generated/joint-timing-cfo/` — joint timing/CFO estimator, 2 Verilog files,
-  0 HDL errors.
+  77 Verilog files.
+- `generated/blind-detector/` — blind packet-start detector, 2 files.
+- `generated/acquisition/` — preamble and sync-word acceptance, 2 files.
+- `generated/joint-timing-cfo/` — joint timing/CFO estimator, 2 files.
 
 HDL Coder's traceability HTML, the generated model, and its `.mat` are ignored:
 they are large and regenerable. The Verilog is committed so that resource and
@@ -40,6 +41,25 @@ lines means the design did not change.
 
 Measured operator counts and the added pipeline latency are published in
 [`docs/simulink-m2-acceptance.md`](../docs/simulink-m2-acceptance.md). They are
-HDL Coder counts, not synthesis results. Nothing here has been cosimulated or
-synthesized: no HDL simulator and no Vivado are installed on the development
-host.
+HDL Coder counts and must not be read as LUT/FF/DSP/BRAM.
+
+## Synthesis
+
+`model/simulink/run_synthesis.m` drives Vivado out of context through
+[`scripts/synth_ooc.tcl`](scripts/synth_ooc.tcl) and writes LUT/FF/BRAM/DSP
+and a derived `Fmax` to `docs/data/simulink-m3-synthesis.csv`. Vivado products
+land in `fpga/build/` and are ignored.
+
+Out of context on purpose: there is no board wrapper, no clocking, and no AXI
+yet, so anything else would measure parts of the design that do not exist. The
+numbers describe the DUTs alone and will move once they are wrapped. Nothing
+is placed or routed, so there is no power figure.
+
+`Fmax` is derived rather than requested. Synthesis runs against a probe clock
+and `Fmax = 1/(probe - WNS)`. A block with no register-to-register path has no
+slack and no `Fmax`; that is recorded as `NaN` rather than turned into a
+number.
+
+Cosimulation is still not run: no HDL simulator is installed. Earlier revisions
+of this file also said no Vivado was installed, which was wrong — it is at
+`g:\Xilinx\Vivado\2021.1`.

@@ -776,9 +776,76 @@ translate directly into BRAM.
 - **HDL cosimulation** is not run. No HDL simulator is installed; HDL Verifier
   is licensed but has nothing to drive. This is a tooling gap, not a design
   problem.
-- **Synthesis, `Fmax`, timing, and power** are not measured. Vivado is not
-  installed on this host. Only ISE 14.7 is present, which is not the tool this
-  flow targets for Zynq. No frequency or power figure is claimed anywhere.
+- **Place, route, and power** are not measured. Out-of-context synthesis needs
+  none of them, but they need the board wrapper, clocking, and AXI that do not
+  exist yet. No power figure is claimed anywhere.
+
+An earlier revision of this section said synthesis was blocked because no
+Vivado was installed and only ISE 14.7 was present. That was wrong: Vivado
+2021.1 is installed at `g:\Xilinx\Vivado\2021.1`, and the search that
+concluded otherwise was mine, not a property of the host. Synthesis results
+are in the next section.
+
+## Synthesis: the first numbers that describe silicon
+
+Vivado 2021.1, `xc7z020clg400-1`, out of context, via `run_synthesis`.
+Everything published before this section counted inferred operators; this
+section counts primitives.
+
+| Target | LUTs | Registers | BRAM36 | DSP48 | CARRY4 | Fmax |
+|---|---:|---:|---:|---:|---:|---:|
+| `fft-correlator-fixed` | 13893 | 15122 | 8 | 34 | 1064 | 59.1 MHz |
+| `blind-detector` | 2435 | 148 | 0 | 0 | 572 | 548.5 MHz |
+| `acquisition` | 237 | 34 | 0 | 0 | 40 | 80.0 MHz |
+| `joint-timing-cfo` | 346 | 0 | 0 | 0 | 62 | — |
+
+Against the part's 53200 LUTs, 106400 registers, 140 BRAM36 and 220 DSP48, the
+correlator occupies **26 % of the LUTs, 14 % of the registers, 5.7 % of the
+BRAM and 15 % of the DSPs**. The whole receiver front-end fits with room to
+spare, which was not obvious beforehand.
+
+`joint-timing-cfo` has no Fmax because it has no registers at all. It is pure
+combinational logic, so there is no register-to-register path to constrain.
+That is a property of the block, and it is recorded as absent rather than
+converted into a number.
+
+### Two things the operator counts got wrong
+
+This is why the earlier tables were labelled as not being synthesis results,
+and it is worth showing the size of the gap rather than only warning about it.
+
+**BRAM was overstated eightfold.** HDL Coder reported **64 RAMs** for the
+correlator. Synthesis maps them to **8 BRAM36 tiles**. The operator count is a
+count of inferred memories, and several of them share a tile or collapse into
+distributed RAM.
+
+**The blind detector is not as free as its operator count suggested.** Its
+headline was 0 multipliers, 0 RAMs and 168 register bits — about 0.6 % of the
+correlator's register bits — and all of that survives synthesis: still 0 DSPs,
+still 0 BRAM, 148 registers. But it costs **2435 LUTs, 18 % of the
+correlator's LUT count**, because the predicate is a wide comparison tree and
+comparisons live in LUTs and CARRY4 chains, which no operator count reports.
+"Free in the expensive resources" is the accurate claim; "essentially free"
+was not.
+
+DSPs, by contrast, matched exactly: 34 inferred multipliers, 34 DSP48s.
+
+### What Fmax does and does not say
+
+59.1 MHz for the correlator is a synthesis estimate on an unplaced,
+unrouted design against a 5 ns probe, and place-and-route normally makes it
+worse rather than better.
+
+It is nevertheless far above what the application needs. The DUT consumes one
+sample per clock, so the requirement is the sample rate: 1 MHz at
+BW = 125 kHz with `L = 8`, or 4 MHz at BW = 500 kHz. Even the pessimistic
+figure leaves more than an order of magnitude of headroom. The number that
+would matter for a faster design is the critical path through the correlator,
+and that is where the headroom would be spent.
+
+No power figure is claimed. Power needs place and route, and neither has run.
+
+Raw table: [`simulink-m3-synthesis.csv`](data/simulink-m3-synthesis.csv).
 
 ## Limitations and open items
 
@@ -796,10 +863,12 @@ Blocking full M2 acceptance:
    valid flag are implemented and checked, but `fractionalToaSamples` needs a
    matched filter at the sample rate, so the metadata contract is only half
    satisfied. This is now the most expensive unbuilt item in the receiver.
-3. **No cosimulation and no synthesis.** Verilog is generated for all four
-   hardware-bound DUTs with zero HDL errors, and HDL Coder's operator counts
-   are recorded above. There are still no `Fmax`, timing, or power numbers,
-   and none are claimed: no HDL simulator and no Vivado on this host.
+3. **No cosimulation, and synthesis only out of context.** Verilog is
+   generated for all four hardware-bound DUTs with zero HDL errors, and
+   out-of-context synthesis gives LUT/FF/BRAM/DSP and a derived `Fmax`.
+   Nothing is placed or routed, so there is no power figure and no
+   post-route timing; those need the board wrapper, clocking, and AXI that
+   do not exist. Cosimulation is still not run: no HDL simulator installed.
 4. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
    does not cover SF8–SF12, other `L`, or weak signals.
