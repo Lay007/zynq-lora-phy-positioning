@@ -1,5 +1,29 @@
 # FPGA workspace
 
+## Target hardware
+
+| | |
+|---|---|
+| Board | Xilinx ZC702 |
+| Device | `xc7z020clg484-1` |
+| Radio | FMCOMMS2 (AD936x) |
+| Firmware | ADALM-Pluto |
+
+The part string comes from the ADI reference scripts
+(`adi_project_xilinx.tcl` maps `_zc702` to `xc7z020clg484-1`), not from
+memory. Do not substitute `xc7z020clg400`: that is a different package used
+by other boards, and an earlier synthesis run in this repository used it by
+mistake.
+
+The board runs **Pluto firmware**, which is why the capture documentation
+calls it a Pluto-compatible ZynqSDR and reaches it over libiio at
+`ip:192.168.40.1`. That describes the software interface, not the silicon —
+the die is a Zynq-7020 on a ZC702, not a Pluto.
+
+Board bring-up material — boot sets, SD images, QSPI backups, and a working
+FMCOMMS2 reference design — lives outside this repository in
+`zynq-sdr-course` and `zynq-sdr-course-artifacts`.
+
 This directory will contain HDL Coder output, hand-written PL integration, and
 verification. Planned top-level areas are `generated/`, `rtl/`, `tb/`,
 `constraints/`, `scripts/`, and `ip/`. Generated Vivado products belong under

@@ -103,7 +103,7 @@ milestone remains open on the unchecked items above.
 - [ ] Add generated-IP packaging.
 - [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers.
 - [x] Out-of-context synthesis with resource and timing reports
-  (`run_synthesis`, Vivado 2021.1, `xc7z020clg400-1`). An earlier entry here
+  (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
 - [ ] Place, route, and power reports, which need the board wrapper, clocking,
   and AXI that do not exist yet.

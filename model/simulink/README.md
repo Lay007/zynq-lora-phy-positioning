@@ -311,7 +311,7 @@ reads HDL Coder's own operator counts and delay-balancing report. Those counts
 are inferred operators and must not be read as LUT/FF/DSP/BRAM.
 
 ```matlab
-report = run_synthesis(Part="xc7z020clg400-1");
+report = run_synthesis(Part="xc7z020clg484-1");
 ```
 
 Drives Vivado out of context for silicon numbers. Cosimulation is still not

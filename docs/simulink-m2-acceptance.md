@@ -788,7 +788,7 @@ are in the next section.
 
 ## Synthesis: the first numbers that describe silicon
 
-Vivado 2021.1, `xc7z020clg400-1`, out of context, via `run_synthesis`.
+Vivado 2021.1, `xc7z020clg484-1`, out of context, via `run_synthesis`.
 Everything published before this section counted inferred operators; this
 section counts primitives.
 

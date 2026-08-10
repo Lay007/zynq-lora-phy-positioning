@@ -18,7 +18,12 @@ function report = run_synthesis(options)
 % still a valid measurement of what the design achieves.
 
 arguments
-    options.Part (1,1) string = "xc7z020clg400-1"
+    % ZC702, taken from the ADI reference scripts rather than from memory:
+    % adi_project_xilinx.tcl maps _zc702 to xc7z020clg484-1. The board runs
+    % Pluto firmware, which is why the capture documentation calls it a
+    % Pluto-compatible ZynqSDR -- that describes the software interface, not
+    % the silicon.
+    options.Part (1,1) string = "xc7z020clg484-1"
     options.ProbePeriodNs (1,1) double = 5
     options.Targets (1,:) string = ["fft-correlator-fixed", ...
         "blind-detector", "acquisition", "joint-timing-cfo"]
