@@ -223,11 +223,11 @@
   ],
   "ResourceSummary": {
     "multipliers": 0,
-    "addersSubtractors": 44,
+    "addersSubtractors": 76,
     "registers": 11,
     "oneBitRegisters": 168,
     "rams": 0,
-    "multiplexers": 72,
+    "multiplexers": 89,
     "IOBits": 73,
     "staticShiftOperators": 1,
     "dynamicShiftOperators": 0

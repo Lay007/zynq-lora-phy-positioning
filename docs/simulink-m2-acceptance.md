@@ -718,10 +718,17 @@ HDL Coder's own reports.
 
 | Target | Verilog files | Multipliers | Adders/Subtractors | Registers | 1-bit registers | RAMs | Multiplexers | I/O bits | Added latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 437 | 1868 | 28169 | 64 | 989 | 185 | 34 |
-| `blind-detector` | 2 | 0 | 44 | 11 | 168 | 0 | 72 | 73 | 0 |
+| `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 438 | 1869 | 28201 | 64 | 994 | 218 | 34 |
+| `blind-detector` | 2 | 0 | 76 | 11 | 168 | 0 | 89 | 73 | 0 |
 | `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
+
+The correlator carries one adder and 32 register bits more than before
+realignment existed: that is the skip counter and its comparison. Grid
+realignment costs essentially nothing on top of the correlator. The blind
+detector grew from 44 adders to 76 when the preamble decision was split out
+of the joint one, since the two predicates are now evaluated over different
+windows on every symbol.
 
 All four generate with zero HDL errors. The generated code is committed under
 [`fpga/generated/`](../fpga/generated) and is never edited by hand: behavior
@@ -731,7 +738,7 @@ The correlator costs **34 multipliers and 64 RAMs** at the first hardware
 operating point, which is the budget everything else has to fit around. HDL
 Coder's delay balancing adds **34 cycles** on top of the model, so hardware
 symbol latency at SF7/L=8 is 2414 + 34 = **2448 sample clocks**, not the 2414
-the Simulink table reports. The three integer subsystems together cost 58
+the Simulink table reports. The three integer subsystems together cost 90
 adders, 14 registers, no multipliers, no RAM, and no added latency, which is
 what keeping acquisition decisions in integer arithmetic buys.
 
@@ -750,8 +757,8 @@ register of ten bins.
 
 Measured rather than predicted, the blind detector costs **0 multipliers, 0
 RAMs, no added latency, and 168 register bits** — against the correlator's 34
-multipliers, 64 RAMs, and 28169 register bits. It is roughly 0.6 % of the
-correlator's register bits and 10 % of its adders.
+multipliers, 64 RAMs, and 28201 register bits. It is roughly 0.6 % of the
+correlator's register bits and 17 % of its adders.
 
 The remaining expensive item is not detection. It is fractional ToA, which needs
 a matched filter at the sample rate rather than the chip rate, and that is the

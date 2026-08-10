@@ -34,6 +34,18 @@
           "clockingName": "ce_out",
           "sampleTime": 1,
           "domain": -1
+        },
+        {
+          "signalName": "resyncValid",
+          "clockingName": "ce_out",
+          "sampleTime": 1,
+          "domain": -1
+        },
+        {
+          "signalName": "resyncSkip",
+          "clockingName": "ce_out",
+          "sampleTime": 1,
+          "domain": -1
         }
       ],
       "outData": [
@@ -224,6 +236,26 @@
           "Testpoint": false,
           "TunableName": "",
           "Latency": -1
+        },
+        {
+          "Name": "resyncValid",
+          "Rate": 1,
+          "Kind": "data",
+          "PortIndex": 3,
+          "IsComplex": false,
+          "Testpoint": false,
+          "TunableName": "",
+          "Latency": -1
+        },
+        {
+          "Name": "resyncSkip",
+          "Rate": 1,
+          "Kind": "data",
+          "PortIndex": 4,
+          "IsComplex": false,
+          "Testpoint": false,
+          "TunableName": "",
+          "Latency": -1
         }
       ],
       "outputPorts": [
@@ -322,12 +354,12 @@
   ],
   "ResourceSummary": {
     "multipliers": 34,
-    "addersSubtractors": 437,
-    "registers": 1868,
-    "oneBitRegisters": 28169,
+    "addersSubtractors": 438,
+    "registers": 1869,
+    "oneBitRegisters": 28201,
     "rams": 64,
-    "multiplexers": 989,
-    "IOBits": 185,
+    "multiplexers": 994,
+    "IOBits": 218,
     "staticShiftOperators": 17,
     "dynamicShiftOperators": 0
   }
