@@ -8,8 +8,6 @@ function [matched, worst] = stage_vectors_match(report)
 %
 % See LORA_VERIFY.STAGE_TOLERANCE for why the rule is relative RMS rather
 % than bit-identity.
-% The rule as it stands today: bit-identity. This is the defect the
-% accompanying test reproduces, and it is fixed in the next commit.
 worst = max(report.RelativeRms);
-matched = max(report.MaxAbsError) == 0;
+matched = worst <= lora_verify.stage_tolerance;
 end
