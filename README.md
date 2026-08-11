@@ -14,12 +14,14 @@ and generated Verilog to a ZynqSDR implementation.
 > Status: MATLAB M1 is complete: continuous configured-IQ packet acquisition,
 > hard/soft LoRa decoding, end-to-end BER/PER, fractional ToA, and calibrated
 > 2D TDoA are executable and regression-tested, including recorded SX1262 IQ.
-> M2 is in progress: a script-generated streaming Simulink correlator matches
-> MATLAB stage by stage, a fixed-point word length is selected from a sweep,
-> and a joint timing/CFO subsystem is bit-exact. Acquisition, packet framing,
-> reset behavior, and timestamp outputs are not modeled yet, so M2 is not
-> accepted. Generated Verilog and board support remain future stages; the
-> repository does not yet contain a hardware LoRa receiver.
+> M2 now includes the streaming fixed-point correlator, joint timing/CFO,
+> blind packet-start detection, sample-grid realignment, reset behavior, and
+> coarse timestamp output. It remains open on the SFD/packet-framing state
+> machine and the fractional-ToA metadata interface. M3 has generated Verilog
+> and out-of-context synthesis evidence for four HDL blocks; cosimulation, IP
+> packaging, board wrappers, place-and-route, and power evidence remain open.
+> M4-M6 hardware reception and synchronized positioning have not started, so
+> the repository does not yet claim a hardware LoRa receiver.
 
 ## Project goals
 
@@ -44,8 +46,8 @@ The first hardware milestone is deliberately narrow:
 
 - `model/matlab/` — authoritative floating-point CSS/LoRa model and MATLAB unit
   tests.
-- `model/simulink/` — planned streaming and fixed-point implementation used as
-  the HDL Coder source.
+- `model/simulink/` — executable streaming and fixed-point architecture used as
+  the HDL Coder source, with MATLAB-aligned regression and acceptance reports.
 - `src/zynq_lora_phy/` — auxiliary independent NumPy checks for CSS, ToA, and
   TDoA; not the golden implementation.
 - `tests/` — deterministic unit tests for symbol recovery, impairments, ToA,
@@ -53,8 +55,9 @@ The first hardware milestone is deliberately narrow:
 - `docs/` — architecture, development roadmap, and test-bench requirements.
 - `experiments/templates/` — versioned metadata templates for ToA and TDoA
   measurements.
-- `fpga/`, `firmware/`, and `hardware/` — integration boundaries for later
-  PL, PS, and board-specific work.
+- `fpga/` — generated HDL and synthesis evidence for the current M3 blocks.
+- `firmware/` and `hardware/` — integration boundaries for later PL, PS, and
+  board-specific work.
 
 ## MATLAB quick start
 
