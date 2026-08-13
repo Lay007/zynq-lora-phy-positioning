@@ -23,7 +23,7 @@ function results = run_simulink_regression(options)
 
 arguments
     options.Suites string = ["toolchain", "double", "joint", "reset", ...
-        "acquisition", "blind", "frontend"]
+        "acquisition", "blind", "frontend", "framing"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -35,7 +35,7 @@ addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
 known = ["toolchain", "double", "joint", "reset", "acquisition", ...
-    "blind", "frontend", "fixed", "real"];
+    "blind", "frontend", "framing", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -101,6 +101,14 @@ if any(options.Suites == "frontend")
     end
 end
 
+if any(options.Suites == "framing")
+    fprintf("\n=== packet framing state machine ===\n");
+    results.framing = run_framing_regression(WriteCsv=options.WriteCsv);
+    if ~results.framing.passed
+        problems = [problems; results.framing.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -150,6 +158,12 @@ if isfield(results, "frontend")
     fprintf("front  : %d offsets recover the same %d payload symbols\n", ...
         height(results.frontend.summary), ...
         numel(results.frontend.referencePayload));
+end
+if isfield(results, "framing")
+    fprintf("frame  : %d symbols exact, %d packets, %d rejections\n", ...
+        results.framing.summary.Symbols, ...
+        results.framing.summary.PacketsCompleted, ...
+        results.framing.summary.Rejections);
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...

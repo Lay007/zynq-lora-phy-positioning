@@ -69,6 +69,11 @@ entry.builder = @() build_blind_detector_model( ...
 targets = [targets; entry];
 
 entry = struct;
+entry.name = "framing";
+entry.builder = @() build_framing_model(ModelName="lora_framing_gen");
+targets = [targets; entry];
+
+entry = struct;
 entry.name = "joint-timing-cfo";
 entry.builder = @() build_joint_sync_model( ...
     SpreadingFactor=options.SpreadingFactor, ...
@@ -245,6 +250,14 @@ assignin("base", "stimulusSymbolValid", ...
     timeseries(false(samples, 1), timeAxis));
 assignin("base", "stimulusSyncWord", ...
     timeseries(zeros(samples, 1, "uint8"), timeAxis));
+assignin("base", "stimulusPreambleDetected", ...
+    timeseries(false(samples, 1), timeAxis));
+assignin("base", "stimulusSyncValid", timeseries(false(samples, 1), timeAxis));
+assignin("base", "stimulusSfdValid", timeseries(false(samples, 1), timeAxis));
+assignin("base", "stimulusHeaderSymbols", ...
+    timeseries(zeros(samples, 1, "uint16"), timeAxis));
+assignin("base", "stimulusPayloadSymbols", ...
+    timeseries(zeros(samples, 1, "uint16"), timeAxis));
 set_param(info.modelName, StopTime=num2str(samples-1));
 end
 
