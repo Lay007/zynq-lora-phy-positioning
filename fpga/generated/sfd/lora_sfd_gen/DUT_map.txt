@@ -1,0 +1,2 @@
+lora_sfd_gen/DUT/SfdCheck --> SfdCheck
+lora_sfd_gen/DUT --> DUT

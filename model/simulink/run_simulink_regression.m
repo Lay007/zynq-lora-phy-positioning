@@ -23,7 +23,7 @@ function results = run_simulink_regression(options)
 
 arguments
     options.Suites string = ["toolchain", "double", "joint", "reset", ...
-        "acquisition", "blind", "frontend", "framing"]
+        "acquisition", "blind", "frontend", "framing", "sfd"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -35,7 +35,7 @@ addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
 known = ["toolchain", "double", "joint", "reset", "acquisition", ...
-    "blind", "frontend", "framing", "fixed", "real"];
+    "blind", "frontend", "framing", "sfd", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -109,6 +109,14 @@ if any(options.Suites == "framing")
     end
 end
 
+if any(options.Suites == "sfd")
+    fprintf("\n=== SFD acceptance ===\n");
+    results.sfd = run_sfd_regression(WriteCsv=options.WriteCsv);
+    if ~results.sfd.passed
+        problems = [problems; results.sfd.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -164,6 +172,9 @@ if isfield(results, "framing")
         results.framing.summary.Symbols, ...
         results.framing.summary.PacketsCompleted, ...
         results.framing.summary.Rejections);
+end
+if isfield(results, "sfd")
+    fprintf("sfd    : %d groups, exact match\n", results.sfd.totalGroups);
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...
