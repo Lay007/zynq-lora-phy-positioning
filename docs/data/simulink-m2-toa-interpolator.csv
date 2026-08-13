@@ -1,0 +1,2 @@
+SF,L,LogTableBits,LogTableEntries,Cases,ValidDecisions,MaxErrorSamples,MaxErrorMetres,RmsAgainstTruthMetres
+7,2,6,64,19,19,0.000318841683530746,0.382345328074162,7.94095395422626

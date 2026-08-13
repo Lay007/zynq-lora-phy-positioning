@@ -1,0 +1,2 @@
+lora_toa_interpolator_gen/DUT/ToaInterpolator --> ToaInterpolator
+lora_toa_interpolator_gen/DUT --> DUT
