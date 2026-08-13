@@ -213,6 +213,40 @@ are connected: a packet at a sample offset the receiver is never told must
 demodulate to the same payload as an aligned one. Four offsets, none a
 multiple of `L`, all recover the same 34 payload symbols.
 
+## Fifth DUT: packet framing
+
+```matlab
+info = build_framing_model(HeaderSymbols=8);
+```
+
+`lora_framing/DUT` routes sync, SFD, header and payload, then returns to
+idle. It mirrors `lora_phy.packet_frame_step`, which is why that reference
+keeps its state in arguments rather than persistent variables: the two have
+to be the same machine written twice, and a shape that only works in one of
+them invites divergence.
+
+Re-arming is as much the point as routing. The front-end realigns once per
+reset, so without a stage that knows a packet has ended, the receiver
+acquires one packet and then ignores the radio.
+
+Phase travels as `uint8` — 0 idle, 1 sync, 2 sfd, 3 header, 4 payload.
+Names for people in the reference, numbers for HDL Coder in the DUT, mapped
+in one place in the regression. `headerSymbols` and `payloadSymbols` are
+input ports rather than compile-time constants, because LoRa derives the
+payload count from the decoded header and that has to be able to arrive at
+run time even though nothing supplies it yet.
+
+`run_framing_regression` compares per symbol on exact equality and fails if
+the stimulus stops completing packets or stops exercising a rejection: an
+FSM that parks after one packet passes every single-packet test, so the
+test set has to make that impossible.
+
+The SFD reference needs no ROM of its own —
+`lora_phy.downchirp_reference_spectrum` derives it from the upchirp table at
+a complemented address with the imaginary part negated, which is a mask and
+a sign flip. The SFD validation DUT itself is not built yet; only the
+MATLAB reference and `lora_phy.validate_sfd_bins` exist.
+
 ## Regression
 
 One command runs everything and fails loudly:

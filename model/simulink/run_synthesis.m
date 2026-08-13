@@ -26,7 +26,7 @@ arguments
     options.Part (1,1) string = "xc7z020clg484-1"
     options.ProbePeriodNs (1,1) double = 5
     options.Targets (1,:) string = ["fft-correlator-fixed", ...
-        "blind-detector", "acquisition", "joint-timing-cfo"]
+        "blind-detector", "acquisition", "framing", "joint-timing-cfo"]
     options.VivadoPath (1,1) string = "g:\Xilinx\Vivado\2021.1\bin\vivado.bat"
     options.OutputDirectory string = string.empty
     options.WriteCsv (1,1) logical = true

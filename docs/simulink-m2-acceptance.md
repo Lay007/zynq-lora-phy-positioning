@@ -14,7 +14,7 @@ what still blocks acceptance.
 
 ```matlab
 cd model/simulink
-results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind, frontend
+results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind, frontend, framing
 results = run_simulink_regression(Suites=["fixed" "real"]);   % long campaigns
 report = run_hdl_generation;         % Verilog and resource counts
 ```
@@ -720,6 +720,7 @@ HDL Coder's own reports.
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 438 | 1869 | 28201 | 64 | 994 | 218 | 34 |
 | `blind-detector` | 2 | 0 | 76 | 11 | 168 | 0 | 89 | 73 | 0 |
+| `framing` | 2 | 0 | 4 | 2 | 24 | 0 | 17 | 85 | 0 |
 | `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
 
@@ -786,6 +787,77 @@ Vivado was installed and only ISE 14.7 was present. That was wrong: Vivado
 concluded otherwise was mine, not a property of the host. Synthesis results
 are in the next section.
 
+## SFD validation and packet framing
+
+The two stages that turn an acquired packet into a routed symbol stream.
+
+### The SFD needs no reference of its own
+
+Dechirping the SFD needs `conj(fft(refDown))`, which looks like a second
+pair of ROMs and roughly an extra BRAM at SF7/L=8. It is not needed. With
+`refDown = conj(refUp)` and `fft(conj(v))[k] = conj(fft(v)[-k])`,
+
+```text
+conj(fft(refDown))[k] = fft(refUp)[-k] = conj( stored[(-k) mod M] )
+```
+
+so the downchirp factor is the table the correlator already holds, read at
+the complemented address with the imaginary part negated. `M` is a power of
+two, so the complement is a mask; both operations are free, and the
+transform is its own inverse, so one ROM serves both paths behind a single
+mode bit.
+
+Measured before being relied on: derived and directly computed spectra agree
+to **4.8e-16 relative** across SF7/SF9 and L=1/4, and downchirp symbols
+dechirp to their own bins through the derived table.
+
+### What the SFD is checked against
+
+Also measured rather than assumed. On a realigned grid, for injected offsets
+of 0, 1 and 3 bins:
+
+| preamble bin | 0 | 1 | 3 |
+|---|---:|---:|---:|
+| SFD down bin | 0 | 127 | 125 |
+
+so `downBin = mod(-preambleBin, N)`. Whatever displaces the preamble upward
+displaces the SFD downward by the same amount.
+
+This deliberately does **not** split the displacement into CFO and timing.
+`lora_phy.joint_timing_cfo_from_bins` already does that, with a sign
+convention verified against 130 real packets, and a second convention here
+would be a good way to end up with two that disagree.
+
+The check is only valid on a realigned grid: on the free-running grid the
+preamble bin also carries the whole-chip offset and the mirror breaks.
+
+### Framing, and why re-arming is the point
+
+The framing FSM routes sync, SFD, header and payload, then returns to idle.
+Re-arming matters as much as routing: the front-end realigns once per reset,
+so without a stage that knows a packet has ended, the receiver acquires one
+packet and then ignores the radio.
+
+Bit-exact against `lora_phy.packet_frame_step`, per symbol:
+
+| Symbols | Packets completed | Rejections | Header symbols | Payload symbols | Mismatches |
+|---:|---:|---:|---:|---:|---:|
+| 390 | 7 | 15 | 56 | 35 | 0 |
+
+Zero mismatches across all six outputs. The stimulus mixes clean packets,
+both rejection paths, back-to-back packets and seeded random events, and the
+regression fails if it stops completing packets or stops exercising a
+rejection — a framing FSM that parks after one packet passes every
+single-packet test, so the test set has to make that impossible.
+
+Header and payload lengths are input ports rather than compile-time
+constants. LoRa derives the payload symbol count from the decoded header,
+which lives in software behind the documented interface; a second copy of
+that arithmetic in the framing path would be a good way to have two that
+disagree.
+
+Raw table: [`simulink-m2-framing.csv`](data/simulink-m2-framing.csv).
+
 ## Synthesis: the first numbers that describe silicon
 
 Vivado 2021.1, `xc7z020clg484-1`, out of context, via `run_synthesis`.
@@ -796,6 +868,7 @@ section counts primitives.
 |---|---:|---:|---:|---:|---:|---:|
 | `fft-correlator-fixed` | 13893 | 15122 | 8 | 34 | 1064 | 59.1 MHz |
 | `blind-detector` | 2435 | 148 | 0 | 0 | 572 | 548.5 MHz |
+| `framing` | 120 | 19 | 0 | 0 | 4 | 192.9 MHz |
 | `acquisition` | 237 | 34 | 0 | 0 | 40 | 80.0 MHz |
 | `joint-timing-cfo` | 346 | 0 | 0 | 0 | 62 | — |
 

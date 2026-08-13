@@ -78,9 +78,12 @@ metric definitions, and the explicit configuration-aided boundary.
   detector, and realignment into one front-end. A packet at an unknown sample
   offset is acquired and demodulates to the same payload as an aligned one,
   verified at four offsets.
-- [ ] Validate the SFD downchirp pair and build the packet-level framing state
-  machine. Realignment also fires once per reset; re-arming after a packet
-  ends belongs to that state machine.
+- [x] Validate the SFD downchirp pair, reusing the correlator's own reference
+  ROM at a complemented address rather than adding a second table, and build
+  the packet-level framing state machine with re-arming. Bit-exact against
+  MATLAB over 390 symbols, 7 packets and 15 rejections.
+- [ ] Build the SFD validation DUT in Simulink; only the MATLAB reference
+  exists so far.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
   timestamp/metadata interface. The coarse sample count and its valid flag are
   implemented and checked; the fractional ToA is not, because it needs the
