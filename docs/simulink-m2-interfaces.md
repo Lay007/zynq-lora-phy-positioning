@@ -204,13 +204,18 @@ symbol's decision emerges hundreds to thousands of cycles later. A short
 circular buffer does the queueing, because a fixed delay line would have to be
 re-sized for every SF/L.
 
-`fractionalToaSamples` is **not** implemented and is not claimed. MATLAB's
-`estimate_fractional_toa` fits a three-point parabola to correlation power on
-the **sample** lag grid, which needs the sample-rate matched filter that
-belongs to acquisition. The correlator's own spectrum only resolves lags spaced
-by `L` samples, so a parabola on it would be a fractional *bin*, not a
-sub-sample ToA. Calling those the same thing would be wrong, so the DUT
-provides the coarse count and the software keeps the fractional refinement.
+`fractionalToaSamples` is produced by a separate packet-rate interpolator after
+acquisition has narrowed the sample-rate matched-filter peak to three adjacent
+lags. It is not computed from neighbouring bins of the chip-rate correlator:
+those bins are spaced by `L` samples and would describe a fractional *bin*,
+not a sub-sample ToA.
+
+The request interface is `magnitudeBefore`, `magnitudePeak`,
+`magnitudeAfter`, and a one-cycle `tripletValid`. The iterative DUT accepts a
+request only while idle and pulses `offsetValid` 38 clocks later; callers must
+not issue another request during that interval. `offsetSamples` is an `int32`
+integer in units of 1/4096 sample, saturated to ±0.5 sample. `logPeak` is an
+`int32` approximate `log2` of the centre magnitude in units of 1/4096.
 
 Cross-station association, per-channel delay calibration, and 2D
 multilateration are **software**. They are not in the DUT and will not be

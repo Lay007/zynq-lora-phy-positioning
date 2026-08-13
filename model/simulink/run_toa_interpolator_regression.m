@@ -58,27 +58,49 @@ info = build_toa_interpolator_model(LogTableBits=options.LogTableBits, ...
     ModelName="lora_toa_interpolator_check");
 cleanup = onCleanup(@() closeIfLoaded(info.modelName));
 
-timeAxis = (0:count-1).';
+% The hardware is intentionally iterative: it is used once per packet, so
+% spending 38 clocks saves a large combinational divider. Present one-cycle
+% requests and collect results by offsetValid instead of assuming zero
+% latency or streaming throughput.
+stride = info.latencyCycles+2;
+simulationLength = (count-1)*stride+info.latencyCycles+1;
+timeAxis = (0:simulationLength-1).';
+beforeStimulus = zeros(simulationLength, 1, "uint32");
+peakStimulus = zeros(simulationLength, 1, "uint32");
+afterStimulus = zeros(simulationLength, 1, "uint32");
+validStimulus = false(simulationLength, 1);
+requestIndices = (0:count-1)*stride+1;
+beforeStimulus(requestIndices) = uint32(scaled(:, 1));
+peakStimulus(requestIndices) = uint32(scaled(:, 2));
+afterStimulus(requestIndices) = uint32(scaled(:, 3));
+validStimulus(requestIndices) = true;
 assignin("base", "stimulusMagnitudeBefore", ...
-    timeseries(uint32(scaled(:, 1)), timeAxis));
+    timeseries(beforeStimulus, timeAxis));
 assignin("base", "stimulusMagnitudePeak", ...
-    timeseries(uint32(scaled(:, 2)), timeAxis));
+    timeseries(peakStimulus, timeAxis));
 assignin("base", "stimulusMagnitudeAfter", ...
-    timeseries(uint32(scaled(:, 3)), timeAxis));
-assignin("base", "stimulusTripletValid", timeseries(true(count, 1), timeAxis));
+    timeseries(afterStimulus, timeAxis));
+assignin("base", "stimulusTripletValid", timeseries(validStimulus, timeAxis));
 
 if ~bdIsLoaded(info.modelName)
     load_system(info.modelPath);
 end
-set_param(info.modelName, StopTime=num2str(count-1));
+set_param(info.modelName, StopTime=num2str(simulationLength-1));
 out = sim(info.modelName);
 
-actual = double(out.offsetSamples(:))/info.offsetScale;
 valid = logical(out.offsetValid(:));
+actual = double(out.offsetSamples(valid))/info.offsetScale;
 
-errorSamples = actual-expected;
-errorMetres = abs(errorSamples)*metresPerSample;
-truthErrorMetres = abs(actual-truth)*metresPerSample;
+validCount = numel(actual);
+if validCount == count
+    errorSamples = actual-expected;
+    errorMetres = abs(errorSamples)*metresPerSample;
+    truthErrorMetres = abs(actual-truth)*metresPerSample;
+else
+    errorSamples = NaN(count, 1);
+    errorMetres = NaN(count, 1);
+    truthErrorMetres = NaN(count, 1);
+end
 
 report = struct;
 report.summary = table(options.SpreadingFactor, options.SamplesPerChip, ...
@@ -89,9 +111,9 @@ report.summary = table(options.SpreadingFactor, options.SamplesPerChip, ...
     "RmsAgainstTruthMetres"]);
 
 failures = strings(0, 1);
-if ~all(valid)
-    failures(end+1, 1) = sprintf("%d of %d triplets reported invalid", ...
-        count-sum(valid), count);
+if validCount ~= count
+    failures(end+1, 1) = sprintf("%d results for %d triplets", ...
+        validCount, count);
 end
 if max(errorMetres) > options.ToleranceMetres
     failures(end+1, 1) = sprintf( ...

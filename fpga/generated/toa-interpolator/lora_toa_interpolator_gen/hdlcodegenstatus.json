@@ -79,7 +79,7 @@
     "TopModelNonStructuralData": {
       "SimulationMode": "normal",
       "StartTime": "0",
-      "StopTime": "7",
+      "StopTime": "100",
       "SolverType": "Fixed-step",
       "Solver": "FixedStepDiscrete"
     },
@@ -172,13 +172,13 @@
   ],
   "ResourceSummary": {
     "multipliers": 0,
-    "addersSubtractors": 15,
-    "registers": 0,
-    "oneBitRegisters": 0,
+    "addersSubtractors": 10,
+    "registers": 16,
+    "oneBitRegisters": 465,
     "rams": 0,
-    "multiplexers": 133,
+    "multiplexers": 131,
     "IOBits": 166,
-    "staticShiftOperators": 0,
-    "dynamicShiftOperators": 93
+    "staticShiftOperators": 41,
+    "dynamicShiftOperators": 0
   }
 }

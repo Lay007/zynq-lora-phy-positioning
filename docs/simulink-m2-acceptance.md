@@ -456,13 +456,17 @@ latched at `symbolBoundary` and queued through the pipeline until the decision
 emerges. The stage regression checks it on every acceptance case: the timestamps
 must be exactly `0, M, 2M, …`, and the maximum error is `0` in all 15.
 
-`fractionalToaSamples` is **not implemented**, deliberately. MATLAB's
-`estimate_fractional_toa` fits a three-point parabola to correlation power on
-the sample lag grid, which needs the sample-rate matched filter that belongs to
-acquisition. The correlator spectrum only resolves lags spaced by `L` samples,
-so the same parabola applied there would yield a fractional *bin*, not a
-sub-sample ToA. The two are not interchangeable, so the DUT provides the coarse
-count and the fractional refinement stays in software.
+`fractionalToaSamples` is implemented by a separate sample-grid interpolator.
+The correlator still provides the coarse count; once acquisition has narrowed
+the matched-filter peak to three adjacent sample lags, the interpolator fits a
+Gaussian to their magnitudes. It must not be fed three neighbouring chip-rate
+FFT bins: those would describe a fractional *bin*, not a sub-sample ToA.
+
+The fixed-point DUT uses a 64-entry mantissa table for `log2` and agrees with
+`lora_phy.fractional_toa_from_triplet` within **0.382 m** over 19 real-chirp
+peak shapes. Its RMS error against the injected synthetic delay is **7.941 m**,
+while one coarse sample is **1199 m**. These are model-regression numbers, not
+an accuracy claim for the hardware bench.
 
 Raw table: [`simulink-m2-reset.csv`](data/simulink-m2-reset.csv).
 
@@ -762,9 +766,11 @@ RAMs, no added latency, and 168 register bits** — against the correlator's 34
 multipliers, 64 RAMs, and 28201 register bits. It is roughly 0.6 % of the
 correlator's register bits and 17 % of its adders.
 
-The remaining expensive item is not detection. It is fractional ToA, which needs
-a matched filter at the sample rate rather than the chip rate, and that is the
-one part of the receiver where the sliding-correlation cost was never avoidable.
+The remaining arithmetic item was fractional ToA. It runs on the three-point
+sample-rate matched-filter peak, but it is invoked once per packet rather than
+once per sample. That rate difference is what makes a 38-cycle shared-logarithm
+and iterative-divider implementation useful: latency is cheap here, while a
+fully combinational divider is not.
 
 ### What these numbers are not
 
@@ -900,6 +906,7 @@ section counts primitives.
 | `framing` | 120 | 19 | 0 | 0 | 4 | 192.9 MHz |
 | `sfd` | 334 | 20 | 0 | 0 | 74 | 96.7 MHz |
 | `acquisition` | 237 | 34 | 0 | 0 | 40 | 80.0 MHz |
+| `toa-interpolator` | 744 | 374 | 0 | 0 | 70 | 118.9 MHz |
 | `joint-timing-cfo` | 346 | 0 | 0 | 0 | 62 | — |
 
 Against the part's 53200 LUTs, 106400 registers, 140 BRAM36 and 220 DSP48, the
@@ -911,6 +918,17 @@ spare, which was not obvious beforehand.
 combinational logic, so there is no register-to-register path to constrain.
 That is a property of the block, and it is recorded as absent rather than
 converted into a number.
+
+The first ToA implementation had the same problem and an avoidable area cost:
+a combinational divide synthesized to **1793 LUTs**, zero registers, and no
+defined Fmax. The packet-rate implementation now captures one request while
+idle, reuses one logarithm unit over three clocks, registers numerator and
+denominator, performs one quotient bit per clock for 32 clocks, and saturates
+on a final clock. Its model latency is 38 clocks. Synthesis drops to **744
+LUTs** (1049 fewer, **58.5 %**) at the cost of **374 registers**, and produces
+a real register-to-register estimate of **118.9 MHz**. Accuracy is unchanged;
+the numerical comparison remains the 0.382 m maximum and 7.941 m RMS recorded
+in [`simulink-m2-toa-interpolator.csv`](data/simulink-m2-toa-interpolator.csv).
 
 ### Two things the operator counts got wrong
 
@@ -952,27 +970,15 @@ Raw table: [`simulink-m3-synthesis.csv`](data/simulink-m3-synthesis.csv).
 
 ## Limitations and open items
 
-Blocking full M2 acceptance:
+The remaining limitations are:
 
-1. **No packet framing and no SFD validation.** Blind detection and
-   window-grid realignment now exist and compose: a packet at an unknown
-   sample offset is acquired and demodulated to the same payload as an
-   aligned one. What is still missing is SFD downchirp validation — nothing
-   confirms that what follows the sync word is a downchirp pair — and the
-   packet-level framing state machine that routes header and payload symbols.
-   Realignment also fires once per reset, so re-arming after a packet ends is
-   not implemented.
-2. **Fractional ToA is not implemented.** The coarse sample count and its
-   valid flag are implemented and checked, but `fractionalToaSamples` needs a
-   matched filter at the sample rate, so the metadata contract is only half
-   satisfied. This is now the most expensive unbuilt item in the receiver.
-3. **No cosimulation, and synthesis only out of context.** Verilog is
-   generated for all four hardware-bound DUTs with zero HDL errors, and
+1. **No cosimulation, and synthesis only out of context.** Verilog is
+   generated for all seven hardware-bound DUTs with zero HDL errors, and
    out-of-context synthesis gives LUT/FF/BRAM/DSP and a derived `Fmax`.
    Nothing is placed or routed, so there is no power figure and no
    post-route timing; those need the board wrapper, clocking, and AXI that
    do not exist. Cosimulation is still not run: no HDL simulator installed.
-4. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
+2. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
    does not cover SF8–SF12, other `L`, or weak signals.
 
