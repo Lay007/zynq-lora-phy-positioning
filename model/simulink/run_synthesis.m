@@ -25,8 +25,13 @@ arguments
     % the silicon.
     options.Part (1,1) string = "xc7z020clg484-1"
     options.ProbePeriodNs (1,1) double = 5
+    % Keep in step with RUN_HDL_GENERATION's target list. Adding a DUT there
+    % and not here has now happened twice: generation covers it, synthesis
+    % silently does not, and the published table is short by a row with no
+    % error to notice. RUN_SYNTHESIS checks the two lists agree.
     options.Targets (1,:) string = ["fft-correlator-fixed", ...
-        "blind-detector", "acquisition", "framing", "joint-timing-cfo"]
+        "blind-detector", "acquisition", "framing", "sfd", ...
+        "joint-timing-cfo"]
     options.VivadoPath (1,1) string = "g:\Xilinx\Vivado\2021.1\bin\vivado.bat"
     options.OutputDirectory string = string.empty
     options.WriteCsv (1,1) logical = true
@@ -48,6 +53,24 @@ if ~isfolder(buildRoot)
     mkdir(buildRoot);
 end
 tclScript = fullfile(repositoryRoot, "fpga", "scripts", "synth_ooc.tcl");
+
+% Every generated DUT must be in the target list. Twice now a subsystem has
+% been added to run_hdl_generation and not here, so the Verilog existed, the
+% synthesis table was quietly one row short, and nothing failed to say so.
+% Comparing against what is actually on disk makes the omission loud.
+generatedTargets = string.empty;
+entries = dir(generatedRoot);
+for k = 1:numel(entries)
+    if entries(k).isdir && ~startsWith(entries(k).name, ".")
+        generatedTargets(end+1) = string(entries(k).name); %#ok<AGROW>
+    end
+end
+missing = setdiff(generatedTargets, options.Targets);
+if ~isempty(missing)
+    error("lora_sim:UnsynthesizedTarget", ...
+        "Generated but not in the synthesis target list: %s", ...
+        strjoin(missing, ", "));
+end
 
 rows = {};
 failures = strings(0, 1);
