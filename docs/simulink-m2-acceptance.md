@@ -14,7 +14,7 @@ what still blocks acceptance.
 
 ```matlab
 cd model/simulink
-results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind, frontend, framing
+results = run_simulink_regression;   % toolchain, double, joint, reset, acquisition, blind, frontend, framing, sfd
 results = run_simulink_regression(Suites=["fixed" "real"]);   % long campaigns
 report = run_hdl_generation;         % Verilog and resource counts
 ```
@@ -721,6 +721,7 @@ HDL Coder's own reports.
 | `fft-correlator-fixed` (SF7, L=8, 16 bit) | 77 | 34 | 438 | 1869 | 28201 | 64 | 994 | 218 | 34 |
 | `blind-detector` | 2 | 0 | 76 | 11 | 168 | 0 | 89 | 73 | 0 |
 | `framing` | 2 | 0 | 4 | 2 | 24 | 0 | 17 | 85 | 0 |
+| `sfd` | 2 | 0 | 10 | 4 | 26 | 0 | 23 | 64 | 0 |
 | `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
 
@@ -858,6 +859,34 @@ disagree.
 
 Raw table: [`simulink-m2-framing.csv`](data/simulink-m2-framing.csv).
 
+### The SFD acceptance DUT
+
+The MATLAB rule above became a DUT, checked per group on exact equality.
+
+| SF | N | Groups | Accepted by MATLAB | Decision mismatches |
+|---:|---:|---:|---:|---:|
+| 7 | 128 | 220 | 10 | 0 |
+| 5 | 32 | 220 | 14 | 0 |
+| 9 | 512 | 220 | 10 | 0 |
+
+660 groups, zero mismatches on the decision, the self-agreement flag and the
+mirror itself. Only 10 to 14 groups of 220 are accepted per configuration,
+and that ratio is the point: this stage exists to reject signals that already
+passed preamble and sync, so a stimulus it accepted wholesale would prove
+nothing. The regression fails if a configuration accepts everything or
+nothing.
+
+The set includes the case the stage exists for — two windows that agree with
+each other but sit two bins off the mirror. Agreement alone is not evidence;
+a run of upchirps agrees with itself too.
+
+The DUT does not dechirp. Because the downchirp reference costs no ROM of
+its own, the SFD path reuses the correlator and this block only decides. The
+mirror is computed by masking rather than `mod()`, since `N` is a power of
+two and `mod()` on a signed value is a division HDL Coder will not generate.
+
+Raw table: [`simulink-m2-sfd.csv`](data/simulink-m2-sfd.csv).
+
 ## Synthesis: the first numbers that describe silicon
 
 Vivado 2021.1, `xc7z020clg484-1`, out of context, via `run_synthesis`.
@@ -869,6 +898,7 @@ section counts primitives.
 | `fft-correlator-fixed` | 13893 | 15122 | 8 | 34 | 1064 | 59.1 MHz |
 | `blind-detector` | 2435 | 148 | 0 | 0 | 572 | 548.5 MHz |
 | `framing` | 120 | 19 | 0 | 0 | 4 | 192.9 MHz |
+| `sfd` | 334 | 20 | 0 | 0 | 74 | 96.7 MHz |
 | `acquisition` | 237 | 34 | 0 | 0 | 40 | 80.0 MHz |
 | `joint-timing-cfo` | 346 | 0 | 0 | 0 | 62 | — |
 

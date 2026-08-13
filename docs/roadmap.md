@@ -82,8 +82,8 @@ metric definitions, and the explicit configuration-aided boundary.
   ROM at a complemented address rather than adding a second table, and build
   the packet-level framing state machine with re-arming. Bit-exact against
   MATLAB over 390 symbols, 7 packets and 15 rejections.
-- [ ] Build the SFD validation DUT in Simulink; only the MATLAB reference
-  exists so far.
+- [x] Build the SFD validation DUT, bit-exact against MATLAB over 660 groups
+  across SF5/SF7/SF9, with a stimulus dominated by groups it must reject.
 - [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
   timestamp/metadata interface. The coarse sample count and its valid flag are
   implemented and checked; the fractional ToA is not, because it needs the
