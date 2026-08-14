@@ -77,12 +77,33 @@ land in `fpga/build/` and are ignored.
 Out of context on purpose: there is no board wrapper, no clocking, and no AXI
 yet, so anything else would measure parts of the design that do not exist. The
 numbers describe the DUTs alone and will move once they are wrapped. Nothing
-is placed or routed, so there is no power figure.
+is placed or routed in this synthesis-only flow, so it has no power figure.
 
 `Fmax` is derived rather than requested. Synthesis runs against a probe clock
 and `Fmax = 1/(probe - WNS)`. A block with no register-to-register path has no
 slack and no `Fmax`; that is recorded as `NaN` rather than turned into a
 number.
+
+## Post-route core estimates
+
+`model/simulink/run_implementation.m` places and routes the FFT correlator and
+ToA interpolator through [`scripts/implement_ooc.tcl`](scripts/implement_ooc.tcl).
+The wrappers in [`wrappers/`](wrappers/) register every functional input and
+output while leaving the generated DUTs unchanged. This makes external
+combinational logic part of a register-to-register path without pretending that
+the board-level clocking, AXI path, or package pins already exist.
+
+The script uses a 5 ns probe constraint for timing, then estimates vectorless
+power at the 4 MHz maximum application sample clock. Its primary-input activity
+assumption is 12.5 %, the junction-temperature assumption is 25 degC, and the
+Vivado confidence must be Medium. The results are written to
+`docs/data/simulink-m3-post-route.csv`; routed checkpoints and detailed reports
+land under `fpga/build/post-route/` and are ignored.
+
+These are core-only OOC implementation estimates. They are not board timing or
+measured rail power, and they do not include the processing system, AD936x
+interface, AXI, board clocking, or I/O. A reported dynamic value of 0 W means
+less than the report's 1 mW resolution, not physical zero.
 
 Cosimulation is still not run: no HDL simulator is installed. Earlier revisions
 of this file also said no Vivado was installed, which was wrong — it is at

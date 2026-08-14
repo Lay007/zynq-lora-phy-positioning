@@ -779,14 +779,16 @@ are **not** synthesis results and must not be read as LUT/FF/DSP/BRAM. A
 multiplier here may map to one DSP48 slice or to several, and RAM counts do not
 translate directly into BRAM.
 
-### What is blocked, and by what
+### What remains blocked, and by what
 
 - **HDL cosimulation** is not run. No HDL simulator is installed; HDL Verifier
   is licensed but has nothing to drive. This is a tooling gap, not a design
   problem.
-- **Place, route, and power** are not measured. Out-of-context synthesis needs
-  none of them, but they need the board wrapper, clocking, and AXI that do not
-  exist yet. No power figure is claimed anywhere.
+- **Board-level implementation and measured power** are not available. The FFT
+  correlator and ToA block now have core-only OOC place-and-route results and
+  vectorless power estimates through boundary-register wrappers. A full design
+  still needs board clocking, AXI, package I/O, the processing system, and the
+  AD936x interface.
 
 An earlier revision of this section said synthesis was blocked because no
 Vivado was installed and only ISE 14.7 was present. That was wrong: Vivado
@@ -953,9 +955,8 @@ DSPs, by contrast, matched exactly: 34 inferred multipliers, 34 DSP48s.
 
 ### What Fmax does and does not say
 
-59.1 MHz for the correlator is a synthesis estimate on an unplaced,
-unrouted design against a 5 ns probe, and place-and-route normally makes it
-worse rather than better.
+59.1 MHz for the correlator is the synthesis estimate on an unplaced,
+unrouted design against a 5 ns probe. It is not the post-route result.
 
 It is nevertheless far above what the application needs. The DUT consumes one
 sample per clock, so the requirement is the sample rate: 1 MHz at
@@ -964,20 +965,58 @@ figure leaves more than an order of magnitude of headroom. The number that
 would matter for a faster design is the critical path through the correlator,
 and that is where the headroom would be spent.
 
-No power figure is claimed. Power needs place and route, and neither has run.
-
 Raw table: [`simulink-m3-synthesis.csv`](data/simulink-m3-synthesis.csv).
+
+## Post-route timing and vectorless core power
+
+`run_implementation` leaves each generated DUT unchanged and surrounds it with
+registered functional inputs and outputs. Vivado 2021.1 then synthesizes,
+places, physically optimizes, and routes that wrapper out of context for
+`xc7z020clg484-1`. The boundary registers make the DUT's external
+combinational paths measurable, but they also mean that the resource counts
+below describe wrapper plus core and should not be compared one-for-one with
+the bare-DUT synthesis table.
+
+| Target | LUTs | Registers | BRAM36 | DSP48 | Setup WNS | Hold WNS | Post-route Fmax |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `fft-correlator-fixed` | 13837 | 15303 | 8 | 34 | -11.590 ns | +0.009 ns | 60.277 MHz |
+| `toa-interpolator` | 763 | 507 | 0 | 0 | -2.705 ns | +0.059 ns | 129.786 MHz |
+
+The 5 ns constraint is deliberately a probe rather than the application
+requirement. Derived achieved periods are 16.590 ns and 7.705 ns. Against the
+maximum required 4 MHz sample clock, the routed estimates leave approximately
+**15.1x** headroom for the correlator and **32.4x** for ToA. The correlator's
+16.685 ns critical datapath splits into 8.425 ns logic and 8.260 ns routing;
+the ToA path is 7.568 ns, split into 1.324 ns logic and 6.244 ns routing.
+
+Power is estimated after routing at 4 MHz with Vivado's vectorless propagation,
+12.5 % default primary-input toggle rate, 0.5 static probability, typical
+process, and a fixed 25 degC junction assumption:
+
+| Target | Total on-chip | Dynamic | Device static | Confidence |
+|---|---:|---:|---:|---|
+| `fft-correlator-fixed` | 0.110 W | 0.007 W | 0.102 W | Medium |
+| `toa-interpolator` | 0.102 W | <0.001 W | 0.102 W | Medium |
+
+This is a core-only OOC model, not a measurement of board rails. It excludes
+the processing system, AD936x interface, AXI, board clocking, package I/O, and
+real switching activity. The ToA dynamic field is 0 W in the CSV because it is
+below the report's 1 mW resolution, not because the physical dynamic power is
+zero.
+
+Raw table: [`simulink-m3-post-route.csv`](data/simulink-m3-post-route.csv).
 
 ## Limitations and open items
 
 The remaining limitations are:
 
-1. **No cosimulation, and synthesis only out of context.** Verilog is
-   generated for all seven hardware-bound DUTs with zero HDL errors, and
-   out-of-context synthesis gives LUT/FF/BRAM/DSP and a derived `Fmax`.
-   Nothing is placed or routed, so there is no power figure and no
-   post-route timing; those need the board wrapper, clocking, and AXI that
-   do not exist. Cosimulation is still not run: no HDL simulator installed.
+1. **No cosimulation or board-level implementation.** Verilog is generated for
+   all seven hardware-bound DUTs with zero HDL errors, and all seven pass
+   out-of-context synthesis. The FFT correlator and ToA interpolator also have
+   OOC post-route timing and vectorless core-power estimates through registered
+   boundary wrappers. A complete top level with board clocking, AXI, package
+   I/O, the processing system, and AD936x interface still does not exist.
+   Cosimulation is not run because no HDL simulator is installed.
 2. **Real-signal coverage is one corpus.** 130 packets at SF5/SF6/SF7, all
    `L = 8`, all strong-signal OTA captures. This is not a sensitivity test and
    does not cover SF8–SF12, other `L`, or weak signals.

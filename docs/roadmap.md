@@ -99,7 +99,7 @@ milestone remains open on the unchecked items above.
 - [x] Generate Verilog for the fixed-point FFT correlator, the blind detector,
   the acquisition FSM, and the joint timing/CFO estimator, with HDL Coder
   operator counts recorded.
-- [ ] Generate Verilog for the ToA block once it exists.
+- [x] Generate Verilog for the ToA block.
 - [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
   simulator is installed.
 - [x] Add a reproducible generation script (`run_hdl_generation`).
@@ -108,8 +108,11 @@ milestone remains open on the unchecked items above.
 - [x] Out-of-context synthesis with resource and timing reports
   (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
-- [ ] Place, route, and power reports, which need the board wrapper, clocking,
-  and AXI that do not exist yet.
+- [x] Place and route boundary-register wrappers around the FFT correlator and
+  ToA interpolator; record post-route timing and vectorless core power
+  (`run_implementation`, 4 MHz activity model).
+- [ ] Implement and measure the complete board top level with clocking, AXI,
+  package constraints, the processing system, and the AD936x interface.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.
