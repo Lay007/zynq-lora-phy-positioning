@@ -31,7 +31,7 @@ arguments
     % error to notice. RUN_SYNTHESIS checks the two lists agree.
     options.Targets (1,:) string = ["fft-correlator-fixed", ...
         "blind-detector", "acquisition", "framing", "sfd", ...
-        "toa-interpolator", "joint-timing-cfo"]
+        "toa-interpolator", "joint-timing-cfo", "frequency-estimator"]
     options.VivadoPath (1,1) string = "g:\Xilinx\Vivado\2021.1\bin\vivado.bat"
     options.OutputDirectory string = string.empty
     options.WriteCsv (1,1) logical = true
@@ -54,10 +54,17 @@ if ~isfolder(buildRoot)
 end
 tclScript = fullfile(repositoryRoot, "fpga", "scripts", "synth_ooc.tcl");
 
-% Every generated DUT must be in the target list. Twice now a subsystem has
-% been added to run_hdl_generation and not here, so the Verilog existed, the
-% synthesis table was quietly one row short, and nothing failed to say so.
-% Comparing against what is actually on disk makes the omission loud.
+% Every generated DUT must have a known synthesis definition. The selected
+% Targets may be a subset for a focused measurement, but an unknown generated
+% directory still means generation and synthesis have drifted apart.
+knownTargets = ["fft-correlator-fixed", "blind-detector", ...
+    "acquisition", "framing", "sfd", "toa-interpolator", ...
+    "joint-timing-cfo", "frequency-estimator"];
+unknown = setdiff(options.Targets, knownTargets);
+if ~isempty(unknown)
+    error("lora_sim:UnknownSynthesisTarget", ...
+        "Unknown synthesis target: %s", strjoin(unknown, ", "));
+end
 generatedTargets = string.empty;
 entries = dir(generatedRoot);
 for k = 1:numel(entries)
@@ -65,7 +72,7 @@ for k = 1:numel(entries)
         generatedTargets(end+1) = string(entries(k).name); %#ok<AGROW>
     end
 end
-missing = setdiff(generatedTargets, options.Targets);
+missing = setdiff(generatedTargets, knownTargets);
 if ~isempty(missing)
     error("lora_sim:UnsynthesizedTarget", ...
         "Generated but not in the synthesis target list: %s", ...

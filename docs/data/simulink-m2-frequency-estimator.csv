@@ -1,0 +1,5 @@
+SF,L,N,Pairs,Coverage,LatencyCycles,CfoMismatches,ValidMismatches,ReferenceBandwidthHz,ResolutionHz,MaxQuantizationErrorHz
+5,8,32,1024,exhaustive,2,0,0,125000,1953.125,976.5625
+7,8,128,16384,exhaustive,2,0,0,125000,488.28125,244.140625
+7,1,128,16384,exhaustive,2,0,0,125000,488.28125,244.140625
+9,2,512,262144,exhaustive,2,0,0,125000,122.0703125,61.03515625

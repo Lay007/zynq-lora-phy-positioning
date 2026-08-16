@@ -15,6 +15,9 @@ arguments
     options.WordLength (1,1) double {mustBeInteger, mustBePositive} = 16
     options.SpreadingFactor (1,1) double = 7
     options.SamplesPerChip (1,1) double = 8
+    options.Targets (1,:) string = ["fft-correlator-double", ...
+        "fft-correlator-fixed", "acquisition", "joint-timing-cfo", ...
+        "frequency-estimator"]
     options.OutputDirectory string = string.empty
     options.WriteCsv (1,1) logical = true
     options.Verbose (1,1) logical = true
@@ -67,6 +70,22 @@ entry.builder = @() build_joint_sync_model( ...
     SamplesPerChip=options.SamplesPerChip, ...
     ModelName="lora_joint_sync_hdl");
 targets = [targets; entry];
+
+entry = struct;
+entry.name = "frequency-estimator";
+entry.builder = @() build_frequency_estimator_model( ...
+    SpreadingFactor=options.SpreadingFactor, ...
+    SamplesPerChip=options.SamplesPerChip, ...
+    ModelName="lora_frequency_estimator_hdl");
+targets = [targets; entry];
+
+targetNames = string({targets.name});
+unknown = setdiff(options.Targets, targetNames);
+if ~isempty(unknown)
+    error("lora_sim:UnknownCompatibilityTarget", ...
+        "Unknown compatibility target: %s", strjoin(unknown, ", "));
+end
+targets = targets(ismember(targetNames, options.Targets));
 
 rows = {};
 messageRows = {};
@@ -172,10 +191,14 @@ assignin("base", "stimulusResyncValid", ...
     timeseries(false(samples, 1), timeAxis));
 assignin("base", "stimulusResyncSkip", ...
     timeseries(zeros(samples, 1, "uint32"), timeAxis));
+binDataType = "uint16";
+if isfield(info, "binDataType")
+    binDataType = info.binDataType;
+end
 assignin("base", "stimulusUpBin", ...
-    timeseries(zeros(samples, 1, "uint16"), timeAxis));
+    timeseries(zeros(samples, 1, binDataType), timeAxis));
 assignin("base", "stimulusDownBin", ...
-    timeseries(zeros(samples, 1, "uint16"), timeAxis));
+    timeseries(zeros(samples, 1, binDataType), timeAxis));
 assignin("base", "stimulusBinValid", timeseries(false(samples, 1), timeAxis));
 assignin("base", "stimulusSymbolIndex", ...
     timeseries(zeros(samples, 1, "uint16"), timeAxis));

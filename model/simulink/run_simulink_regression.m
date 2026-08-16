@@ -12,6 +12,7 @@ function results = run_simulink_regression(options)
 %   toolchain  products and licenses required by M2 (seconds)
 %   double     double DUT against the committed stage vectors (~15 min)
 %   joint      joint timing/CFO DUT, bit-exact over the input domain
+%   frequency  registered frequency-only DUT against the same golden model
 %   acquisition preamble/sync acceptance FSM, exact over sequences
 %   blind      blind packet-start detector, exact over sliding windows
 %   fixed      fixed-point word-length sweep (hours, opt in)
@@ -22,8 +23,9 @@ function results = run_simulink_regression(options)
 %       "joint" "fixed" "real"]);
 
 arguments
-    options.Suites string = ["toolchain", "double", "joint", "reset", ...
-        "acquisition", "blind", "frontend", "framing", "sfd", "toa"]
+    options.Suites string = ["toolchain", "double", "joint", ...
+        "frequency", "reset", "acquisition", "blind", "frontend", ...
+        "framing", "sfd", "toa"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -34,8 +36,9 @@ repositoryRoot = fileparts(fileparts(simulinkRoot));
 addpath(simulinkRoot);
 addpath(fullfile(repositoryRoot, "model", "matlab"));
 
-known = ["toolchain", "double", "joint", "reset", "acquisition", ...
-    "blind", "frontend", "framing", "sfd", "toa", "fixed", "real"];
+known = ["toolchain", "double", "joint", "frequency", "reset", ...
+    "acquisition", "blind", "frontend", "framing", "sfd", "toa", ...
+    "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -66,6 +69,15 @@ if any(options.Suites == "joint")
     results.joint = run_joint_sync_regression(WriteCsv=options.WriteCsv);
     if ~results.joint.passed
         problems = [problems; results.joint.failures(:)];
+    end
+end
+
+if any(options.Suites == "frequency")
+    fprintf("\n=== carrier-frequency estimator ===\n");
+    results.frequency = run_frequency_estimator_regression( ...
+        WriteCsv=options.WriteCsv);
+    if ~results.frequency.passed
+        problems = [problems; results.frequency.failures(:)];
     end
 end
 
@@ -155,6 +167,13 @@ end
 if isfield(results, "joint")
     fprintf("joint  : %d bin pairs, exact match\n", ...
         results.joint.totalPairs);
+end
+if isfield(results, "frequency")
+    sf7 = results.frequency.summary.SF == 7 & ...
+        results.frequency.summary.L == 8;
+    fprintf("freq   : %d bin pairs exact; SF7/BW125 resolution %.3f Hz\n", ...
+        results.frequency.totalPairs, ...
+        results.frequency.summary.ResolutionHz(find(sf7, 1)));
 end
 if isfield(results, "reset")
     fprintf("reset  : %d configurations return to the power-up state\n", ...
