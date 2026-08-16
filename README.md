@@ -14,12 +14,13 @@ and generated Verilog to a ZynqSDR implementation.
 > Status: MATLAB M1 is complete: continuous configured-IQ packet acquisition,
 > hard/soft LoRa decoding, end-to-end BER/PER, fractional ToA, and calibrated
 > 2D TDoA are executable and regression-tested, including recorded SX1262 IQ.
-> M2 now includes the streaming fixed-point correlator, joint timing/CFO,
-> blind packet-start detection, sample-grid realignment, reset behavior, and
-> coarse timestamp output. It remains open on the SFD/packet-framing state
-> machine and the fractional-ToA metadata interface. M3 has generated Verilog
-> and out-of-context synthesis evidence for four HDL blocks; cosimulation, IP
-> packaging, board wrappers, place-and-route, and power evidence remain open.
+> M2 now includes the streaming fixed-point correlator, joint timing/CFO and
+> frequency-only estimators, blind packet-start detection, sample-grid
+> realignment, SFD acceptance, packet framing, reset behavior, coarse
+> timestamps, and fractional ToA. M3 has generated Verilog and out-of-context
+> synthesis evidence for eight HDL blocks, plus core-only post-route timing and
+> vectorless power estimates for the correlator and ToA. Cosimulation, IP
+> packaging, and the complete board-level wrapper remain open.
 > M4-M6 hardware reception and synchronized positioning have not started, so
 > the repository does not yet claim a hardware LoRa receiver.
 

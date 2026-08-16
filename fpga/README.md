@@ -46,7 +46,7 @@ Every DSP block should define:
 
 ## Current generated output
 
-`model/simulink/run_hdl_generation.m` writes Verilog for the four
+`model/simulink/run_hdl_generation.m` writes Verilog for the eight
 hardware-bound DUTs into `generated/`, all with 0 HDL errors:
 
 - `generated/fft-correlator-fixed/` — 16-bit fixed-point FFT correlator,
@@ -54,6 +54,11 @@ hardware-bound DUTs into `generated/`, all with 0 HDL errors:
 - `generated/blind-detector/` — blind packet-start detector, 2 files.
 - `generated/acquisition/` — preamble and sync-word acceptance, 2 files.
 - `generated/joint-timing-cfo/` — joint timing/CFO estimator, 2 files.
+- `generated/frequency-estimator/` — registered carrier-frequency-only
+  estimator, 2 files.
+- `generated/framing/` — header/payload symbol router, 2 files.
+- `generated/sfd/` — SFD acceptance, 2 files.
+- `generated/toa-interpolator/` — packet-rate fractional ToA, 2 files.
 
 HDL Coder's traceability HTML, the generated model, and its `.mat` are ignored:
 they are large and regenerable. The Verilog is committed so that resource and

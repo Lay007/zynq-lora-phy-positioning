@@ -100,6 +100,8 @@ milestone remains open on the unchecked items above.
   the acquisition FSM, and the joint timing/CFO estimator, with HDL Coder
   operator counts recorded.
 - [x] Generate Verilog for the ToA block.
+- [x] Split out a registered carrier-frequency-only estimator and measure its
+  exact bin-domain behavior and synthesis resources.
 - [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
   simulator is installed.
 - [x] Add a reproducible generation script (`run_hdl_generation`).

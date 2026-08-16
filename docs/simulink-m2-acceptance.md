@@ -255,6 +255,36 @@ The estimator consumes bins, not samples. What produces those bins is now in the
 model: blind packet-start detection is described below and yields the coarse
 whole-chip offset that this estimator refines to half a chip.
 
+## Frequency-only estimator and present accuracy
+
+The separate `frequency-estimator` keeps only the CFO half-sum from the joint
+block. It accepts `upBin`, `downBin`, and `binValid`, registers both boundaries,
+and returns `cfoHalfBins` plus `estimateValid` after two clocks. Its exhaustive
+regression uses the unchanged joint timing/CFO MATLAB model as the golden
+reference:
+
+| SF | L | Bin pairs | Mismatches | Resolution at BW125 | Maximum nearest-bin error |
+|---:|---:|---:|---:|---:|---:|
+| 5 | 8 | 1 024 | 0 | 1953.125 Hz | 976.563 Hz |
+| 7 | 8 | 16 384 | 0 | 488.281 Hz | 244.141 Hz |
+| 7 | 1 | 16 384 | 0 | 488.281 Hz | 244.141 Hz |
+| 9 | 2 | 262 144 | 0 | 122.070 Hz | 61.035 Hz |
+
+The output quantum is `BW/(2·2^SF)` because one integer `cfoHalfBins` unit is
+half an FFT bin; oversampling `L` cancels. Thus the present SF7/BW125 PL
+estimate has a 488.281 Hz step and at most ±244.141 Hz ideal quantization error
+when both peaks select the nearest bins. At SF7/BW500 those numbers become
+1953.125 Hz and ±976.563 Hz.
+
+This is not a measured absolute-frequency accuracy. Noise can make a peak
+select the wrong bin, and the SDR and transmitter references remain in the
+observed CFO. Absolute carrier is the configured SDR centre plus the estimated
+offset. The floating-point IQ inspector also has a finer phase-progression
+residual-CFO estimate, but that path is not in PL.
+
+Raw table:
+[`simulink-m2-frequency-estimator.csv`](data/simulink-m2-frequency-estimator.csv).
+
 ## Real SX1262 symbol windows
 
 The committed SX1262 → ZynqSDR captures are decoded by the authoritative MATLAB
@@ -728,6 +758,8 @@ HDL Coder's own reports.
 | `sfd` | 2 | 0 | 10 | 4 | 26 | 0 | 23 | 64 | 0 |
 | `acquisition` | 2 | 0 | 5 | 3 | 34 | 0 | 28 | 65 | 0 |
 | `joint-timing-cfo` | 2 | 0 | 9 | 0 | 0 | 0 | 16 | 131 | 0 |
+| `frequency-estimator` | 2 | 0 | 3 | 5 | 34 | 0 | 3 | 38 | 0 |
+| `toa-interpolator` | 2 | 0 | 10 | 16 | 465 | 0 | 131 | 166 | 0 |
 
 The correlator carries one adder and 32 register bits more than before
 realignment existed: that is the skip counter and its comparison. Grid
@@ -736,7 +768,7 @@ detector grew from 44 adders to 76 when the preamble decision was split out
 of the joint one, since the two predicates are now evaluated over different
 windows on every symbol.
 
-All four generate with zero HDL errors. The generated code is committed under
+All eight generate with zero HDL errors. The generated code is committed under
 [`fpga/generated/`](../fpga/generated) and is never edited by hand: behavior
 changes go back into MATLAB and Simulink and the code is regenerated.
 
@@ -744,9 +776,9 @@ The correlator costs **34 multipliers and 64 RAMs** at the first hardware
 operating point, which is the budget everything else has to fit around. HDL
 Coder's delay balancing adds **34 cycles** on top of the model, so hardware
 symbol latency at SF7/L=8 is 2414 + 34 = **2448 sample clocks**, not the 2414
-the Simulink table reports. The three integer subsystems together cost 90
-adders, 14 registers, no multipliers, no RAM, and no added latency, which is
-what keeping acquisition decisions in integer arithmetic buys.
+the Simulink table reports. The frequency-only estimator itself has three
+inferred adders, 34 register bits, no multipliers, and no RAM. These are still
+operator counts; the synthesis result below is the silicon number.
 
 ### A prediction this document got wrong
 
@@ -910,6 +942,7 @@ section counts primitives.
 | `acquisition` | 237 | 34 | 0 | 0 | 40 | 80.0 MHz |
 | `toa-interpolator` | 744 | 374 | 0 | 0 | 70 | 118.9 MHz |
 | `joint-timing-cfo` | 346 | 0 | 0 | 0 | 62 | — |
+| `frequency-estimator` | 16 | 34 | 0 | 0 | 4 | 376.9 MHz |
 
 Against the part's 53200 LUTs, 106400 registers, 140 BRAM36 and 220 DSP48, the
 correlator occupies **26 % of the LUTs, 14 % of the registers, 5.7 % of the
@@ -920,6 +953,17 @@ spare, which was not obvious beforehand.
 combinational logic, so there is no register-to-register path to constrain.
 That is a property of the block, and it is recorded as absent rather than
 converted into a number.
+
+When only carrier frequency is required, removing the timing correction and
+registering the boundary reduces the estimator from **346 to 16 LUTs** — 330
+fewer, or **95.4 %** — with 34 flip-flops and a fixed two-clock latency. It
+uses no DSP or BRAM and has a real derived Fmax of **376.9 MHz**.
+The SF7 specialization also narrows the guaranteed `[0, 127]` bin inputs from
+the joint block's generic `uint16` interface to `uint8`; SF9–SF12 builds retain
+`uint16`.
+The comparison is deliberately limited to these estimator blocks; both still
+consume peak bins produced elsewhere and neither number includes the FFT
+correlator.
 
 The first ToA implementation had the same problem and an avoidable area cost:
 a combinational divide synthesized to **1793 LUTs**, zero registers, and no
@@ -1011,7 +1055,7 @@ Raw table: [`simulink-m3-post-route.csv`](data/simulink-m3-post-route.csv).
 The remaining limitations are:
 
 1. **No cosimulation or board-level implementation.** Verilog is generated for
-   all seven hardware-bound DUTs with zero HDL errors, and all seven pass
+   all eight hardware-bound DUTs with zero HDL errors, and all eight pass
    out-of-context synthesis. The FFT correlator and ToA interpolator also have
    OOC post-route timing and vectorless core-power estimates through registered
    boundary wrappers. A complete top level with board clocking, AXI, package

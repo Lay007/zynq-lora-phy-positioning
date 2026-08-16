@@ -130,6 +130,30 @@ estimator is integer arithmetic and the DUT is **bit-exact** against
 none is claimed. `run_joint_sync_regression` enumerates the entire `N × N`
 input domain where that is affordable.
 
+## Frequency-only DUT
+
+```matlab
+info = build_frequency_estimator_model( ...
+    SpreadingFactor=7, SamplesPerChip=8);
+```
+
+`lora_frequency_estimator/DUT` retains only `cfoHalfBins = upSigned +
+downSigned` as `int16` and `estimateValid`. Inputs and outputs are registered, so latency
+is two clocks and Vivado sees a real register-to-register path. Bin inputs are
+`uint8` for SF5–SF8 and `uint16` for SF9–SF12. The physical
+conversion stays outside the DUT:
+
+```text
+cfoHz = cfoHalfBins * bandwidthHz / (2 * 2^SF)
+carrierHz = configuredSdrCentreHz + cfoHz
+```
+
+`run_frequency_estimator_regression` compares it exactly with the unchanged
+joint timing/CFO MATLAB golden model over 295936 bin pairs. At SF7/BW125 the
+output step is 488.281 Hz and the ideal nearest-bin quantization error is at
+most 244.141 Hz. This is not an absolute RF calibration; SDR and transmitter
+reference errors remain part of the reported carrier offset.
+
 ## Third DUT: acquisition acceptance
 
 ```matlab
@@ -341,7 +365,7 @@ cosimulation is still unavailable because no HDL simulator is installed.
 report = run_hdl_generation(WordLength=16);
 ```
 
-Generates Verilog for all seven hardware-bound DUTs into `fpga/generated/` and
+Generates Verilog for all eight hardware-bound DUTs into `fpga/generated/` and
 reads HDL Coder's own operator counts and delay-balancing report. Those counts
 are inferred operators and must not be read as LUT/FF/DSP/BRAM.
 

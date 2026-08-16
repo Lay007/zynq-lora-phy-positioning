@@ -171,6 +171,15 @@ Software recovers the physical value with
 listed above is superseded for this signal; carrying half-bins is both exact and
 cheaper.
 
+The standalone `frequency-estimator` DUT exposes only `cfoHalfBins` and
+`estimateValid`. It consumes the same `upBin`, `downBin`, and `binValid`
+signals, with registered inputs and outputs and a two-clock latency. It does
+not contain the FFT peak detectors. Its `cfoHalfBins` output is `int16`, which
+covers the full SF12 sum range; bin inputs are `uint8` through SF8 and `uint16`
+from SF9 through SF12. The conversion is
+`cfoHz = cfoHalfBins·BW/(2·2^SF)` and absolute carrier frequency is the
+configured SDR centre plus that offset.
+
 ### 2.5 Packet outputs and failure flags
 
 | Signal | Direction | Type | Meaning |
