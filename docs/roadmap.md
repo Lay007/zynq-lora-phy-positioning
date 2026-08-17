@@ -84,21 +84,22 @@ metric definitions, and the explicit configuration-aided boundary.
   MATLAB over 390 symbols, 7 packets and 15 rejections.
 - [x] Build the SFD validation DUT, bit-exact against MATLAB over 660 groups
   across SF5/SF7/SF9, with a stimulus dominated by groups it must reject.
-- [ ] Keep TDoA association/multilateration outside the HDL DUT and verify its
-  timestamp/metadata interface. The coarse sample count and its valid flag are
-  implemented and checked; the fractional ToA is not, because it needs the
-  sample-rate matched filter that belongs to acquisition.
+- [ ] Finish acceptance of the timestamp/metadata interface while keeping TDoA
+  association and multilateration outside the HDL DUT. The coarse sample count,
+  timestamp-valid flag, and packet-rate fractional ToA interpolator are now
+  implemented and regression-tested; the remaining gate is exercising those
+  fields together at the acquisition/metadata boundary.
 
 Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
 boundary, and impairment regressions and is accepted by HDL Coder checks.
 Measurements so far are in [M2 acceptance](simulink-m2-acceptance.md); the
-milestone remains open on the unchecked items above.
+milestone remains open on the interface-acceptance item above.
 
 ## M3 — HDL Coder Verilog generation
 
-- [x] Generate Verilog for the fixed-point FFT correlator, the blind detector,
-  the acquisition FSM, and the joint timing/CFO estimator, with HDL Coder
-  operator counts recorded.
+- [x] Generate Verilog for the fixed-point FFT correlator, blind detector,
+  acquisition FSM, framing, SFD validation, and joint timing/CFO estimator,
+  with HDL Coder operator counts recorded.
 - [x] Generate Verilog for the ToA block.
 - [x] Split out a registered carrier-frequency-only estimator and measure its
   exact bin-domain behavior and synthesis resources.
