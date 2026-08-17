@@ -8,10 +8,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: lora-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Auxiliary Python checks
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +36,7 @@ jobs:
   matlab:
     name: Authoritative MATLAB model tests
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       # The tests build their own signals and write to tempname, so the Git LFS
