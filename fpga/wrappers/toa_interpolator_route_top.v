@@ -2,8 +2,17 @@
 //
 // The packet-rate DUT is left unchanged. Boundary registers make all
 // external combinational paths part of the post-route timing measurement.
+//
+// Older committed HDL used the generic module name DUT. New regeneration uses
+// a target-specific ModulePrefix so several generated cores can coexist in one
+// Vivado design. The implementation flow defines LORA_TOA_GENERATED_DUT to the
+// prefixed name; the fallback keeps historical generated snapshots measurable.
 
 `timescale 1 ns / 1 ns
+
+`ifndef LORA_TOA_GENERATED_DUT
+`define LORA_TOA_GENERATED_DUT DUT
+`endif
 
 module toa_interpolator_route_top
           (clk,
@@ -38,7 +47,7 @@ module toa_interpolator_route_top
   wire dut_offsetValid;
   wire signed [31:0] dut_logPeak;
 
-  DUT u_dut
+  `LORA_TOA_GENERATED_DUT u_dut
         (.clk(clk),
          .reset(reset),
          .clk_enable(1'b1),
