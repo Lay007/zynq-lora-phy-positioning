@@ -5,18 +5,24 @@
 # not exist. These numbers describe the DUT alone and will change once it is
 # wrapped.
 #
-#   vivado -mode batch -source synth_ooc.tcl -tclargs <srcDir> <part> <period> <outFile>
+#   vivado -mode batch -source synth_ooc.tcl -tclargs \
+#     <srcDir> <part> <period> <outFile> <preferredTop>
+#
+# preferredTop is the ModulePrefix-aware generated top (for example
+# lora_fft_DUT). Historical committed snapshots used the generic name DUT, so
+# the script deliberately falls back to DUT when the preferred top is absent.
 #
 # Emits key=value lines so the caller never has to parse a Vivado report.
 
-if {$argc != 4} {
-    puts "ERROR expected 4 arguments, got $argc"
+if {$argc != 5} {
+    puts "ERROR expected 5 arguments, got $argc"
     exit 1
 }
-set srcDir  [lindex $argv 0]
-set part    [lindex $argv 1]
-set period  [lindex $argv 2]
-set outFile [lindex $argv 3]
+set srcDir       [lindex $argv 0]
+set part         [lindex $argv 1]
+set period       [lindex $argv 2]
+set outFile      [lindex $argv 3]
+set preferredTop [lindex $argv 4]
 
 set files [glob -nocomplain -directory $srcDir *.v]
 if {[llength $files] == 0} {
@@ -24,9 +30,32 @@ if {[llength $files] == 0} {
     exit 1
 }
 
+proc module_exists {files moduleName} {
+    set pattern [format {(?m)^\s*module\s+%s(?:\s|\(|#)} $moduleName]
+    foreach path $files {
+        set fh [open $path r]
+        set text [read $fh]
+        close $fh
+        if {[regexp $pattern $text]} {
+            return 1
+        }
+    }
+    return 0
+}
+
+if {[module_exists $files $preferredTop]} {
+    set top $preferredTop
+} elseif {[module_exists $files DUT]} {
+    set top DUT
+    puts "INFO preferred top $preferredTop not found; using historical DUT"
+} else {
+    puts "ERROR neither preferred top $preferredTop nor historical DUT exists"
+    exit 1
+}
+
 create_project -in_memory -part $part
 add_files $files
-set_property top DUT [current_fileset]
+set_property top $top [current_fileset]
 
 # The clock has to constrain synthesis, not be declared after it, or the
 # tool optimises against no timing target and the slack means nothing. The
@@ -38,7 +67,7 @@ puts $fh "create_clock -name clk -period $period \[get_ports clk\]"
 close $fh
 read_xdc $xdc
 
-synth_design -top DUT -part $part -mode out_of_context
+synth_design -top $top -part $part -mode out_of_context
 
 set util [report_utilization -return_string]
 
@@ -84,6 +113,7 @@ if {$wns eq "" || ![string is double -strict $wns]} {
 
 set fh [open $outFile w]
 puts $fh "part=$part"
+puts $fh "top=$top"
 puts $fh "probe_period_ns=$period"
 puts $fh "luts=$luts"
 puts $fh "registers=$regs"
@@ -95,5 +125,5 @@ puts $fh "achieved_period_ns=$achieved"
 puts $fh "fmax_mhz=$fmax"
 close $fh
 
-puts "SYNTH_OK luts=$luts regs=$regs bram=$bram dsp=$dsp fmax=$fmax"
+puts "SYNTH_OK top=$top luts=$luts regs=$regs bram=$bram dsp=$dsp fmax=$fmax"
 exit 0
