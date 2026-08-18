@@ -15,6 +15,7 @@ function results = run_simulink_regression(options)
 %   frequency  registered frequency-only DUT against the same golden model
 %   acquisition preamble/sync acceptance FSM, exact over sequences
 %   blind      blind packet-start detector, exact over sliding windows
+%   metadata   coarse/fractional timestamp pairing, reset, and overflow
 %   fixed      fixed-point word-length sweep (hours, opt in)
 %   real       committed SX1262 symbol windows through the fixed DUT (opt in)
 %
@@ -25,7 +26,7 @@ function results = run_simulink_regression(options)
 arguments
     options.Suites string = ["toolchain", "double", "joint", ...
         "frequency", "reset", "acquisition", "blind", "frontend", ...
-        "framing", "sfd", "toa"]
+        "framing", "sfd", "toa", "metadata"]
     options.WriteCsv (1,1) logical = true
     options.FixedWordLengths (1,:) double = [8, 10, 12, 14, 16, 18]
     options.RealWordLength (1,1) double = 16
@@ -38,7 +39,7 @@ addpath(fullfile(repositoryRoot, "model", "matlab"));
 
 known = ["toolchain", "double", "joint", "frequency", "reset", ...
     "acquisition", "blind", "frontend", "framing", "sfd", "toa", ...
-    "fixed", "real"];
+    "metadata", "fixed", "real"];
 unknown = setdiff(options.Suites, known);
 if ~isempty(unknown)
     error("lora_sim:UnknownSuite", "Unknown suite: %s", ...
@@ -137,6 +138,15 @@ if any(options.Suites == "toa")
     end
 end
 
+if any(options.Suites == "metadata")
+    fprintf("\n=== timestamp metadata contract ===\n");
+    results.metadata = run_timestamp_metadata_regression( ...
+        WriteCsv=options.WriteCsv);
+    if ~results.metadata.passed
+        problems = [problems; results.metadata.failures(:)];
+    end
+end
+
 if any(options.Suites == "fixed")
     fprintf("\n=== fixed-point word-length sweep ===\n");
     results.fixed = run_fixed_point_sweep( ...
@@ -206,6 +216,10 @@ end
 if isfield(results, "toa")
     fprintf("toa    : %.1f m RMS against a %.0f m sample\n", ...
         results.toa.summary.RmsAgainstTruthMetres, results.toa.metresPerSample);
+end
+if isfield(results, "metadata")
+    fprintf("meta   : %d atomic timestamp records; reset/overflow covered\n", ...
+        height(results.metadata.summary));
 end
 if isfield(results, "fixed")
     fprintf("fixed  : smallest decision-preserving word length %d bits\n", ...
