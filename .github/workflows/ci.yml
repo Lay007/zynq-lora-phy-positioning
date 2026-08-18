@@ -53,7 +53,7 @@ jobs:
           vvp /tmp/timestamp_metadata_join_tb
 
   matlab:
-    name: Authoritative MATLAB model tests
+    name: Authoritative MATLAB and Simulink tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -61,11 +61,22 @@ jobs:
       # The tests build their own signals and write to tempname, so the Git LFS
       # reference captures are deliberately not fetched here.
       - uses: actions/checkout@v5
-      - name: Set up MATLAB
-        uses: matlab-actions/setup-matlab@v2
+      - name: Set up MATLAB and Simulink
+        uses: matlab-actions/setup-matlab@v3
         with:
           release: R2025a
+          products: Simulink
       - name: Run floating-point model regression suite
-        uses: matlab-actions/run-command@v2
+        uses: matlab-actions/run-command@v3
         with:
           command: cd('model/matlab'); results = run_tests; assertSuccess(results);
+      - name: Run timestamp metadata regression
+        uses: matlab-actions/run-command@v3
+        with:
+          command: cd('model/simulink'); report = run_timestamp_metadata_regression(WriteCsv=true, Verbose=true); assert(report.passed);
+      - name: Upload timestamp metadata evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: timestamp-metadata-regression
+          path: docs/data/simulink-m2-timestamp-metadata.csv
+          if-no-files-found: error
