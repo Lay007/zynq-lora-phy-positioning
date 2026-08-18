@@ -5,22 +5,29 @@
 # out-of-context: no package pins, PS, board clocking, or AXI are invented.
 #
 # vivado -mode batch -source implement_ooc.tcl -tclargs \
-#   <srcDir> <wrapperFile> <top> <part> <probePeriodNs> \
-#   <powerClockMHz> <inputTogglePercent> <junctionTempC> <outFile>
+#   <srcDir> <wrapperFile> <top> <generatedTop> <generatedMacro> <part> \
+#   <probePeriodNs> <powerClockMHz> <inputTogglePercent> <junctionTempC> <outFile>
+#
+# generatedTop is the ModulePrefix-aware core top. generatedMacro is the
+# wrapper macro used at the instantiation site. Historical generated snapshots
+# used module DUT; the script falls back to that name so old measurements stay
+# reproducible until HDL is regenerated.
 
-if {$argc != 9} {
-    puts "ERROR expected 9 arguments, got $argc"
+if {$argc != 11} {
+    puts "ERROR expected 11 arguments, got $argc"
     exit 1
 }
 set srcDir            [lindex $argv 0]
 set wrapperFile       [lindex $argv 1]
 set top               [lindex $argv 2]
-set part              [lindex $argv 3]
-set probePeriod       [lindex $argv 4]
-set powerClockMHz     [lindex $argv 5]
-set inputToggle       [lindex $argv 6]
-set junctionTemp      [lindex $argv 7]
-set outFile           [lindex $argv 8]
+set generatedTop      [lindex $argv 3]
+set generatedMacro    [lindex $argv 4]
+set part              [lindex $argv 5]
+set probePeriod       [lindex $argv 6]
+set powerClockMHz     [lindex $argv 7]
+set inputToggle       [lindex $argv 8]
+set junctionTemp      [lindex $argv 9]
+set outFile           [lindex $argv 10]
 
 set files [glob -nocomplain -directory $srcDir *.v]
 if {[llength $files] == 0} {
@@ -36,12 +43,36 @@ if {$powerClockMHz <= 0 || $probePeriod <= 0} {
     exit 1
 }
 
+proc module_exists {files moduleName} {
+    set pattern [format {(?m)^\s*module\s+%s(?:\s|\(|#)} $moduleName]
+    foreach path $files {
+        set fh [open $path r]
+        set text [read $fh]
+        close $fh
+        if {[regexp $pattern $text]} {
+            return 1
+        }
+    }
+    return 0
+}
+
+if {[module_exists $files $generatedTop]} {
+    set generatedDut $generatedTop
+} elseif {[module_exists $files DUT]} {
+    set generatedDut DUT
+    puts "INFO preferred generated top $generatedTop not found; using historical DUT"
+} else {
+    puts "ERROR neither generated top $generatedTop nor historical DUT exists"
+    exit 1
+}
+
 set reportDir [file dirname $outFile]
 file mkdir $reportDir
 
 create_project -in_memory -part $part
 add_files $files
 add_files $wrapperFile
+set_property verilog_define "${generatedMacro}=${generatedDut}" [current_fileset]
 set_property top $top [current_fileset]
 
 set xdc [file join $reportDir implement_ooc_probe.xdc]
@@ -149,6 +180,7 @@ set powerConfidenceMedium [regexp {contents="Confidence Level"[^>]*/>\s*<tablece
 
 set fh [open $outFile w]
 puts $fh "part=$part"
+puts $fh "generated_dut=$generatedDut"
 puts $fh "probe_period_ns=$probePeriod"
 puts $fh "power_clock_mhz=$powerClockMHz"
 puts $fh "input_toggle_percent=$inputToggle"
@@ -175,5 +207,5 @@ puts $fh "power_report_resolution_w=0.001"
 puts $fh "power_confidence_medium=$powerConfidenceMedium"
 close $fh
 
-puts "IMPLEMENT_OK top=$top luts=$luts regs=$regs fmax=$fmax power=$totalPower"
+puts "IMPLEMENT_OK top=$top generated=$generatedDut luts=$luts regs=$regs fmax=$fmax power=$totalPower"
 exit 0
