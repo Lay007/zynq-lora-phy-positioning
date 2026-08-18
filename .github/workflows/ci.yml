@@ -33,6 +33,25 @@ jobs:
       - name: Run tests
         run: pytest
 
+  rtl-wrapper-smoke:
+    name: RTL metadata wrapper smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+      - name: Compile and run timestamp metadata joiner testbench
+        run: |
+          iverilog -g2012 \
+            -o /tmp/timestamp_metadata_join_tb \
+            fpga/wrappers/lora_timestamp_metadata_join.v \
+            fpga/tb/tb_lora_timestamp_metadata_join.sv
+          vvp /tmp/timestamp_metadata_join_tb
+
   matlab:
     name: Authoritative MATLAB model tests
     runs-on: ubuntu-latest
