@@ -86,14 +86,19 @@ metric definitions, and the explicit configuration-aided boundary.
   across SF5/SF7/SF9, with a stimulus dominated by groups it must reject.
 - [ ] Finish acceptance of the timestamp/metadata interface while keeping TDoA
   association and multilateration outside the HDL DUT. The coarse sample count,
-  timestamp-valid flag, and packet-rate fractional ToA interpolator are now
-  implemented and regression-tested; the remaining gate is exercising those
-  fields together at the acquisition/metadata boundary.
+  timestamp-valid flag, and packet-rate fractional ToA interpolator are already
+  implemented. `build_timestamp_metadata_model` now joins coarse and fractional
+  fragments into one atomic record and `run_timestamp_metadata_regression`
+  covers both arrival orders, same-cycle arrival, reset, duplicate-fragment
+  overflow, and record preservation. The regression is part of the default
+  Simulink suite and a focused GitHub Actions job uploads its CSV evidence. The
+  remaining gate is a successful recorded execution of that new regression.
 
 Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
 boundary, and impairment regressions and is accepted by HDL Coder checks.
 Measurements so far are in [M2 acceptance](simulink-m2-acceptance.md); the
-milestone remains open on the interface-acceptance item above.
+milestone remains open until the timestamp-metadata regression has a successful
+recorded run.
 
 ## M3 — HDL Coder Verilog generation
 
@@ -104,10 +109,19 @@ milestone remains open on the interface-acceptance item above.
 - [x] Split out a registered carrier-frequency-only estimator and measure its
   exact bin-domain behavior and synthesis resources.
 - [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
-  simulator is installed.
-- [x] Add a reproducible generation script (`run_hdl_generation`).
+  simulator is installed on the development host.
+- [x] Add a reproducible generation script (`run_hdl_generation`). The script
+  now assigns a unique HDL Coder `ModulePrefix` to every target so all eight
+  generated cores can coexist in one Vivado namespace. Existing committed HDL
+  snapshots predate this change and must be regenerated before board assembly.
 - [ ] Add generated-IP packaging.
-- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers.
+- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers. A
+  first synthesizable integration primitive now exists:
+  `fpga/wrappers/lora_timestamp_metadata_join.v`, with a self-checking Icarus
+  testbench and CI smoke job. The OOC synthesis and post-route flows are
+  namespace-aware and retain compatibility with historical `DUT` snapshots.
+  Remaining work is the actual receiver streaming wrapper, AXI-Lite
+  control/status registers, reset/clock policy, and generated-core composition.
 - [x] Out-of-context synthesis with resource and timing reports
   (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
@@ -123,6 +137,9 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
 ## M4 — ZynqSDR symbol receiver
 
 - [ ] Integrate the generated core in Vivado and connect the AD936x sample path.
+  Prerequisites now made explicit in M3 are regeneration with unique module
+  prefixes plus the receiver streaming/control wrapper; no board-level success
+  is claimed from OOC cores alone.
 - [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
