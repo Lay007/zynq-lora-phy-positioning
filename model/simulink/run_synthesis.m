@@ -16,6 +16,11 @@ function report = run_synthesis(options)
 % Fmax is derived, not requested: synthesis runs against a probe period and
 % Fmax = 1/(probe - WNS). A negative slack against an aggressive probe is
 % still a valid measurement of what the design achieves.
+%
+% RUN_HDL_GENERATION now gives every target a unique ModulePrefix so the
+% generated cores can coexist in one Vivado project. The Tcl layer prefers
+% that namespaced top but falls back to historical module DUT, keeping the
+% already-committed synthesis evidence reproducible before regeneration.
 
 arguments
     % ZC702, taken from the ADI reference scripts rather than from memory:
@@ -95,10 +100,12 @@ for target = options.Targets
     end
     mkdir(workDirectory);
     resultFile = fullfile(workDirectory, "synth.txt");
+    preferredTop = generatedTopName(target);
 
     command = sprintf('"%s" -mode batch -nojournal -nolog -source "%s" ' + ...
-        "-tclargs ""%s"" ""%s"" %g ""%s""", options.VivadoPath, tclScript, ...
-        sourceDirectory, options.Part, options.ProbePeriodNs, resultFile);
+        "-tclargs ""%s"" ""%s"" %g ""%s"" ""%s""", ...
+        options.VivadoPath, tclScript, sourceDirectory, options.Part, ...
+        options.ProbePeriodNs, resultFile, preferredTop);
     previous = cd(workDirectory);
     cleanup = onCleanup(@() cd(previous));
     [status, output] = system(command);
@@ -155,6 +162,31 @@ if options.Verbose
     else
         fprintf("FAILURES:\n  %s\n", strjoin(failures, newline+"  "));
     end
+end
+end
+
+function name = generatedTopName(target)
+%GENERATEDTOPNAME Top module produced by RUN_HDL_GENERATION's ModulePrefix.
+switch target
+    case "fft-correlator-fixed"
+        name = "lora_fft_DUT";
+    case "acquisition"
+        name = "lora_acq_DUT";
+    case "blind-detector"
+        name = "lora_blind_DUT";
+    case "framing"
+        name = "lora_frame_DUT";
+    case "sfd"
+        name = "lora_sfd_DUT";
+    case "toa-interpolator"
+        name = "lora_toa_DUT";
+    case "joint-timing-cfo"
+        name = "lora_sync_DUT";
+    case "frequency-estimator"
+        name = "lora_freq_DUT";
+    otherwise
+        error("lora_sim:UnknownSynthesisTarget", ...
+            "No generated top name for %s", target);
 end
 end
 
