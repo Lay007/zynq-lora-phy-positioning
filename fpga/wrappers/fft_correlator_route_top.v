@@ -4,8 +4,17 @@
 // and output closes its external combinational paths so post-route timing is
 // measured register-to-register. clk_enable is tied high because the
 // correlator consumes one sample on every application clock.
+//
+// Older committed HDL used the generic module name DUT. New regeneration uses
+// a target-specific ModulePrefix so several generated cores can coexist in one
+// Vivado design. The implementation flow defines LORA_FFT_GENERATED_DUT to the
+// prefixed name; the fallback keeps historical generated snapshots measurable.
 
 `timescale 1 ns / 1 ns
+
+`ifndef LORA_FFT_GENERATED_DUT
+`define LORA_FFT_GENERATED_DUT DUT
+`endif
 
 module fft_correlator_route_top
           (clk,
@@ -61,7 +70,7 @@ module fft_correlator_route_top
   wire [63:0] dut_symbolSampleCount;
   wire dut_timestampValid;
 
-  DUT u_dut
+  `LORA_FFT_GENERATED_DUT u_dut
         (.clk(clk),
          .reset(reset),
          .clk_enable(1'b1),
