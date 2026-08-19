@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this project in research or engineering work, please cite it as below."
+title: "Zynq LoRa PHY and Positioning: Reproducible SDR/FPGA Communication and TDoA Research Platform"
+type: software
+authors:
+  - family-names: "Lyubko"
+    given-names: "Alexander"
+repository-code: "https://github.com/Lay007/zynq-lora-phy-positioning"
+license: Apache-2.0
+keywords:
+  - LoRa
+  - CSS
+  - software-defined radio
+  - SDR
+  - FPGA
+  - Zynq
+  - DSP
+  - Verilog
+  - fixed-point
+  - time of arrival
+  - ToA
+  - time difference of arrival
+  - TDoA
+  - positioning
+abstract: >-
+  A reproducible engineering and research platform for LoRa-compatible PHY
+  processing, fixed-point and generated-HDL implementation, precise packet
+  time-of-arrival estimation, and calibrated TDoA positioning on Zynq-based
+  software-defined radio hardware.
