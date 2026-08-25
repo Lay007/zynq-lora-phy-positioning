@@ -51,6 +51,13 @@ jobs:
             fpga/wrappers/lora_sample_counter_capture.v \
             fpga/tb/tb_lora_sample_counter_capture.sv
           vvp /tmp/lora_sample_counter_capture_tb
+      - name: Compile and run detector timestamp aligner testbench
+        run: |
+          iverilog -g2012 \
+            -o /tmp/lora_detector_timestamp_align_tb \
+            fpga/wrappers/lora_detector_timestamp_align.v \
+            fpga/tb/tb_lora_detector_timestamp_align.sv
+          vvp /tmp/lora_detector_timestamp_align_tb
       - name: Compile and run timestamp metadata joiner testbench
         run: |
           iverilog -g2012 \
