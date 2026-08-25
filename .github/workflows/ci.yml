@@ -58,6 +58,15 @@ jobs:
             fpga/wrappers/lora_axi_lite_status.v \
             fpga/tb/tb_lora_axi_lite_status.sv
           vvp /tmp/lora_axi_lite_status_tb
+      - name: Compile and run receiver control wrapper integration testbench
+        run: |
+          iverilog -g2012 \
+            -o /tmp/lora_receiver_control_wrapper_tb \
+            fpga/wrappers/lora_timestamp_metadata_join.v \
+            fpga/wrappers/lora_axi_lite_status.v \
+            fpga/wrappers/lora_receiver_control_wrapper.v \
+            fpga/tb/tb_lora_receiver_control_wrapper.sv
+          vvp /tmp/lora_receiver_control_wrapper_tb
 
   matlab:
     name: Authoritative MATLAB and Simulink tests
