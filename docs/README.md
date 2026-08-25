@@ -22,6 +22,13 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 - [Heltec V4.3 hardware sweep — 2026-08-03](hardware-sweep-2026-08-03-heltec-v43.md)
 - [Targeted hardware notes — 2026-08-07](hardware-targeted-2026-08-07.md)
 
-## Conventions
+## Evidence boundary
 
-The repository separates model evidence, generated HDL evidence, integration RTL, and board-level hardware evidence. Documentation should state which layer a result belongs to instead of treating model/simulation success as hardware proof.
+The repository deliberately separates four evidence layers:
+
+1. floating-point / fixed-point model evidence;
+2. generated-HDL and RTL simulation evidence;
+3. integration-wrapper and implementation evidence;
+4. board-level Zynq/AD936x measurement evidence.
+
+A passing AXI-Lite or metadata-wrapper simulation proves register/integration RTL behavior only. It must not be described as proof of board-level LoRa reception, timing accuracy, or positioning performance until the corresponding hardware experiment exists.
