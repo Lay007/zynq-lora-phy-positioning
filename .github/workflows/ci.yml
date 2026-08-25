@@ -34,7 +34,7 @@ jobs:
         run: pytest
 
   rtl-wrapper-smoke:
-    name: RTL metadata wrapper smoke
+    name: RTL integration wrapper smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -51,6 +51,13 @@ jobs:
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/tb/tb_lora_timestamp_metadata_join.sv
           vvp /tmp/timestamp_metadata_join_tb
+      - name: Compile and run AXI-Lite status register testbench
+        run: |
+          iverilog -g2012 \
+            -o /tmp/lora_axi_lite_status_tb \
+            fpga/wrappers/lora_axi_lite_status.v \
+            fpga/tb/tb_lora_axi_lite_status.sv
+          vvp /tmp/lora_axi_lite_status_tb
 
   matlab:
     name: Authoritative MATLAB and Simulink tests
