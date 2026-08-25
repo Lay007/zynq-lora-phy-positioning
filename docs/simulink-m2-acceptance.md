@@ -7,8 +7,8 @@ from a committed script and a committed table; nothing is estimated. The
 interface contract, toolchain, and vector format are in
 [M2 foundations](simulink-m2-interfaces.md).
 
-M2 is **not complete**. This document records what has been measured and names
-what still blocks acceptance.
+M2 is **complete**. This document records the measured acceptance evidence and
+the boundaries deliberately deferred to M3 and later hardware milestones.
 
 ## Reproducing
 
@@ -499,6 +499,13 @@ while one coarse sample is **1199 m**. These are model-regression numbers, not
 an accuracy claim for the hardware bench.
 
 Raw table: [`simulink-m2-reset.csv`](data/simulink-m2-reset.csv).
+
+The atomic coarse/fractional metadata join is covered separately by
+`run_timestamp_metadata_regression`: coarse-first, fractional-first, same-cycle
+arrival, reset of a partial record, duplicate-fragment overflow and preservation
+of the original fragment all pass. The focused regression and CSV artifact were
+recorded by
+[CI run 32837815018](https://github.com/Lay007/zynq-lora-phy-positioning/actions/runs/32837815018).
 
 ## Acquisition: preamble and sync-word acceptance
 

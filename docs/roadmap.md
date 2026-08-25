@@ -84,21 +84,19 @@ metric definitions, and the explicit configuration-aided boundary.
   MATLAB over 390 symbols, 7 packets and 15 rejections.
 - [x] Build the SFD validation DUT, bit-exact against MATLAB over 660 groups
   across SF5/SF7/SF9, with a stimulus dominated by groups it must reject.
-- [ ] Finish acceptance of the timestamp/metadata interface while keeping TDoA
-  association and multilateration outside the HDL DUT. The coarse sample count,
-  timestamp-valid flag, and packet-rate fractional ToA interpolator are already
-  implemented. `build_timestamp_metadata_model` now joins coarse and fractional
-  fragments into one atomic record and `run_timestamp_metadata_regression`
-  covers both arrival orders, same-cycle arrival, reset, duplicate-fragment
-  overflow, and record preservation. The regression is part of the default
-  Simulink suite and a focused GitHub Actions job uploads its CSV evidence. The
-  remaining gate is a successful recorded execution of that new regression.
+- [x] Accept the timestamp/metadata interface while keeping TDoA association and
+  multilateration outside the HDL DUT. The coarse sample count, timestamp-valid
+  flag and packet-rate fractional ToA interpolator are joined into one atomic
+  record. `run_timestamp_metadata_regression` covers both arrival orders,
+  same-cycle arrival, reset, duplicate-fragment overflow and record preservation.
+  The focused regression passed in
+  [CI run 32837815018](https://github.com/Lay007/zynq-lora-phy-positioning/actions/runs/32837815018)
+  and uploaded its CSV evidence.
 
-Acceptance: Simulink matches MATLAB within documented tolerances for nominal,
-boundary, and impairment regressions and is accepted by HDL Coder checks.
-Measurements so far are in [M2 acceptance](simulink-m2-acceptance.md); the
-milestone remains open until the timestamp-metadata regression has a successful
-recorded run.
+Acceptance: complete. Simulink matches MATLAB within documented tolerances for
+nominal, boundary and impairment regressions, is accepted by HDL Coder checks,
+and has a successful recorded timestamp-metadata execution. Measurements are in
+[M2 acceptance](simulink-m2-acceptance.md).
 
 ## M3 — HDL Coder Verilog generation
 
