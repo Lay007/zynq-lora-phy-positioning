@@ -240,6 +240,16 @@ module tb_lora_receiver_control_wrapper;
         expect32(read_value, 32'h0000_0000, "status reset across composed wrapper");
         expect32({31'd0, receiver_enable}, 32'h0000_0000, "receiver enable reset");
 
+        // The orphan fractional fragment above is intentionally left pending
+        // to prove the pre-reset coarse fragment was discarded. Reset again
+        // before the independent same-cycle scenario so test cases do not
+        // share pending metadata state.
+        @(negedge clk);
+        resetn = 1'b0;
+        repeat (2) @(negedge clk);
+        resetn = 1'b1;
+        repeat (2) @(negedge clk);
+
         // Same-cycle fragments are also a legal complete record.
         axi_write(6'h00, 32'h0000_0001);
         pulse_pair(64'h7654_3210_fedc_ba98, -32'sd1);
