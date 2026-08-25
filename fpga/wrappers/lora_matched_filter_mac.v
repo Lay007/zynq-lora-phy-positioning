@@ -96,6 +96,20 @@ module lora_matched_filter_mac #(
     wire signed [ACC_WIDTH-1:0] next_acc_re = acc_re + product_re_ext;
     wire signed [ACC_WIDTH-1:0] next_acc_im = acc_im + product_im_ext;
 
+    // Explicitly widen before squaring. This avoids relying on Verilog
+    // expression-size rules for W x W multiplication and guarantees that the
+    // default 48-bit accumulator keeps the full 96-bit square.
+    wire signed [2*ACC_WIDTH-1:0] correlation_re_wide =
+        {{ACC_WIDTH{correlation_re[ACC_WIDTH-1]}}, correlation_re};
+    wire signed [2*ACC_WIDTH-1:0] correlation_im_wide =
+        {{ACC_WIDTH{correlation_im[ACC_WIDTH-1]}}, correlation_im};
+    wire [2*ACC_WIDTH-1:0] correlation_re_square =
+        correlation_re_wide * correlation_re_wide;
+    wire [2*ACC_WIDTH-1:0] correlation_im_square =
+        correlation_im_wide * correlation_im_wide;
+    wire [2*ACC_WIDTH-1:0] correlation_power_full =
+        correlation_re_square + correlation_im_square;
+
     wire [2*ACC_WIDTH-1:0] shifted_power = power_full >> POWER_SHIFT;
 
     assign iq_read_req = (state == STATE_ISSUE);
@@ -189,8 +203,7 @@ module lora_matched_filter_mac #(
                 end
 
                 STATE_SQUARE: begin
-                    power_full <= correlation_re * correlation_re +
-                                  correlation_im * correlation_im;
+                    power_full <= correlation_power_full;
                     state <= STATE_SCALE;
                 end
 
