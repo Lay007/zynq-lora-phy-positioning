@@ -4,10 +4,10 @@ module tb_lora_receiver_control_wrapper;
     reg clk = 1'b0;
     reg resetn = 1'b0;
 
-    reg  [63:0]        coarse_sample_count = 64'd0;
-    reg                coarse_valid = 1'b0;
-    reg signed [31:0]  fractional_toa_q12 = 32'sd0;
-    reg                fractional_valid = 1'b0;
+    reg sample_valid = 1'b0;
+    reg coarse_capture = 1'b0;
+    reg signed [31:0] fractional_toa_q12 = 32'sd0;
+    reg fractional_valid = 1'b0;
 
     reg  [5:0]  awaddr = 6'd0;
     reg         awvalid = 1'b0;
@@ -38,8 +38,8 @@ module tb_lora_receiver_control_wrapper;
     lora_receiver_control_wrapper dut (
         .s_axi_aclk(clk),
         .s_axi_aresetn(resetn),
-        .coarse_sample_count(coarse_sample_count),
-        .coarse_valid(coarse_valid),
+        .sample_valid(sample_valid),
+        .coarse_capture(coarse_capture),
         .fractional_toa_q12(fractional_toa_q12),
         .fractional_valid(fractional_valid),
         .s_axi_awaddr(awaddr),
@@ -65,14 +65,14 @@ module tb_lora_receiver_control_wrapper;
     task automatic expect32(
         input [31:0] got,
         input [31:0] expected,
-        input [8*56-1:0] label
+        input [8*64-1:0] label
     );
         begin
             if (got !== expected) begin
-                $display("FAIL %-56s got=0x%08x expected=0x%08x", label, got, expected);
+                $display("FAIL %-64s got=0x%08x expected=0x%08x", label, got, expected);
                 errors = errors + 1;
             end else begin
-                $display("PASS %-56s value=0x%08x", label, got);
+                $display("PASS %-64s value=0x%08x", label, got);
             end
         end
     endtask
@@ -135,13 +135,23 @@ module tb_lora_receiver_control_wrapper;
         end
     endtask
 
-    task automatic pulse_coarse(input [63:0] value);
+    task automatic accept_samples(input integer count);
+        integer i;
         begin
             @(negedge clk);
-            coarse_sample_count = value;
-            coarse_valid = 1'b1;
+            sample_valid = 1'b1;
+            for (i = 0; i < count; i = i + 1)
+                @(negedge clk);
+            sample_valid = 1'b0;
+        end
+    endtask
+
+    task automatic pulse_capture;
+        begin
             @(negedge clk);
-            coarse_valid = 1'b0;
+            coarse_capture = 1'b1;
+            @(negedge clk);
+            coarse_capture = 1'b0;
         end
     endtask
 
@@ -155,18 +165,32 @@ module tb_lora_receiver_control_wrapper;
         end
     endtask
 
-    task automatic pulse_pair(
-        input [63:0] coarse,
+    task automatic pulse_sample_capture_fractional(
         input signed [31:0] fractional
     );
         begin
             @(negedge clk);
-            coarse_sample_count = coarse;
+            sample_valid = 1'b1;
+            coarse_capture = 1'b1;
             fractional_toa_q12 = fractional;
-            coarse_valid = 1'b1;
             fractional_valid = 1'b1;
             @(negedge clk);
-            coarse_valid = 1'b0;
+            sample_valid = 1'b0;
+            coarse_capture = 1'b0;
+            fractional_valid = 1'b0;
+        end
+    endtask
+
+    task automatic pulse_capture_and_fractional(
+        input signed [31:0] fractional
+    );
+        begin
+            @(negedge clk);
+            coarse_capture = 1'b1;
+            fractional_toa_q12 = fractional;
+            fractional_valid = 1'b1;
+            @(negedge clk);
+            coarse_capture = 1'b0;
             fractional_valid = 1'b0;
         end
     endtask
@@ -182,50 +206,56 @@ module tb_lora_receiver_control_wrapper;
         axi_write(6'h00, 32'h0000_0001);
         expect32({31'd0, receiver_enable}, 32'h0000_0001, "receiver enable reaches wrapper output");
 
-        // Coarse-first metadata pair.
-        pulse_coarse(64'h0123_4567_89ab_cdef);
+        // Coarse-first metadata pair. Five accepted samples establish a coarse
+        // count of 5 before the capture event.
+        accept_samples(5);
+        pulse_capture();
         pulse_fractional(-32'sd2048);
-        repeat (3) @(negedge clk);
+        repeat (4) @(negedge clk);
         axi_read(6'h08, read_value);
         expect32(read_value, 32'h0000_0001, "coarse-first sequence");
         axi_read(6'h0c, read_value);
-        expect32(read_value, 32'h89ab_cdef, "coarse-first low word");
+        expect32(read_value, 32'h0000_0005, "coarse-first PL sample count");
         axi_read(6'h10, read_value);
-        expect32(read_value, 32'h0123_4567, "coarse-first high word");
+        expect32(read_value, 32'h0000_0000, "coarse-first high word");
         axi_read(6'h14, read_value);
         expect32(read_value, 32'hffff_f800, "coarse-first fractional Q12");
 
-        // Fraction-first metadata pair.
+        // Fraction-first metadata pair. Three more accepted samples move the
+        // live PL sample count to 8 before the second coarse capture.
         pulse_fractional(32'sd1024);
-        pulse_coarse(64'hdead_beef_1020_3040);
-        repeat (3) @(negedge clk);
+        accept_samples(3);
+        pulse_capture();
+        repeat (4) @(negedge clk);
         axi_read(6'h08, read_value);
         expect32(read_value, 32'h0000_0002, "fraction-first sequence");
-        axi_read(6'h10, read_value);
-        expect32(read_value, 32'hdead_beef, "fraction-first high word");
+        axi_read(6'h0c, read_value);
+        expect32(read_value, 32'h0000_0008, "fraction-first PL sample count");
         axi_read(6'h14, read_value);
         expect32(read_value, 32'h0000_0400, "fraction-first fractional Q12");
 
-        // A duplicate unmatched coarse fragment must not replace the first
+        // Duplicate unmatched coarse captures must not replace the first
         // fragment and must set the sticky overflow bit in the AXI status.
-        pulse_coarse(64'haaaa_bbbb_cccc_dddd);
-        pulse_coarse(64'h1111_2222_3333_4444);
+        pulse_capture();
+        pulse_capture();
         pulse_fractional(32'sd256);
-        repeat (3) @(negedge clk);
+        repeat (4) @(negedge clk);
         axi_read(6'h04, read_value);
         expect32(read_value, 32'h0000_0007, "sticky overflow propagated through composition");
         axi_read(6'h08, read_value);
-        expect32(read_value, 32'h0000_0003, "duplicate fragment still emits one record");
+        expect32(read_value, 32'h0000_0003, "duplicate coarse capture still emits one record");
         axi_read(6'h0c, read_value);
-        expect32(read_value, 32'hcccc_dddd, "first coarse fragment retained after duplicate");
+        expect32(read_value, 32'h0000_0008, "first coarse capture retained after duplicate");
 
         // Clear sticky flags while keeping the receiver enabled.
         axi_write(6'h00, 32'h0000_0003);
         axi_read(6'h04, read_value);
         expect32(read_value, 32'h0000_0004, "W1C clears composed metadata status");
 
-        // Reset must discard a partial pair and reset the control/status bank.
-        pulse_coarse(64'hfeed_face_0102_0304);
+        // Reset must discard a captured coarse fragment and clear the PL
+        // sample counter as part of the same control-domain reset contract.
+        accept_samples(2);
+        pulse_capture();
         @(negedge clk);
         resetn = 1'b0;
         repeat (2) @(negedge clk);
@@ -235,31 +265,42 @@ module tb_lora_receiver_control_wrapper;
         pulse_fractional(32'sd512);
         repeat (3) @(negedge clk);
         axi_read(6'h08, read_value);
-        expect32(read_value, 32'h0000_0000, "partial pair discarded by reset");
+        expect32(read_value, 32'h0000_0000, "captured coarse fragment discarded by reset");
         axi_read(6'h04, read_value);
         expect32(read_value, 32'h0000_0000, "status reset across composed wrapper");
         expect32({31'd0, receiver_enable}, 32'h0000_0000, "receiver enable reset");
 
-        // The orphan fractional fragment above is intentionally left pending
-        // to prove the pre-reset coarse fragment was discarded. Reset again
-        // before the independent same-cycle scenario so test cases do not
-        // share pending metadata state.
+        // Clear the intentionally orphaned post-reset fractional fragment so
+        // the next scenario is independent.
         @(negedge clk);
         resetn = 1'b0;
         repeat (2) @(negedge clk);
         resetn = 1'b1;
         repeat (2) @(negedge clk);
 
-        // Same-cycle fragments are also a legal complete record.
+        // Four samples are accepted after reset. On the next edge sample_valid,
+        // coarse_capture and fractional_valid are asserted together. By
+        // definition the coarse timestamp is the pre-increment count (4), and
+        // the same edge advances the live counter to 5.
         axi_write(6'h00, 32'h0000_0001);
-        pulse_pair(64'h7654_3210_fedc_ba98, -32'sd1);
-        repeat (3) @(negedge clk);
+        accept_samples(4);
+        pulse_sample_capture_fractional(-32'sd1);
+        repeat (5) @(negedge clk);
         axi_read(6'h08, read_value);
-        expect32(read_value, 32'h0000_0001, "same-cycle pair sequence after reset");
+        expect32(read_value, 32'h0000_0001, "same-edge sample/capture sequence after reset");
         axi_read(6'h0c, read_value);
-        expect32(read_value, 32'hfedc_ba98, "same-cycle pair low word");
+        expect32(read_value, 32'h0000_0004, "same-edge capture uses pre-increment sample count");
         axi_read(6'h14, read_value);
-        expect32(read_value, 32'hffff_ffff, "same-cycle signed fractional Q12");
+        expect32(read_value, 32'hffff_ffff, "same-edge signed fractional Q12");
+
+        // A subsequent capture with no accepted sample must observe 5,
+        // proving that the previous simultaneous sample advanced the timebase.
+        pulse_capture_and_fractional(32'sd0);
+        repeat (5) @(negedge clk);
+        axi_read(6'h08, read_value);
+        expect32(read_value, 32'h0000_0002, "post-increment capture sequence");
+        axi_read(6'h0c, read_value);
+        expect32(read_value, 32'h0000_0005, "sample counter advances after same-edge capture");
 
         if (errors == 0) begin
             $display("PASS tb_lora_receiver_control_wrapper");
