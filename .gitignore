@@ -45,7 +45,7 @@ fpga/**/*.str
 *.asv
 
 # Editors, scratch, and OS files
-article/
+#article/
 .idea/
 .vscode/
 tmp/
