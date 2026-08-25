@@ -4,14 +4,20 @@
 // boundary:
 //
 //   fixed-point IQ -> generated FFT correlator -> generated blind detector
-//       -> aligned coarse packet timestamp
-//       + generated packet-rate ToA interpolator
-//       -> atomic coarse/fractional metadata join
+//       -> aligned coarse packet reference
+//       + sample-rate correlation search -> strongest interior peak triplet
+//       -> generated packet-rate ToA interpolator
+//       -> atomic integer-peak/fractional metadata join
 //       -> AXI4-Lite snapshot registers
 //
-// The matched-filter peak triplet is still an explicit integration input. It
-// belongs to the future board-facing matched-filter/peak-search path; keeping
-// it visible here avoids pretending that hardware block already exists.
+// The sample-rate matched filter itself is still outside this wrapper. Its
+// correlation-magnitude stream may be live or replayed from a packet buffer;
+// search_base_count identifies the absolute PL sample count of the first
+// accepted magnitude in the search window.
+//
+// The final metadata coarse field is peak_sample_count, not packet_start_count:
+// the peak search may move the integer ToA by several samples before the
+// generated interpolator adds its +/-0.5-sample fractional correction.
 //
 // All logic in this wrapper is intentionally single-clock. CDC belongs at the
 // AD936x/board boundary once the actual clock plan is fixed.
@@ -21,7 +27,9 @@
 `define LORA_TOA_INTERPOLATOR_MODULE ToaInterpolator
 `endif
 
-module lora_packet_timestamp_axi_path (
+module lora_packet_timestamp_axi_path #(
+    parameter integer TOA_SEARCH_SAMPLES = 17
+) (
     input  wire               clk,
     input  wire               resetn,
 
@@ -33,10 +41,10 @@ module lora_packet_timestamp_axi_path (
     input  wire [31:0]        resync_skip,
     input  wire [7:0]         sync_word,
 
-    input  wire [31:0]        magnitude_before,
-    input  wire [31:0]        magnitude_peak,
-    input  wire [31:0]        magnitude_after,
-    input  wire               triplet_valid,
+    input  wire               search_start,
+    input  wire [63:0]        search_base_count,
+    input  wire [31:0]        correlation_magnitude,
+    input  wire               correlation_magnitude_valid,
 
     input  wire [5:0]         s_axi_awaddr,
     input  wire               s_axi_awvalid,
@@ -67,6 +75,13 @@ module lora_packet_timestamp_axi_path (
     output wire [63:0]        packet_start_count,
     output wire               packet_start_valid,
 
+    output wire               peak_search_busy,
+    output wire [15:0]        peak_index,
+    output wire [63:0]        peak_sample_count,
+    output wire               peak_triplet_valid,
+    output wire               peak_boundary_error,
+    output wire               peak_restart_error,
+
     output wire signed [31:0] toa_offset_q12,
     output wire               toa_offset_valid,
     output wire signed [31:0] toa_log_peak_q12,
@@ -89,7 +104,7 @@ module lora_packet_timestamp_axi_path (
     wire [63:0] preamble_start_count_unused;
     wire preamble_start_valid_unused;
 
-    // AXI control is now functional: disabled receivers do not advance the
+    // AXI control is functional: disabled receivers do not advance the
     // generated correlator's valid-sample framing state.
     wire gated_valid_in = valid_in && receiver_enable;
 
@@ -122,11 +137,35 @@ module lora_packet_timestamp_axi_path (
         .symbol_index_width_error(symbol_index_width_error)
     );
 
-    // A streaming reset must discard an in-flight interpolation request and a
+    // A streaming reset discards an in-flight peak search/interpolation and a
     // partially assembled metadata record. The AXI register bank uses only the
     // global reset so software can still read the last complete snapshot after
     // a receiver resync.
     wire datapath_resetn = resetn && !reset_in;
+
+    wire [31:0] magnitude_before;
+    wire [31:0] magnitude_peak;
+    wire [31:0] magnitude_after;
+
+    lora_peak_triplet_capture #(
+        .SEARCH_SAMPLES(TOA_SEARCH_SAMPLES)
+    ) u_peak_triplet_capture (
+        .clk(clk),
+        .resetn(datapath_resetn),
+        .search_start(search_start && receiver_enable),
+        .search_base_count(search_base_count),
+        .magnitude(correlation_magnitude),
+        .magnitude_valid(correlation_magnitude_valid && receiver_enable),
+        .magnitude_before(magnitude_before),
+        .magnitude_peak(magnitude_peak),
+        .magnitude_after(magnitude_after),
+        .peak_index(peak_index),
+        .peak_sample_count(peak_sample_count),
+        .triplet_valid(peak_triplet_valid),
+        .busy(peak_search_busy),
+        .boundary_error(peak_boundary_error),
+        .restart_error(peak_restart_error)
+    );
 
     `LORA_TOA_INTERPOLATOR_MODULE u_toa_interpolator (
         .clk(clk),
@@ -135,17 +174,20 @@ module lora_packet_timestamp_axi_path (
         .magnitudeBefore(magnitude_before),
         .magnitudePeak(magnitude_peak),
         .magnitudeAfter(magnitude_after),
-        .tripletValid(triplet_valid),
+        .tripletValid(peak_triplet_valid),
         .offsetSamples(toa_offset_q12),
         .offsetValid(toa_offset_valid),
         .logPeak(toa_log_peak_q12)
     );
 
+    // The peak extractor supplies the integer-refined coarse timestamp at the
+    // same cycle that launches the fractional interpolation. The metadata
+    // joiner holds that coarse fragment until the iterative ToA result arrives.
     lora_timestamp_metadata_join u_metadata_join (
         .clk(clk),
         .resetn(datapath_resetn),
-        .coarse_sample_count(packet_start_count),
-        .coarse_valid(packet_start_valid),
+        .coarse_sample_count(peak_sample_count),
+        .coarse_valid(peak_triplet_valid),
         .fractional_toa_q12(toa_offset_q12),
         .fractional_valid(toa_offset_valid),
         .timestamp_coarse(metadata_coarse),
