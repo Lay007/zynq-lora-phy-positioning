@@ -11,6 +11,11 @@ PHY processing chain, make internal measurements observable, and provide a
 repeatable path from a MATLAB floating-point reference model through Simulink
 and generated Verilog to a ZynqSDR implementation.
 
+For the smaller generic CSS learning path and readable SF7 baseline RTL, see the
+companion [`zynq-sdr-course`](https://github.com/Lay007/zynq-sdr-course). The
+[project-boundary ADR](docs/architecture-decisions/0003-course-project-boundary.md)
+defines why generated LoRa HDL is not duplicated there.
+
 > Status: MATLAB M1 is complete: continuous configured-IQ packet acquisition,
 > hard/soft LoRa decoding, end-to-end BER/PER, fractional ToA, and calibrated
 > 2D TDoA are executable and regression-tested, including recorded SX1262 IQ.
@@ -154,9 +159,8 @@ mismatch:
 matlab -batch "cd model/simulink; run_simulink_regression"
 ```
 
-Measured results, selected fixed-point formats, and the open items that keep M2
-from being accepted are in
-[M2 acceptance](docs/simulink-m2-acceptance.md).
+Measured results and selected fixed-point formats that establish M2 acceptance
+are in [M2 acceptance](docs/simulink-m2-acceptance.md).
 
 ## Auxiliary Python checks
 

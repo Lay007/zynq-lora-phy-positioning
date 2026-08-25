@@ -11,6 +11,12 @@ LoRa-трансиверу. Её задача — сделать наблюдае
 воспроизводимый переход от эталонной MATLAB-модели с плавающей точкой через
 Simulink и автоматически сгенерированный Verilog к аппаратной реализации.
 
+Компактный учебный маршрут generic CSS и читаемый SF7 RTL baseline находятся в
+сопутствующем проекте
+[`zynq-sdr-course`](https://github.com/Lay007/zynq-sdr-course). Граница проектов
+зафиксирована в [ADR](docs/architecture-decisions/0003-course-project-boundary.md),
+поэтому сгенерированный LoRa HDL не дублируется в курсе.
+
 > Текущее состояние: MATLAB M1 завершён. Работают поиск полных пакетов в
 > непрерывном настроенном IQ, hard/soft LoRa decoding, end-to-end BER/PER,
 > дробный ToA и калиброванный 2D TDoA; есть регрессия по реальным IQ SX1262.
@@ -128,9 +134,8 @@ MATLAB и Simulink:
 matlab -batch "cd model/simulink; run_simulink_regression"
 ```
 
-Измеренные результаты, выбранные форматы fixed point и открытые пункты, из-за
-которых M2 ещё не принят, приведены в
-[приёмке M2](docs/ru/simulink-m2-acceptance.md).
+Измеренные результаты и выбранные fixed-point форматы, подтверждающие приёмку
+M2, приведены в [приёмке M2](docs/ru/simulink-m2-acceptance.md).
 
 ## Быстрый запуск Python-проверок
 
