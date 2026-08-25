@@ -66,6 +66,16 @@ jobs:
             fpga/wrappers/lora_matched_filter_mac.v \
             fpga/tb/tb_lora_matched_filter_mac.sv
           vvp /tmp/lora_matched_filter_mac_tb
+      - name: Compile and run matched-filter search sequencer testbench
+        run: |
+          iverilog -g2012 -Wall \
+            -o /tmp/lora_matched_filter_search_tb \
+            fpga/wrappers/lora_iq_history_buffer.v \
+            fpga/wrappers/lora_matched_filter_mac.v \
+            fpga/wrappers/lora_peak_triplet_capture.v \
+            fpga/wrappers/lora_matched_filter_search.v \
+            fpga/tb/tb_lora_matched_filter_search.sv
+          vvp /tmp/lora_matched_filter_search_tb
       - name: Compile and run ToA peak triplet capture testbench
         run: |
           iverilog -g2012 -Wall \
