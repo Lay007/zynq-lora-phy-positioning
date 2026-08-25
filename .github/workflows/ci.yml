@@ -51,6 +51,13 @@ jobs:
             fpga/wrappers/lora_sample_counter_capture.v \
             fpga/tb/tb_lora_sample_counter_capture.sv
           vvp /tmp/lora_sample_counter_capture_tb
+      - name: Compile and run IQ history buffer testbench
+        run: |
+          iverilog -g2012 -Wall \
+            -o /tmp/lora_iq_history_buffer_tb \
+            fpga/wrappers/lora_iq_history_buffer.v \
+            fpga/tb/tb_lora_iq_history_buffer.sv
+          vvp /tmp/lora_iq_history_buffer_tb
       - name: Compile and run ToA peak triplet capture testbench
         run: |
           iverilog -g2012 -Wall \
