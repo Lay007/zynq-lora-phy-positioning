@@ -90,10 +90,8 @@ reproducible before regeneration.
 
 ## Hand-written integration glue
 
-`wrappers/lora_timestamp_metadata_join.v` is the first board-integration
-primitive that is not merely a measurement wrapper. It joins the free-running
-64-bit coarse timestamp and the signed Q12 fractional-ToA result into one atomic
-record:
+`wrappers/lora_timestamp_metadata_join.v` joins the free-running 64-bit coarse
+timestamp and the signed Q12 fractional-ToA result into one atomic record:
 
 - fragments may arrive in either order or in the same cycle;
 - `timestamp_valid` qualifies both fields together;
@@ -102,15 +100,27 @@ record:
   silently overwriting the first value;
 - one unmatched coarse and one unmatched fractional fragment may be pending.
 
-`tb/tb_lora_timestamp_metadata_join.sv` is a self-checking SystemVerilog
-regression for ordering, reset, duplicate detection, and back-to-back records.
-The main CI workflow compiles and runs it with Icarus Verilog. The equivalent
-Simulink contract is built by `model/simulink/build_timestamp_metadata_model.m`
-and exercised by `run_timestamp_metadata_regression.m`.
+`wrappers/lora_axi_lite_status.v` exposes the resulting metadata to the Zynq
+processing system through a small vendor-independent AXI4-Lite register bank.
+It provides receiver enable, sticky metadata status, a sequence counter and a
+stable coarse/fractional timestamp snapshot. The software-visible map is in
+[`docs/axi-lite-register-map.md`](../docs/axi-lite-register-map.md).
 
-This is deliberately **not** called the receiver top level. AXI-Lite registers,
-receiver-core composition, clock/reset integration, the AD936x sample path, and
-board constraints remain M3/M4 work.
+`wrappers/lora_receiver_control_wrapper.v` is the first composition layer: it
+connects the metadata joiner directly to the AXI-Lite status bank and exports
+`receiver_enable` for the future streaming receiver top. It is intentionally
+single-clock-domain. Timestamp fragments and AXI-Lite all use `s_axi_aclk`; no
+CDC is hidden inside this wrapper. The decision and the required future CDC
+boundary are recorded in
+[`ADR 0002`](../docs/architecture-decisions/0002-single-clock-control-metadata.md).
+
+The RTL regressions under `tb/` cover the two primitives independently and the
+composed fragment-to-AXI path end to end. The main CI compiles and runs them
+with Icarus Verilog.
+
+This is still deliberately **not** the complete receiver top level. Generated
+receiver-core composition, the board-facing sample stream, explicit CDC where
+needed, AD936x integration, and board constraints remain M3/M4 work.
 
 ## Synthesis
 
