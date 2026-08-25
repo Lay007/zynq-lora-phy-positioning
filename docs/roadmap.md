@@ -108,8 +108,9 @@ recorded run.
 - [x] Generate Verilog for the ToA block.
 - [x] Split out a registered carrier-frequency-only estimator and measure its
   exact bin-domain behavior and synthesis resources.
-- [ ] Run HDL cosimulation against the same golden vectors. Blocked: no HDL
-  simulator is installed on the development host.
+- [ ] Run HDL cosimulation against the same golden vectors. The repository now
+  has Icarus-based wrapper regressions, but HDL Coder cosimulation against the
+  generated cores still needs its dedicated simulator/tool flow and evidence.
 - [x] Add a reproducible generation script (`run_hdl_generation`). The script
   now assigns a unique HDL Coder `ModulePrefix` to every target so all eight
   generated cores can coexist in one Vivado namespace. Existing committed HDL
