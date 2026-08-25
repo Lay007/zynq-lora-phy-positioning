@@ -58,6 +58,15 @@ jobs:
             fpga/wrappers/lora_detector_timestamp_align.v \
             fpga/tb/tb_lora_detector_timestamp_align.sv
           vvp /tmp/lora_detector_timestamp_align_tb
+      - name: Compile and run generated detector timestamp path testbench
+        run: |
+          iverilog -g2012 -Wall \
+            -o /tmp/lora_detector_timestamp_path_tb \
+            fpga/generated/blind-detector/lora_blind_detector_gen/BlindDetector.v \
+            fpga/wrappers/lora_detector_timestamp_align.v \
+            fpga/wrappers/lora_detector_timestamp_path.v \
+            fpga/tb/tb_lora_detector_timestamp_path.sv
+          vvp /tmp/lora_detector_timestamp_path_tb
       - name: Compile and run timestamp metadata joiner testbench
         run: |
           iverilog -g2012 \
