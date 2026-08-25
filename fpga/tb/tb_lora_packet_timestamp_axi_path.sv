@@ -5,6 +5,7 @@ module tb_lora_packet_timestamp_axi_path;
     localparam integer SAMPLES_PER_CHIP = 8;
     localparam integer SYMBOL_COUNT = (1 << SF);
     localparam integer SAMPLES_PER_SYMBOL = SYMBOL_COUNT * SAMPLES_PER_CHIP;
+    localparam integer SEARCH_SAMPLES = 17;
     localparam real PI = 3.14159265358979323846;
 
     reg clk = 1'b0;
@@ -19,10 +20,10 @@ module tb_lora_packet_timestamp_axi_path;
     reg [31:0] resync_skip = 32'd0;
     reg [7:0] sync_word = 8'h12;
 
-    reg [31:0] magnitude_before = 32'd0;
-    reg [31:0] magnitude_peak = 32'd0;
-    reg [31:0] magnitude_after = 32'd0;
-    reg triplet_valid = 1'b0;
+    reg search_start = 1'b0;
+    reg [63:0] search_base_count = 64'd0;
+    reg [31:0] correlation_magnitude = 32'd0;
+    reg correlation_magnitude_valid = 1'b0;
 
     reg [5:0] awaddr = 6'd0;
     reg awvalid = 1'b0;
@@ -50,6 +51,12 @@ module tb_lora_packet_timestamp_axi_path;
     wire sync_valid;
     wire [63:0] packet_start_count;
     wire packet_start_valid;
+    wire peak_search_busy;
+    wire [15:0] peak_index;
+    wire [63:0] peak_sample_count;
+    wire peak_triplet_valid;
+    wire peak_boundary_error;
+    wire peak_restart_error;
     wire signed [31:0] toa_offset_q12;
     wire toa_offset_valid;
     wire signed [31:0] toa_log_peak_q12;
@@ -63,20 +70,25 @@ module tb_lora_packet_timestamp_axi_path;
     integer errors = 0;
     integer symbol_seen = 0;
     integer packet_start_seen = 0;
+    integer peak_triplet_seen = 0;
     integer toa_seen = 0;
     integer metadata_seen = 0;
     integer timeout_cycles = 0;
     reg [63:0] packet_start_captured = 64'd0;
+    reg [63:0] integer_peak_captured = 64'd0;
     reg [31:0] expected_symbol [0:9];
     reg [31:0] read_value;
 
-    lora_packet_timestamp_axi_path dut (
+    lora_packet_timestamp_axi_path #(
+        .TOA_SEARCH_SAMPLES(SEARCH_SAMPLES)
+    ) dut (
         .clk(clk), .resetn(resetn),
         .iq_in_re(iq_in_re), .iq_in_im(iq_in_im), .valid_in(valid_in),
         .reset_in(reset_in), .resync_valid(resync_valid), .resync_skip(resync_skip),
         .sync_word(sync_word),
-        .magnitude_before(magnitude_before), .magnitude_peak(magnitude_peak),
-        .magnitude_after(magnitude_after), .triplet_valid(triplet_valid),
+        .search_start(search_start), .search_base_count(search_base_count),
+        .correlation_magnitude(correlation_magnitude),
+        .correlation_magnitude_valid(correlation_magnitude_valid),
         .s_axi_awaddr(awaddr), .s_axi_awvalid(awvalid), .s_axi_awready(awready),
         .s_axi_wdata(wdata), .s_axi_wstrb(wstrb), .s_axi_wvalid(wvalid),
         .s_axi_wready(wready), .s_axi_bresp(bresp), .s_axi_bvalid(bvalid),
@@ -87,6 +99,9 @@ module tb_lora_packet_timestamp_axi_path;
         .symbol_valid(symbol_valid), .detected(detected),
         .preamble_detected(preamble_detected), .sync_valid(sync_valid),
         .packet_start_count(packet_start_count), .packet_start_valid(packet_start_valid),
+        .peak_search_busy(peak_search_busy), .peak_index(peak_index),
+        .peak_sample_count(peak_sample_count), .peak_triplet_valid(peak_triplet_valid),
+        .peak_boundary_error(peak_boundary_error), .peak_restart_error(peak_restart_error),
         .toa_offset_q12(toa_offset_q12), .toa_offset_valid(toa_offset_valid),
         .toa_log_peak_q12(toa_log_peak_q12), .metadata_coarse(metadata_coarse),
         .metadata_fractional_q12(metadata_fractional_q12),
@@ -127,6 +142,48 @@ module tb_lora_packet_timestamp_axi_path;
                 iq_in_im <= q_im;
                 valid_in <= 1'b1;
             end
+        end
+    endtask
+
+    // Feed a 17-sample sample-rate correlation window. The strongest peak is
+    // at accepted-sample index 8 and has symmetric neighbours, so the peak
+    // extractor must move the integer timestamp by +8 while the generated
+    // log-parabolic ToA interpolator returns exactly 0/4096 sample.
+    // One invalid cycle proves window indexing follows accepted magnitudes,
+    // not raw clock cycles.
+    task automatic drive_correlation_search(input [63:0] base_count);
+        integer k;
+        reg [31:0] value;
+        begin
+            @(negedge clk);
+            search_base_count <= base_count;
+            search_start <= 1'b1;
+            correlation_magnitude_valid <= 1'b0;
+            @(negedge clk);
+            search_start <= 1'b0;
+
+            for (k = 0; k < SEARCH_SAMPLES; k = k + 1) begin
+                if (k == 5) begin
+                    correlation_magnitude_valid <= 1'b0;
+                    @(negedge clk);
+                end
+
+                if (k == 7)
+                    value = 32'd1048576;
+                else if (k == 8)
+                    value = 32'd4194304;
+                else if (k == 9)
+                    value = 32'd1048576;
+                else
+                    value = 32'd1024 + k;
+
+                correlation_magnitude <= value;
+                correlation_magnitude_valid <= 1'b1;
+                @(negedge clk);
+            end
+
+            correlation_magnitude_valid <= 1'b0;
+            correlation_magnitude <= 32'd0;
         end
     endtask
 
@@ -171,10 +228,10 @@ module tb_lora_packet_timestamp_axi_path;
     task automatic expect32(input [31:0] got, input [31:0] expected, input string label_text);
         begin
             if (got === expected)
-                $display("PASS %-58s value=0x%08x", label_text, got);
+                $display("PASS %-62s value=0x%08x", label_text, got);
             else begin
                 errors = errors + 1;
-                $display("FAIL %-58s got=0x%08x expected=0x%08x", label_text, got, expected);
+                $display("FAIL %-62s got=0x%08x expected=0x%08x", label_text, got, expected);
             end
         end
     endtask
@@ -184,7 +241,7 @@ module tb_lora_packet_timestamp_axi_path;
         if (resetn) begin
             if (symbol_valid) begin
                 if (symbol_seen < 10 && symbol_index === expected_symbol[symbol_seen])
-                    $display("PASS FFT symbol[%0d] through AXI path                            value=%0d", symbol_seen, symbol_index);
+                    $display("PASS FFT symbol[%0d] through AXI path                                value=%0d", symbol_seen, symbol_index);
                 else begin
                     errors = errors + 1;
                     $display("FAIL FFT symbol[%0d] through AXI path got=%0d", symbol_seen, symbol_index);
@@ -194,36 +251,55 @@ module tb_lora_packet_timestamp_axi_path;
             if (packet_start_valid) begin
                 packet_start_seen = packet_start_seen + 1;
                 packet_start_captured <= packet_start_count;
-                $display("PASS coarse packet timestamp available before ToA                 value=0x%016h", packet_start_count);
+                $display("PASS detector coarse packet reference available                       value=0x%016h", packet_start_count);
+            end
+            if (peak_triplet_valid) begin
+                peak_triplet_seen = peak_triplet_seen + 1;
+                integer_peak_captured <= peak_sample_count;
+                if (peak_index == 16'd8)
+                    $display("PASS peak search counts accepted magnitudes                          value=%0d", peak_index);
+                else begin
+                    errors = errors + 1;
+                    $display("FAIL peak index got=%0d expected=8", peak_index);
+                end
+                if (peak_sample_count == packet_start_captured + 64'd8)
+                    $display("PASS peak search refines integer sample timestamp                    value=0x%016h", peak_sample_count);
+                else begin
+                    errors = errors + 1;
+                    $display("FAIL peak sample count got=0x%016h expected=0x%016h",
+                             peak_sample_count, packet_start_captured + 64'd8);
+                end
             end
             if (toa_offset_valid) begin
                 toa_seen = toa_seen + 1;
                 if (toa_offset_q12 === 32'sd0)
-                    $display("PASS generated ToA symmetric triplet returns zero               value=0x%08h", toa_offset_q12);
+                    $display("PASS generated ToA symmetric extracted triplet returns zero         value=0x%08h", toa_offset_q12);
                 else begin
                     errors = errors + 1;
-                    $display("FAIL generated ToA symmetric triplet got=0x%08h expected=0", toa_offset_q12);
+                    $display("FAIL generated ToA extracted triplet got=0x%08h expected=0", toa_offset_q12);
                 end
             end
             if (metadata_valid) begin
                 metadata_seen = metadata_seen + 1;
-                if (metadata_coarse === packet_start_captured)
-                    $display("PASS metadata keeps aligned coarse timestamp                    value=0x%016h", metadata_coarse);
+                if (metadata_coarse === integer_peak_captured)
+                    $display("PASS metadata keeps integer-refined peak timestamp                  value=0x%016h", metadata_coarse);
                 else begin
                     errors = errors + 1;
-                    $display("FAIL metadata coarse got=0x%016h expected=0x%016h", metadata_coarse, packet_start_captured);
+                    $display("FAIL metadata coarse got=0x%016h expected=0x%016h", metadata_coarse, integer_peak_captured);
                 end
                 if (metadata_fractional_q12 === 32'sd0)
-                    $display("PASS metadata joins generated fractional ToA                    value=0x%08h", metadata_fractional_q12);
+                    $display("PASS metadata joins generated fractional ToA                        value=0x%08h", metadata_fractional_q12);
                 else begin
                     errors = errors + 1;
                     $display("FAIL metadata fractional got=0x%08h expected=0", metadata_fractional_q12);
                 end
             end
-            if (alignment_error || symbol_index_width_error || metadata_overflow) begin
+            if (alignment_error || symbol_index_width_error || metadata_overflow ||
+                peak_boundary_error || peak_restart_error) begin
                 errors = errors + 1;
-                $display("FAIL unexpected integration error align=%0b width=%0b overflow=%0b",
-                         alignment_error, symbol_index_width_error, metadata_overflow);
+                $display("FAIL unexpected integration error align=%0b width=%0b overflow=%0b boundary=%0b restart=%0b",
+                         alignment_error, symbol_index_width_error, metadata_overflow,
+                         peak_boundary_error, peak_restart_error);
             end
         end
     end
@@ -241,7 +317,7 @@ module tb_lora_packet_timestamp_axi_path;
         expect32(read_value, 32'h0000_0000, "AXI status reset before receiver enable");
         axi_write(6'h00, 32'h0000_0001);
         if (receiver_enable)
-            $display("PASS AXI receiver_enable controls IQ acceptance");
+            $display("PASS AXI receiver_enable controls IQ and ToA search acceptance");
         else begin
             errors = errors + 1;
             $display("FAIL AXI receiver_enable did not assert");
@@ -260,27 +336,25 @@ module tb_lora_packet_timestamp_axi_path;
         end
         if (packet_start_seen != 1) begin
             errors = errors + 1;
-            $display("FAIL expected one coarse packet timestamp before ToA request");
+            $display("FAIL expected one detector coarse packet reference before ToA search");
         end
 
-        // Symmetric log-parabolic peak. The generated interpolator must return
-        // exactly zero fractional samples; use comfortable integer magnitudes
-        // so the test also exercises its real iterative datapath.
-        @(negedge clk);
-        magnitude_before <= 32'd1048576;
-        magnitude_peak   <= 32'd4194304;
-        magnitude_after  <= 32'd1048576;
-        triplet_valid    <= 1'b1;
-        @(negedge clk);
-        triplet_valid    <= 1'b0;
+        // In hardware this magnitude stream will come from a sample-rate
+        // matched-filter/correlation engine, potentially replaying buffered
+        // samples around the historical detector timestamp.
+        drive_correlation_search(packet_start_captured);
 
         timeout_cycles = 0;
-        while ((metadata_seen == 0) && (timeout_cycles < 200)) begin
+        while ((metadata_seen == 0) && (timeout_cycles < 300)) begin
             @(posedge clk);
             timeout_cycles = timeout_cycles + 1;
         end
         repeat (4) @(posedge clk);
 
+        if (peak_triplet_seen != 1) begin
+            errors = errors + 1;
+            $display("FAIL expected one extracted peak triplet, got=%0d", peak_triplet_seen);
+        end
         if (toa_seen != 1) begin
             errors = errors + 1;
             $display("FAIL expected one generated ToA result, got=%0d", toa_seen);
@@ -295,9 +369,9 @@ module tb_lora_packet_timestamp_axi_path;
         axi_read(6'h08, read_value);
         expect32(read_value, 32'h0000_0001, "AXI sequence increments for complete packet timestamp");
         axi_read(6'h0c, read_value);
-        expect32(read_value, packet_start_captured[31:0], "AXI coarse low matches aligned packet start");
+        expect32(read_value, integer_peak_captured[31:0], "AXI coarse low matches integer-refined peak");
         axi_read(6'h10, read_value);
-        expect32(read_value, packet_start_captured[63:32], "AXI coarse high matches aligned packet start");
+        expect32(read_value, integer_peak_captured[63:32], "AXI coarse high matches integer-refined peak");
         axi_read(6'h14, read_value);
         expect32(read_value, 32'h0000_0000, "AXI fractional word comes from generated ToA");
 
