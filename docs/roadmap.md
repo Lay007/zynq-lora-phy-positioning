@@ -115,13 +115,14 @@ recorded run.
   generated cores can coexist in one Vivado namespace. Existing committed HDL
   snapshots predate this change and must be regenerated before board assembly.
 - [ ] Add generated-IP packaging.
-- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers. A
-  first synthesizable integration primitive now exists:
-  `fpga/wrappers/lora_timestamp_metadata_join.v`, with a self-checking Icarus
-  testbench and CI smoke job. The OOC synthesis and post-route flows are
-  namespace-aware and retain compatibility with historical `DUT` snapshots.
-  Remaining work is the actual receiver streaming wrapper, AXI-Lite
-  control/status registers, reset/clock policy, and generated-core composition.
+- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers. The
+  integration foundation now includes `lora_timestamp_metadata_join.v`,
+  `lora_axi_lite_status.v`, and `lora_receiver_control_wrapper.v`. Dedicated
+  self-checking Icarus regressions cover the primitives and the composed
+  fragment-to-AXI path. ADR 0002 makes the initial single-clock contract
+  explicit. Remaining work is generated-core composition, the board-facing
+  streaming wrapper, and an explicit CDC implementation if the final receiver
+  clock plan requires one.
 - [x] Out-of-context synthesis with resource and timing reports
   (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
