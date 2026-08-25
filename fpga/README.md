@@ -129,10 +129,10 @@ needed, AD936x integration, and board constraints remain M3/M4 work.
 and a derived `Fmax` to `docs/data/simulink-m3-synthesis.csv`. Vivado products
 land in `fpga/build/` and are ignored.
 
-Out of context on purpose: there is no board wrapper, no clocking, and no AXI
-yet, so anything else would measure parts of the design that do not exist. The
-numbers describe the DUTs alone and will move once they are wrapped. Nothing
-is placed or routed in this synthesis-only flow, so it has no power figure.
+Out of context on purpose: this core-only synthesis flow does not include the
+board wrapper, board clocking, or the AXI control/metadata composition layer,
+so its numbers describe the generated DUTs alone. Nothing is placed or routed
+in this synthesis-only flow, so it has no power figure.
 
 `Fmax` is derived rather than requested. Synthesis runs against a probe clock
 and `Fmax = 1/(probe - WNS)`. A block with no register-to-register path has no
