@@ -120,9 +120,11 @@ recorded run.
   `lora_axi_lite_status.v`, and `lora_receiver_control_wrapper.v`. Dedicated
   self-checking Icarus regressions cover the primitives and the composed
   fragment-to-AXI path. ADR 0002 makes the initial single-clock contract
-  explicit. Remaining work is generated-core composition, the board-facing
-  streaming wrapper, and an explicit CDC implementation if the final receiver
-  clock plan requires one.
+  explicit. The composed wrapper has been committed and wired into CI; local
+  and CI execution evidence for that new regression is the immediate gate
+  before moving on to generated-core composition. Remaining architectural work
+  is the board-facing streaming wrapper and an explicit CDC implementation if
+  the final receiver clock plan requires one.
 - [x] Out-of-context synthesis with resource and timing reports
   (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
