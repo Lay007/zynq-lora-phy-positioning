@@ -6,7 +6,7 @@
 
 Дальше — незавершённый, но уже работающий инженерный маршрут. Heltec WiFi LoRa 32 V4.3 с SX1262 передаёт настоящие LoRa-пакеты, ZynqSDR Z7020 с AD9361 записывает их как комплексные отсчёты, а floating-point модель в MATLAB находит посылки, демодулирует символы, проходит whitening, interleaving, FEC и CRC и сравнивает payload с журналом передатчика.
 
-Часть того, что в первых заметках было написано в будущем времени, к этому моменту уже случилась. Мы отделили красивое «130 пакетов из 130» от BER/PER-методики, нашли 5–6 dB потерь у некогерентного polyphase-демодулятора, собрали потоковую Simulink-модель, выбрали fixed-point разрядности и сгенерировали восемь HDL Coder DUT. Для ключевых ядер есть out-of-context synthesis и post-route evidence. А поверх generated HDL уже появилась ручная интеграционная прослойка: AXI4-Lite status/control, 64-битный sample counter, атомарная coarse+fractional metadata и выравнивание временной метки с окном детектора. Эта обвязка проходит отдельные self-checking Icarus-тесты. До полноценного board-level LoRa receiver это всё ещё не доводит: generated cores, AD936x stream, clock/reset/CDC и Zynq top пока не собраны в один аппаратный тракт.
+Часть того, что в первых заметках было написано в будущем времени, к этому моменту уже случилась. Мы отделили красивое «130 пакетов из 130» от BER/PER-методики, нашли 5–6 dB потерь у некогерентного polyphase-демодулятора, собрали потоковую Simulink-модель, выбрали fixed-point разрядности и сгенерировали восемь HDL Coder DUT. Для ключевых ядер есть out-of-context synthesis и post-route evidence. А поверх generated HDL уже появилась не только регистровая обвязка: self-checking Icarus-тесты прогоняют fixed-point IQ через generated FFT-correlator, generated blind detector и выравнивание coarse timestamp, а затем через peak-triplet capture, generated fractional ToA, atomic metadata и AXI4-Lite snapshot. Отдельно уже собран источник sample-grid корреляции для этого ToA-тракта: кольцевая история IQ, переиспользуемый complex MAC и multi-lag search sequencer. Последний production-кусок здесь ещё не замкнут — нужен реальный SF7/L=8 reference ROM и соединение search engine с полным IQ→AXI wrapper. До полноценного board-level LoRa receiver это всё ещё не доводит: реальный AD936x stream, clock/reset/CDC и Zynq top пока не доказаны на плате.
 
 Конечная цель у всего этого не «ещё один программный LoRa-декодер», а прослеживаемая цепочка
 
@@ -283,14 +283,14 @@ End-to-end sensitivity sweep при `L=8`, CR 4/5 и 20 пакетах на то
 
 ## Что уже есть по ToA — и чего ещё нет
 
-В floating-point модели оценка времени прихода разделена на целый индекс максимума корреляции и дробную поправку. Мощность корреляции вокруг пика аппроксимируется параболой по трём точкам:
+В floating-point модели оценка времени прихода разделена на целый индекс максимума корреляции и дробную поправку. Текущий интерполятор использует три соседние **магнитуды** matched-filter peak и Gaussian-fit в логарифмическом домене:
 
 ```text
 toaSamples = startIndex - 1 + fractionalOffsetSamples,
 fractionalOffsetSamples ∈ [-0.5, 0.5].
 ```
 
-В AWGN детерминированный прогон дал RMS-ошибку 0,177 отсчёта при −20 dB и 0,070 отсчёта при −5 dB. При −25 dB начинается threshold region, и RMS вырос до 1,50 отсчёта.
+Это важно: ранний вариант ставил параболу по мощности корреляции и оставлял детерминированную S-кривую. После перехода к логарифму магнитуды синтетическая ошибка при `L=2` стала 8,5 м при +20 dB, 10,6 м при +10 dB, 22,9 м при 0 dB и 39,1 м при −5 dB. Эти числа относятся к модели известного waveform в AWGN; ниже эта история разобрана подробнее и отдельно от hardware evidence.
 
 В реальной серии из 50 SF7-пакетов после аффинной компенсации разных эпох и линейного рассогласования часов TX/RX 4,95 ppm остаточное стандартное отклонение составило 18,72 μs, 95-й процентиль модуля остатка — 33,47 μs.
 
@@ -534,7 +534,7 @@ timingChips = (upSigned - downSigned)/2
 
 ### Метка времени: что можно отдать в железо, а что нельзя
 
-`symbolSampleCount` сделан: свободно идущий 64-битный счётчик, защёлка на границе символа и короткая кольцевая очередь до момента решения. Очередь, а не фиксированная линия задержки, потому что решение выходит через сотни-тысячи тактов, и длину пришлось бы пересчитывать под каждое сочетание SF и L. Проверяется точно: метки обязаны быть `0, M, 2M, …`, максимальная ошибка нулевая на всех 15 случаях.
+`symbolSampleCount` сделан: 64-битный счётчик принятого sample stream, защёлка на границе символа и короткая кольцевая очередь до момента решения. Очередь, а не фиксированная линия задержки, потому что решение выходит через сотни-тысячи тактов, и длину пришлось бы пересчитывать под каждое сочетание SF и L. Проверяется точно: метки обязаны быть `0, M, 2M, …`, максимальная ошибка нулевая на всех 15 случаях.
 
 А `fractionalToaSamples` внутри этого коррелятора я тогда делать не стал, и это решение важнее, чем если бы сделал. Дробный ToA считается по трём точкам matched filter на сетке отсчётов, то есть относится к acquisition. Спектр самого коррелятора разрешает лаги с шагом `L` отсчётов. Та же формула, применённая к нему, дала бы дробный бин, а не субдискретный ToA. Величины разные, и назвать одну другой было бы тихой подменой: цифра появилась бы, смысл нет. Позже дробное уточнение появилось отдельным sample-grid DUT — до его реализации и синтеза я ещё дойду ниже.
 
@@ -853,42 +853,91 @@ full detected:    взять timestamp 9 valid symbols назад
 
 Timestamp snapshot стабилен до следующего metadata event, а sequence counter позволяет читать 64+32 бит без иллюзии атомарности обычных 32-битных AXI-регистров: software читает `SEQUENCE → timestamp words → SEQUENCE` и повторяет операцию, если номер поменялся. Sticky status очищается write-one-to-clear.
 
-Эта часть уже проверяется не рассуждением, а RTL-симуляцией. На локальной Windows-машине Icarus Verilog 12.0 полностью прошёл три self-checking regression:
+На этом месте архитектура сначала ещё имела одну искусственную точку: ToA-interpolator получал готовые `magnitudeBefore/magnitudePeak/magnitudeAfter`. Поэтому следующим слоем стал `lora_peak_triplet_capture`: он принимает поток sample-rate correlation magnitude, просматривает короткое окно, выбирает первый из равных максимумов, запрещает пик на границе и возвращает
+
+```text
+peak_sample_count = search_base_count + peak_index.
+```
+
+Это число теперь и идёт в coarse metadata. То есть если detector coarse reference равен 0, а максимум sample-grid поиска лежит на восьмом accepted lag, AXI получает coarse `8`, а не теряет эту целочисленную поправку. Дробная часть затем добавляется generated `ToaInterpolator` в Q12, то есть в долях `1/4096` отсчёта.
+
+Следующая проблема была уже архитектурной. Для sample-rate ToA нужен настоящий matched filter, но держать 1024-tap FIR работающим непрерывно ради одного результата на пакет — плохой обмен ресурсов на пропускную способность. Поэтому тракт разделён по частоте событий:
+
+```text
+continuous IQ
+   → circular IQ history
+   → coarse packet timestamp
+   → packet-rate iterative matched-filter search
+   → peak triplet
+   → generated fractional ToA
+```
+
+`lora_iq_history_buffer` хранит recent complex IQ и адресуется **абсолютным accepted-sample count**, а не физическим RAM-адресом. Default сейчас 16384 complex samples по 16+16 бит. Это 512 Kibit и практичный первый размер для SF7/L=8, но пока не универсальная оценка: финальная глубина должна перекрывать измеренную detector latency плюс search/reference window для каждого поддерживаемого SF/L. Тест отдельно проверяет wrap, eviction, idle gaps, reset нового sample epoch и read/write collision; последний трактуется как `read_miss`, чтобы не зависеть от vendor-specific BRAM read-during-write mode.
+
+Сам `lora_matched_filter_mac` вычисляет один lag переиспользуемым complex MAC:
+
+```text
+C = Σ x[start+k] · conj(reference[k]).
+```
+
+Для production defaults `REF_SAMPLES=1024`, `ACC_WIDTH=48`. Каждый reference sample требует issue+response cycles, то есть один lag занимает примерно 2050 тактов, зато нет 1024 параллельных умножителей. Отдельный тест с четырьмя complex samples даёт ровно `C=56+j0`, `|C|²=3136`; тот же reference, повернутый по фазе на +90°, даёт `C=j56` с той же мощностью. В Verilog ширина перед squaring расширена явно: на таком месте легко получить зелёный тест на малых числах и обрезанный production result из-за правил sizing выражений.
+
+Над MAC появился `lora_matched_filter_search`. При default `SEARCH_RADIUS=8` он последовательно запускает 17 лагов
+
+```text
+coarse-8 ... coarse ... coarse+8
+```
+
+и напрямую кормит их power в `lora_peak_triplet_capture`. Использовать power вместо magnitude здесь допустимо для трёхточечного log-domain ToA: `log(power)=2·log(magnitude)`, а общий множитель 2 сокращается в формуле дробной поправки. Sequencer проверяет абсолютный sample count каждого результата, ловит underflow около нуля и restart во время активного поиска. Если MAC получает `read_miss` или mismatch, незавершённый peak collector тоже сбрасывается — иначе следующий пакет стартовал бы поверх полупустой истории предыдущего.
+
+Эта часть уже проверяется не рассуждением, а RTL-симуляцией. На локальной Windows-машине Icarus Verilog 12.0 прошли self-checking regression для:
 
 ```text
 tb_lora_sample_counter_capture
 tb_lora_receiver_control_wrapper
 tb_lora_detector_timestamp_align
+tb_lora_detector_timestamp_path
+tb_lora_fft_detector_timestamp_path
+tb_lora_packet_timestamp_axi_path
+tb_lora_peak_triplet_capture
+tb_lora_iq_history_buffer
+tb_lora_matched_filter_mac
+tb_lora_matched_filter_search
 ```
 
-В composed wrapper проверяются coarse-first и fractional-first arrival, duplicate fragment, sticky overflow, reset с незавершённой парой, same-cycle sample+capture и AXI readback. В aligner отдельно проверяются первое 8-symbol окно, сдвинутое окно, 10-symbol confirmation и ошибка при detector event без valid timestamp history.
+В `tb_lora_fft_detector_timestamp_path` подаётся уже не заранее придуманный `symbolIndex`, а fixed-point SF7/L=8 IQ: generated FFT-correlator сам выдаёт последовательность `0,0,0,0,0,0,0,0,8,16`, generated `BlindDetector` подтверждает пакет, а aligner возвращает timestamp первого preamble symbol.
 
-Это уже настоящий synthesizable integration RTL, но **ещё не hardware timestamp evidence**. `symbolSampleCount/timestampValid` generated correlator и выходы blind detector пока не собраны с этим aligner в одном receiver top; `sample_valid` не подключён к реальному AD936x stream; clock/reset и будущая CDC-граница не доказаны на плате. И это различие важно: зелёный локальный Icarus testbench доказывает семантику блока, а не точность времени прихода по кабелю или в эфире.
+В `tb_lora_packet_timestamp_axi_path` тот же generated IQ→FFT→detector path доходит до AXI: coarse detector reference равен нулю, sample-grid peak search выбирает lag 8, generated ToA на симметричном триплете выдаёт fractional `0`, и software-visible snapshot получается `coarse=8`, `fraction=0`, `sequence=1`. Это проверяет, что целочисленная поправка peak search действительно не теряется между DSP и регистровой картой.
 
-<!-- ВСТАВИТЬ РИСУНОК 16: схема timestamp path: AD936x sample_valid → sample counter / FFT correlator symbolSampleCount → detector history aligner → coarse+fractional join → AXI-Lite → PS. Отдельно пунктиром отметить ещё не собранные board-level связи. -->
+Отдельный `tb_lora_matched_filter_search` пока сознательно уменьшен до `REF_SAMPLES=1`, `SEARCH_RADIUS=2`: он проверяет именно sequencer на powers `1,4,25,9,1`, boundary rejection, underflow, read-miss abort и успешный fresh search после ошибки. То есть production 1024-sample SF7/L=8 reference и все 17 реальных lag ещё **не** являются закрытым end-to-end тестом. Reference coefficient interface у MAC/search пока внешний; следующий шаг — зафиксировать ROM из той же `reference_chirp.m`, что является MATLAB-эталоном, и подключить search engine к уже зелёному IQ→AXI wrapper.
+
+Это уже настоящий synthesizable integration RTL, но **ещё не hardware timestamp evidence**. Icarus доказывает семантику и композицию блоков, а не точность времени прихода по кабелю или в эфире. IQ history/MAC/search ещё не синтезированы как production SF7/L=8 subsystem, а реальный AD936x stream, board clocks, reset и CDC на этой цепочке не доказаны.
+
+<!-- ВСТАВИТЬ РИСУНОК 16: схема timestamp path: AD936x sample stream → параллельно FFT/detector и circular IQ history; detector coarse timestamp запускает packet-rate matched-filter search → peak triplet → generated ToA → coarse+fractional metadata join → AXI-Lite → PS. Пунктиром отметить ещё не подключённые production reference ROM, AD936x/CDC и board-level связи. -->
 
 ### Чего в тракте всё ещё нет
 
 Этап я не закрываю, и вот честный остаток:
 
-- полный receiver-level top ещё не прогонялся как один непрерывный HDL-тракт: generated DSP cores и ручная integration RTL пока проверены раздельно;
+- partial receiver path уже собирается и гоняется в Icarus от fixed-point IQ через generated FFT/BlindDetector до timestamp/AXI, но production matched-filter search пока проверен отдельно и ещё не включён в этот полный wrapper;
+- нужен настоящий SF7/L=8 time-domain reference ROM на 1024 complex coefficients и production regression для всех 17 lag; после этого надо измерить синтез, BRAM/DSP/LUT и timing уже для history+MAC+search, а не переносить на него оценки других DUT;
 - HDL Coder cosimulation generated DUT ещё не настроена, хотя Icarus 12.0 уже используется для ручных Verilog/SystemVerilog regression;
-- восемь generated outputs всё ещё нужно регенерировать с зафиксированными уникальными module prefixes перед окончательной композицией;
-- board-facing AD936x sample stream, `receiver_enable`, clock/reset policy и возможная CDC-граница ещё не соединены;
-- реальное покрытие MATLAB/Simulink по записанным пакетам остаётся ограниченным сильносигнальным корпусом, а hardware sensitivity пока не измерялась.
+- восемь generated outputs всё ещё нужно регенерировать с зафиксированными уникальными module prefixes перед окончательной multi-core композицией; текущие committed snapshots сохраняют исторические top `DUT`;
+- board-facing AD936x sample stream, `receiver_enable`, clock/reset policy и возможная CDC-граница ещё не соединены с реальным sample domain; hardware sensitivity и точность ToA по кабелю тоже не измерялись.
 
-При этом acquisition-цепочка, включая слепой детектор, выравнивание сетки, sync, SFD, кадрирование, оценку частоты и дробный ToA, уже реализована; восемь DUT генерируют Verilog и имеют out-of-context synthesis evidence. Ручные control/metadata/timestamp primitives уже имеют self-checking RTL regression.
+При этом acquisition-цепочка, включая слепой детектор, выравнивание сетки, sync, SFD, кадрирование, оценку частоты и дробный ToA, уже реализована; восемь DUT генерируют Verilog и имеют out-of-context synthesis evidence. Ручные control/metadata/timestamp primitives, generated FFT→detector composition и packet-rate history/MAC/search теперь имеют self-checking RTL regression.
 
 Deinterleaving, FEC, dewhitening и CRC вынесены за границу HDL сознательно, с описанным программным интерфейсом: граница проходит по потоку символов, там где заканчивается нагрузка на частоте отсчётов. TDoA-ассоциация, калибровка задержек и мультилатерация остаются в софте и в PL не поедут.
 
 ## Что в проекте пока не решено
 
-Декодировать настоящий SX1262-пакет проект умеет, generated DSP-блоки синтезируются, а control/timestamp RTL уже проходит локальную симуляцию. Но до аппаратного LoRa/TDoA-приёмника ещё далеко. Сейчас граница проходит здесь:
+Декодировать настоящий SX1262-пакет проект умеет, generated DSP-блоки синтезируются, а часть receiver/timestamp пути уже проходит составную RTL-симуляцию. Но до аппаратного LoRa/TDoA-приёмника ещё далеко. Сейчас граница проходит здесь:
 
-1. Нужно регенерировать восемь HDL Coder outputs с уникальными namespace и собрать их с hand-written wrapper в один receiver-level top: FFT-correlator → blind detector/acquisition → timestamp aligner → fractional ToA → metadata/AXI.
-2. Нужно определить и проверить clock/reset/CDC policy, соединить `validIn/sample_valid` с реальным AD936x sample path и получить board-level timing с настоящими constraints. Core-only OOC route этого не заменяет.
-3. Нужен безопасный кабельный тракт с рассчитанным ослаблением и измеренной групповой задержкой, затем аппаратный BER/PER при управляемом входном уровне. Текущие сильносигнальные OTA-записи sensitivity не заменяют.
-4. Для TDoA нужны три ZynqSDR с общей частотной опорой и общим epoch/PPS в PL, калибровка постоянных задержек и только после этого совместные измерения времени прихода.
+1. Нужно закрыть sample-grid ToA source: сгенерировать из авторитетного MATLAB chirp 1024-точечный SF7/L=8 reference ROM, прогнать 17-lag matched-filter search на реальном chirp и соединить `IQ history → MAC/search → peak triplet` с уже существующим `generated ToA → metadata → AXI` трактом.
+2. Нужно регенерировать восемь HDL Coder outputs с уникальными namespace и собрать оставшиеся generated acquisition/SFD/framing blocks с уже работающей FFT→BlindDetector→timestamp обвязкой в один receiver-level top.
+3. Нужно определить и проверить clock/reset/CDC policy, соединить `validIn/sample_valid` с реальным AD936x sample path и получить board-level timing с настоящими constraints. Core-only OOC route и Icarus этого не заменяют.
+4. Нужен безопасный кабельный тракт с рассчитанным ослаблением и измеренной групповой задержкой, затем аппаратный BER/PER и ToA при управляемом входном уровне. Текущие сильносигнальные OTA-записи sensitivity не заменяют.
+5. Для TDoA нужны три ZynqSDR с общей частотной опорой и общим epoch/PPS в PL, калибровка постоянных задержек и только после этого совместные измерения времени прихода.
 
 Roadmap привязан к измеримым критериям, а не к календарю. Например, Simulink считается готовым не тогда, когда схема открывается, а когда она совпадает с MATLAB в документированных допусках. Интеграционный RTL считается готовым не потому, что компилируется, а когда self-checking testbench проверяет reset, valid semantics и ошибочные сценарии. Аппаратный PHY закроется не тогда, когда «что-то видно в ILA», а после серии измерений с теми же контрольными точками.
 
@@ -909,7 +958,11 @@ Roadmap привязан к измеримым критериям, а не к к
 - требовать от регрессии не только «совпало с эталоном», но и «нашло то, что должно найтись»: первое было зелёным ровно тогда, когда детектор терял пакет;
 - прежде чем строить стандартный блок, спрашивать, нужен ли он этому сигналу, — скользящей корреляции в приёмнике так и не появилось;
 - не путать момент принятия решения с моментом события, которое это решение описывает: `detected` оказался на несколько символов позднее интересующей нас временной границы;
-- при многочастной metadata не надеяться на «они обычно приходят рядом», а формализовать valid/overflow/atomic snapshot и проверять их отдельным testbench.
+- при многочастной metadata не надеяться на «они обычно приходят рядом», а формализовать valid/overflow/atomic snapshot и проверять их отдельным testbench;
+- проектировать по частоте события: matched filter, нужный один раз на пакет, выгоднее кормить из IQ history через переиспользуемый MAC, чем держать 1024 taps активными непрерывно;
+- адресовать историю сигнала в физических единицах тракта — absolute accepted-sample count, — а не позволять wrap-адресу BRAM просочиться в алгоритм;
+- тестировать abort paths так же серьёзно, как nominal path: незавершённый peak collector после `read_miss` оказался бы скрытым состоянием для следующего пакета;
+- в Verilog явно фиксировать ширину арифметики перед square/accumulate, а не надеяться, что правила expression sizing совпадут с интуицией.
 
 История с `L=8` хорошо это иллюстрирует. Первый вариант использовал один отсчёт из восьми. Второй использовал все восемь, но складывал их некогерентно. Только сравнение с matched filter показало оставшийся разрыв. FFT-correlator закрыл его в AWGN ровно до численной точности, а реальные записи обнаружили следующий слой: не ошибка коррелятора, а смешение timing и CFO в одной upchirp-оценке. Совместная up/downchirp синхронизация вернула 130/130 на coherent-ветвь.
 
@@ -917,6 +970,8 @@ Roadmap привязан к измеримым критериям, а не к к
 
 История с timestamp продолжила ту же тему. 64-битный счётчик оказался простой частью. Сложной частью было не получить точное число для неправильного момента. Перенос временной метки вместе с `symbolIndex`, а затем выбор начала окна детектора оказался архитектурно чище, чем вычитание одной «измеренной latency» из позднего live counter.
 
-Продолжение имеет смысл писать после того, как generated DSP и уже существующая AXI/timestamp обвязка поедут как один receiver top на ZynqSDR. Core-only synthesis/place-and-route показали, что ключевые ядра помещаются и имеют большой запас по частоте; локальная Icarus-симуляция подтвердила семантику control/metadata/timestamp glue. Но что останется после реального AD936x интерфейса, clocking, CDC и package constraints и как дробный ToA поведёт себя на общем сигнале нескольких синхронизированных приёмников, покажет только стенд.
+А история с fractional ToA добавила ещё один вариант той же ошибки: математически дорогой блок не обязан быть архитектурно дорогим, если вызывается редко. Continuous 1024-tap matched filter для packet-rate метки времени выглядел естественно только до тех пор, пока я не разделил sample-rate storage и packet-rate computation. Кольцевая история IQ и один переиспользуемый complex MAC превращают ту же корреляцию из постоянной нагрузки в короткую задачу после coarse acquisition.
 
-И ещё одно наблюдение напоследок. Из заметных ошибок большая часть была не в математике: некогерентное сложение вместо когерентного, тысяча позиций скользящей корреляции вместо периодичности, «Vivado не установлен» вместо «я плохо посмотрел», live timestamp по `detected` вместо временной метки того символа, о котором детектор принял решение. Считать я умею. Проверять предпосылки — учусь.
+Продолжение имеет смысл писать после двух ближайших milestones. Первый — замкнуть production SF7/L=8 `IQ history → 1024-sample reference → 17-lag search → generated ToA → AXI` и получить для него отдельные synthesis/timing numbers. Второй — поставить этот тракт за реальным AD936x interface с явными clock/reset/CDC и board constraints. Core-only synthesis/place-and-route уже показали, что generated FFT и ToA помещаются и имеют большой запас по частоте; локальная Icarus-симуляция теперь подтверждает не только control/metadata glue, но и generated IQ→FFT→detector→timestamp composition и отдельный packet-rate history/MAC/search. Что останется после реального board clocking и как дробный ToA поведёт себя на общем сигнале нескольких синхронизированных приёмников, покажет только стенд.
+
+И ещё одно наблюдение напоследок. Из заметных ошибок большая часть была не в математике: некогерентное сложение вместо когерентного, тысяча позиций скользящей корреляции вместо периодичности, «Vivado не установлен» вместо «я плохо посмотрел», live timestamp по `detected` вместо временной метки того символа, о котором детектор принял решение, и continuous matched filter вместо packet-rate вычисления из сохранённого IQ. Считать я умею. Проверять предпосылки — учусь.
