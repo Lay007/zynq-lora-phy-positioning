@@ -44,6 +44,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y iverilog
+      - name: Compile and run PL sample counter testbench
+        run: |
+          iverilog -g2012 \
+            -o /tmp/lora_sample_counter_capture_tb \
+            fpga/wrappers/lora_sample_counter_capture.v \
+            fpga/tb/tb_lora_sample_counter_capture.sv
+          vvp /tmp/lora_sample_counter_capture_tb
       - name: Compile and run timestamp metadata joiner testbench
         run: |
           iverilog -g2012 \
@@ -62,6 +69,7 @@ jobs:
         run: |
           iverilog -g2012 \
             -o /tmp/lora_receiver_control_wrapper_tb \
+            fpga/wrappers/lora_sample_counter_capture.v \
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \
             fpga/wrappers/lora_receiver_control_wrapper.v \
