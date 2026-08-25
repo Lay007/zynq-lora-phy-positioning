@@ -93,6 +93,17 @@ module lora_matched_filter_search #(
     wire peak_search_start = (state == STATE_ARM_PEAK);
     wire peak_busy_unused;
 
+    wire mac_window_mismatch_now =
+        (state == STATE_WAIT_MAC) && mac_result_valid &&
+        (mac_result_sample_count != mac_window_start_count);
+
+    // A failed MAC means the already-armed peak collector has only a partial
+    // magnitude window. Reset it immediately so the next search cannot inherit
+    // stale samples or report a false restart collision.
+    wire peak_abort = mac_read_miss_error || mac_response_mismatch_error ||
+                      mac_restart_error || mac_window_mismatch_now;
+    wire peak_resetn = resetn && !stream_reset && !peak_abort;
+
     assign search_first_count = first_count_reg;
     assign correlation_magnitude = mac_correlation_power;
     assign correlation_magnitude_valid = mac_result_valid;
@@ -140,7 +151,7 @@ module lora_matched_filter_search #(
         .SEARCH_SAMPLES(SEARCH_LAGS)
     ) u_peak_capture (
         .clk(clk),
-        .resetn(resetn && !stream_reset),
+        .resetn(peak_resetn),
         .search_start(peak_search_start),
         .search_base_count(first_count_reg),
         .magnitude(mac_correlation_power),
@@ -204,7 +215,7 @@ module lora_matched_filter_search #(
                         busy  <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (mac_result_valid) begin
-                        if (mac_result_sample_count != mac_window_start_count) begin
+                        if (mac_window_mismatch_now) begin
                             mac_window_mismatch_error <= 1'b1;
                             busy                      <= 1'b0;
                             state                     <= STATE_IDLE;
