@@ -106,42 +106,57 @@ and has a successful recorded timestamp-metadata execution. Measurements are in
 - [x] Generate Verilog for the ToA block.
 - [x] Split out a registered carrier-frequency-only estimator and measure its
   exact bin-domain behavior and synthesis resources.
-- [ ] Run HDL cosimulation against the same golden vectors. The repository now
-  has Icarus-based wrapper regressions, but HDL Coder cosimulation against the
-  generated cores still needs its dedicated simulator/tool flow and evidence.
+- [x] Run HDL cosimulation against the same golden vectors. HDL Verifier and
+  Vivado XSim pass all eight ToA cases exactly, including decision, valid cycle,
+  fractional offset, peak log, and the 38-cycle latency.
 - [x] Add a reproducible generation script (`run_hdl_generation`). The script
   now assigns a unique HDL Coder `ModulePrefix` to every target so all eight
-  generated cores can coexist in one Vivado namespace. Existing committed HDL
-  snapshots predate this change and must be regenerated before board assembly.
+  generated cores can coexist in one Vivado namespace. All eight committed HDL
+  snapshots have been regenerated with those prefixes.
 - [ ] Add generated-IP packaging.
-- [ ] Integrate generated cores with hand-written clock/reset/AXI wrappers. The
-  integration foundation now includes `lora_timestamp_metadata_join.v`,
-  `lora_axi_lite_status.v`, and `lora_receiver_control_wrapper.v`. Dedicated
-  self-checking Icarus regressions exist for the primitives and the composed
-  fragment-to-AXI path. ADR 0002 makes the initial single-clock contract
-  explicit. The composed regression is wired into CI; successful local/CI
-  execution is still required before treating that integration step as
-  accepted evidence. Remaining architectural work is generated-core
-  composition, the board-facing streaming wrapper, and an explicit CDC
-  implementation if the final receiver clock plan requires one.
+- [x] Integrate the generated FFT detector and ToA interpolator with the
+  hand-written IQ history, full 1024-sample matched-filter search, reference
+  ROM, metadata join and AXI control/status in one portable single-clock top.
+  Two CI regressions cover all 17 exact SF7/L=8 matched-filter powers and the
+  automatic IQ-to-AXI packet timestamp path.
 - [x] Out-of-context synthesis with resource and timing reports
   (`run_synthesis`, Vivado 2021.1, `xc7z020clg484-1`). An earlier entry here
   claimed Vivado was not installed on the development host; that was wrong.
+- [x] Synthesize the complete portable receiver for the selected
+  `xc7z020clg400-2`: 16,886 LUTs, 15,664 registers, 24 BRAM tiles, 56 DSPs, and
+  75.965 MHz derived Fmax. This is OOC evidence, not board implementation.
 - [x] Place and route boundary-register wrappers around the FFT correlator and
   ToA interpolator; record post-route timing and vectorless core power
   (`run_implementation`, 4 MHz activity model).
-- [ ] Implement and measure the complete board top level with clocking, AXI,
-  package constraints, the processing system, and the AD936x interface.
+- [x] Integrate and synthesize the complete CLG400 board top with the recovered
+  AD9361 shell, formatted RX1 stream, fixed 62.5 MHz divide-by-four sample
+  clock, atomic CDC mailbox, PS gpreg window and package constraints. Synthesis
+  meets timing with +0.433 ns overall WNS and +2.640 ns in the sample domain;
+  the disabled 125 MHz leg has no setup endpoints. This is synthesis evidence,
+  not a routed bitstream or hardware measurement.
+- [x] Place and route the complete board top and generate the development
+  bitstream/XSA. All 54,993 routable nets are routed; exact sign-off timing is
+  +0.064 ns WNS and +0.031 ns WHS. Bitgen and XSA export complete with zero
+  errors and zero critical warnings. This is still offline implementation
+  evidence, not a successful boot.
+- [x] Package a complete, checksum-verified development cold-boot directory
+  with `BOOT.bin`, the routed `system_top.bit`, `uImage`, device tree, ramdisk,
+  `uEnv.txt`, and an artifact manifest. The generated directory is
+  `fpga/build/clg400-board/boot-set-board-b`; it is offline packaging evidence,
+  not a successful boot.
+- [ ] Copy the packaged directory to a cloned SD card, cold-boot it, and qualify
+  it on the `xc7z020clg400-2` board. The existing CLG484 OOC reports remain
+  secondary comparison evidence.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.
 
 ## M4 — ZynqSDR symbol receiver
 
-- [ ] Integrate the generated core in Vivado and connect the AD936x sample path.
-  Prerequisites now made explicit in M3 are regeneration with unique module
-  prefixes plus the receiver streaming/control wrapper; no board-level success
-  is claimed from OOC cores alone.
+- [x] Integrate the generated core in Vivado and connect the formatted AD9361
+  RX1 sample path. The source composition, gpreg map, CDC regression and full
+  board implementation are complete, and an unqualified SD boot directory is
+  packaged; live-board qualification remains a separate gate.
 - [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

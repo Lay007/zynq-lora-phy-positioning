@@ -18,6 +18,10 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 
 ## Hardware evidence
 
+- [CLG400 LoRa receiver bring-up](clg400-hardware-bring-up.md)
+- [CLG400 board-level synthesis evidence](data/rtl-m4-clg400-board-synthesis.csv)
+- [CLG400 board-level implementation evidence](data/rtl-m4-clg400-board-implementation.csv)
+- [CLG400 offline boot-package evidence](data/rtl-m4-clg400-board-boot-package.csv)
 - [Hardware sweep — 2026-08-02](hardware-sweep-2026-08-02.md)
 - [Heltec V4.3 hardware sweep — 2026-08-03](hardware-sweep-2026-08-03-heltec-v43.md)
 - [Targeted hardware notes — 2026-08-07](hardware-targeted-2026-08-07.md)

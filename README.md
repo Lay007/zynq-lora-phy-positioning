@@ -22,12 +22,14 @@ defines why generated LoRa HDL is not duplicated there.
 > M2 now includes the streaming fixed-point correlator, joint timing/CFO and
 > frequency-only estimators, blind packet-start detection, sample-grid
 > realignment, SFD acceptance, packet framing, reset behavior, coarse
-> timestamps, and fractional ToA. M3 has generated Verilog and out-of-context
-> synthesis evidence for eight HDL blocks, plus core-only post-route timing and
-> vectorless power estimates for the correlator and ToA. Cosimulation, IP
-> packaging, and the complete board-level wrapper remain open.
-> M4-M6 hardware reception and synchronized positioning have not started, so
-> the repository does not yet claim a hardware LoRa receiver.
+> timestamps, and fractional ToA. M3 has namespaced generated Verilog,
+> exact 8/8 HDL cosimulation for ToA, core-only post-route evidence, and a full
+> portable SF7/L=8 IQ-to-AXI timestamp receiver synthesized for
+> `xc7z020clg400-2`. A CLG400 overlay now connects that receiver to the vendor
+> AD9361 RX1 stream and exposes atomic metadata through a PS gpreg window.
+> Generated-IP packaging and hardware validation remain open. M4-M6 hardware
+> reception and synchronized positioning have not started, so the repository
+> does not yet claim a hardware LoRa receiver.
 
 ## Project goals
 
@@ -61,7 +63,8 @@ The first hardware milestone is deliberately narrow:
 - `docs/` — architecture, development roadmap, and test-bench requirements.
 - `experiments/templates/` — versioned metadata templates for ToA and TDoA
   measurements.
-- `fpga/` — generated HDL and synthesis evidence for the current M3 blocks.
+- `fpga/` — generated HDL, portable receiver RTL, CLG400 board overlay, tests,
+  and synthesis evidence.
 - `firmware/` and `hardware/` — integration boundaries for later PL, PS, and
   board-specific work.
 

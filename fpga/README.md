@@ -4,25 +4,35 @@
 
 | | |
 |---|---|
-| Board | Xilinx ZC702 |
-| Device | `xc7z020clg484-1` |
-| Radio | FMCOMMS2 (AD936x) |
+| First board integration | CLG400 ZynqSDR used by `zynq-sdr-course` |
+| First board device | `xc7z020clg400-2` |
+| Secondary OOC reference | Xilinx ZC702, `xc7z020clg484-1` |
+| Radio | AD936x |
 | Firmware | ADALM-Pluto |
 
-The part string comes from the ADI reference scripts
-(`adi_project_xilinx.tcl` maps `_zc702` to `xc7z020clg484-1`), not from
-memory. Do not substitute `xc7z020clg400`: that is a different package used
-by other boards, and an earlier synthesis run in this repository used it by
-mistake.
+The first hardware target is fixed by
+[`ADR 0004`](../docs/architecture-decisions/0004-first-hardware-target.md).
+The CLG400 part is confirmed by the deployed bitstream headers and routed
+reports in `zynq-sdr-course-artifacts`. Package-specific bitstreams and
+constraints must never be exchanged between CLG400 and CLG484.
 
-The board runs **Pluto firmware**, which is why the capture documentation
-calls it a Pluto-compatible ZynqSDR and reaches it over libiio at
-`ip:192.168.40.1`. That describes the software interface, not the silicon —
-the die is a Zynq-7020 on a ZC702, not a Pluto.
+The CLG400 boards run **Pluto firmware**, which is why the capture documentation
+calls them Pluto-compatible ZynqSDRs. The artifact records identify course
+board A at `ip:192.168.40.1` and receiver board B at `ip:192.168.20.1`; always
+confirm the live address. That describes the software interface, not the
+silicon.
+
+The earlier per-core M3 synthesis and post-route CSV files describe the
+secondary CLG484 OOC target. The complete portable receiver has now also been
+synthesized for the real CLG400 part; neither result is a substitute for
+board-level implementation and measurement.
 
 Board bring-up material — boot sets, SD images, QSPI backups, and a working
 FMCOMMS2 reference design — lives outside this repository in
 `zynq-sdr-course` and `zynq-sdr-course-artifacts`.
+
+The conducted first-board procedure and safety gates are in
+[`docs/clg400-hardware-bring-up.md`](../docs/clg400-hardware-bring-up.md).
 
 This directory contains HDL Coder output, hand-written PL integration, and
 verification. Planned top-level areas are `generated/`, `rtl/`, `tb/`,
@@ -75,18 +85,12 @@ HDL Coder counts and must not be read as LUT/FF/DSP/BRAM.
 
 ### Generated-module namespace
 
-The committed HDL snapshots above were generated before the integration
-namespace was introduced, so their top-level modules are still named `DUT`.
-That is harmless for one-core-at-a-time OOC synthesis but collides as soon as
-several generated cores are compiled into the same Vivado fileset.
-
-`run_hdl_generation.m` now sets a unique HDL Coder `ModulePrefix` for every
+The committed HDL snapshots use a unique HDL Coder `ModulePrefix` for every
 hardware target (`lora_fft_`, `lora_acq_`, `lora_blind_`, `lora_frame_`,
-`lora_sfd_`, `lora_toa_`, `lora_sync_`, and `lora_freq_`). The next local HDL
-regeneration therefore produces namespaced modules suitable for composition.
-The synthesis and post-route scripts prefer the namespaced top names but fall
-back to historical `DUT`, so the already-published OOC evidence remains
-reproducible before regeneration.
+`lora_sfd_`, `lora_toa_`, `lora_sync_`, and `lora_freq_`). All eight generated
+cores can therefore coexist in the same Vivado fileset. The synthesis and
+post-route scripts still fall back to the historical unprefixed `DUT` name so
+older evidence can be reproduced from an earlier checkout.
 
 ## Hand-written integration glue
 
@@ -118,9 +122,75 @@ The RTL regressions under `tb/` cover the two primitives independently and the
 composed fragment-to-AXI path end to end. The main CI compiles and runs them
 with Icarus Verilog.
 
-This is still deliberately **not** the complete receiver top level. Generated
-receiver-core composition, the board-facing sample stream, explicit CDC where
-needed, AD936x integration, and board constraints remain M3/M4 work.
+This control-only wrapper is deliberately not the receiver top level. The
+portable receiver-core composition is described below. The board-facing RX1
+sample tap, explicit CDC mailbox, AD9361 shell and CLG400 constraints are
+composed separately under [`board/clg400/`](board/clg400/); boot-image
+packaging and hardware qualification remain open.
+
+### Automatic packet-rate ToA composition
+
+`wrappers/lora_packet_toa_receiver_top.v` is now the complete portable
+single-clock SF7/L=8 timestamp path:
+
+```text
+IQ -> FFT correlator -> blind packet detector -> coarse packet count
+ |                                                |
+ +-> 16384-sample history -> 17-lag matched filter+
+                              -> peak triplet -> fractional ToA
+                              -> atomic metadata -> AXI4-Lite
+```
+
+The matched filter uses the committed Q10 reference ROM under `rom/`. Its
+full-size regression checks all 17 exact correlation powers for a 1024-sample
+reference, rather than the one-tap control-path fixture. The receiver-level
+regression drives an actual preamble plus sync word, starts the ToA search from
+`packet_start_valid`, and reads the resulting coarse/fractional timestamp back
+through AXI.
+
+This top intentionally defines one coherent DSP clock domain. The CLG400
+adapter under [`board/clg400/`](board/clg400/) taps the formatted RX1 FIFO
+stream and transfers the already-joined metadata record coherently to the PS
+AXI clock domain with a request/acknowledge mailbox. Its asynchronous-clock RTL
+regression verifies atomic snapshots, sequence handling and overflow behavior.
+
+The reproducible full-top OOC gate is
+[`scripts/synth_packet_toa_receiver_ooc.tcl`](scripts/synth_packet_toa_receiver_ooc.tcl).
+On `xc7z020clg400-2` at a 10 ns probe constraint it measured 16,886 LUTs,
+15,664 registers, 24 BRAM tiles, and 56 DSPs. WNS was -3.164 ns, corresponding
+to a derived 13.164 ns period / 75.965 MHz. The limiting path is inside the
+generated FFT correlator; the intended SF7/L=8 sample stream is 1 MHz. The
+machine-readable record is
+[`docs/data/rtl-m3-packet-toa-receiver-synthesis.csv`](../docs/data/rtl-m3-packet-toa-receiver-synthesis.csv).
+
+The IQ history itself maps to 16 RAMB36 blocks and only 104 LUTs in the composed
+hierarchical report. This BRAM mapping is an explicit gate: an earlier coding
+form consumed 11,264 LUTRAMs and was rejected.
+
+### CLG400 board synthesis
+
+[`board/clg400/`](board/clg400/) composes the receiver with the recovered ADI
+AD9361 shell for the exact `xc7z020clg400-2`. The low-rate image fixes the
+shared shell clock selector to divide-by-four: 62.5 MHz for the receiver/DMA
+domain under the 250 MHz worst-case RX input constraint. The unused 125 MHz
+leg remains present in the generated clock graph but has no setup endpoints.
+
+Full board synthesis uses 31,768 LUTs, 38,132 registers, 28 BRAM tiles and 84
+DSPs. Post-synthesis timing is met with +0.433 ns overall WNS and +2.640 ns in
+the 62.5 MHz domain. The custom request/acknowledge CDC bridge has no Critical
+CDC findings; the held 128-bit payload is reported as the expected CDC-15
+mailbox structure and is covered by an asynchronous-clock atomicity test. The
+machine-readable result is
+[`docs/data/rtl-m4-clg400-board-synthesis.csv`](../docs/data/rtl-m4-clg400-board-synthesis.csv).
+These results prove source integration, capacity and synthesis timing only.
+The subsequent implementation gate routed all 54,993 routable nets and met
+exact timing with +0.064 ns WNS and +0.031 ns WHS. Bitgen produced a 2,527,536
+byte bitstream and XSA export succeeded; hashes and routed utilization are in
+[`docs/data/rtl-m4-clg400-board-implementation.csv`](../docs/data/rtl-m4-clg400-board-implementation.csv).
+The checksum-gated packager under `board/clg400/` has also assembled the six
+payload files and manifest in the ignored
+`fpga/build/clg400-board/boot-set-board-b` directory. Cold boot and RF
+measurements remain separate gates.
 
 ## Synthesis
 
@@ -165,6 +235,8 @@ measured rail power, and they do not include the processing system, AD936x
 interface, AXI, board clocking, or I/O. A reported dynamic value of 0 W means
 less than the report's 1 mW resolution, not physical zero.
 
-Cosimulation is still not run: no HDL simulator is installed on the development
-host. Earlier revisions of this file also said no Vivado was installed, which
-was wrong — it is at `g:\Xilinx\Vivado\2021.1`.
+HDL Verifier cosimulation now runs with Vivado XSim from
+`g:\Xilinx\Vivado\2021.1`. The committed M3 evidence covers eight ToA cases and
+matches the MATLAB decision, valid cycle, fractional offset, and peak log
+exactly; both paths report 38 cycles of latency. Run it with
+`model/simulink/run_hdl_cosimulation.m`.
