@@ -1,0 +1,7 @@
+Target,PackageStatus,PackageDirectory,File,Role,Bytes,Sha256,ColdBooted,RecordedUtc
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,BOOT.bin,fsbl_uboot,637760,fc095df262c79578a236b21e67e58296e6f1cfe177779d5ee29854eae01f8368,false,2026-08-29T14:49:59.9404953Z
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,system_top.bit,lora_receiver_pl,2527536,8c39730d9f5d6f7732d0e143e010c2efebfd310d2f82454ad8656977e1a2cc17,false,2026-08-29T14:49:59.9404953Z
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,uImage,linux_kernel,4543704,e675f26c955d76bccaacc14943619be44b45fcf06a52e9e6faebaada40f06f34,false,2026-08-29T14:49:59.9404953Z
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,devicetree.dtb,course_device_tree,22005,b94c6495c7acfe8e65a72b6007da7fbbbd50b4483d5204fa01d613f71065f9d2,false,2026-08-29T14:49:59.9404953Z
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,uramdisk.image.gz,course_rootfs,6756447,17c32edfb5eee20963f6f5feaca8547241d6ce102b51ebbffb03a758c9170471,false,2026-08-29T14:49:59.9404953Z
+xc7z020clg400-2,unqualified_offline,fpga/build/clg400-board/boot-set-board-b,uEnv.txt,sd_cold_boot_environment,7742,d0b02c2545cba4c8cda1d31173ef175990ff385b9f184b09684e897ec22ea193,false,2026-08-29T14:49:59.9404953Z

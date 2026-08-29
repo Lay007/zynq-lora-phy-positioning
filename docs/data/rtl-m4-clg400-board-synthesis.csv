@@ -1,0 +1,2 @@
+Part,Top,SampleClockMode,SampleClockMHz,OverallWnsNs,SampleClockWnsNs,HighRateClockMHz,HighRateSetupEndpoints,SliceLUTs,SliceRegisters,BlockRamTiles,DSPs,IqHistoryRamb36,SynthErrors,SynthCriticalWarnings,MethodologyTiming6,MethodologyTiming7,MethodologyLutar1,CustomCdcCritical,CheckpointChecksum
+xc7z020clg400-2,system_top,fixed_divide_by_4,62.5,0.433,2.640,125.0,0,31768,38132,28,84,16,0,0,0,0,0,0,ad4832b9
