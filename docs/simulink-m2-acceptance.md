@@ -10,6 +10,10 @@ interface contract, toolchain, and vector format are in
 M2 is **complete**. This document records the measured acceptance evidence and
 the boundaries deliberately deferred to M3 and later hardware milestones.
 
+> Historical scope note: statements below that HDL cosimulation was unavailable
+> describe the M2 acceptance date. M3 now has a passing HDL Verifier/Vivado XSim
+> run recorded in `docs/data/simulink-m3-hdl-cosimulation.csv`.
+
 ## Reproducing
 
 ```matlab

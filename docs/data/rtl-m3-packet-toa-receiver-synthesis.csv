@@ -1,0 +1,2 @@
+Part,Top,ProbePeriodNs,LUTs,Registers,BramTiles,DSPs,Carry4,WnsNs,AchievedPeriodNs,FmaxMHz
+xc7z020clg400-2,lora_packet_toa_receiver_top,10,16886,15664,24,56,1562,-3.164,13.164,75.96475235490732

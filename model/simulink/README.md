@@ -355,9 +355,8 @@ records every message. Note that HDL Coder settings go through `hdlset_param`;
 `set_param`'s `TargetLang` is Simulink Coder's C/C++ selector and rejects
 `"Verilog"`.
 
-This stops at the compatibility checker. Generation, synthesis, and selected
-post-route measurements are separate reproducible M3 steps below. HDL
-cosimulation is still unavailable because no HDL simulator is installed.
+This stops at the compatibility checker. Generation, cosimulation, synthesis,
+and selected post-route measurements are separate reproducible M3 steps below.
 
 ## HDL generation (first M3 step)
 
@@ -368,6 +367,23 @@ report = run_hdl_generation(WordLength=16);
 Generates Verilog for all eight hardware-bound DUTs into `fpga/generated/` and
 reads HDL Coder's own operator counts and delay-balancing report. Those counts
 are inferred operators and must not be read as LUT/FF/DSP/BRAM.
+
+Each target is generated with a unique module prefix so all eight snapshots can
+be compiled into one Vivado design. The committed snapshots have been
+regenerated with those prefixes.
+
+## HDL cosimulation
+
+```matlab
+report = run_hdl_cosimulation;
+```
+
+Generates the ToA interpolator in a temporary directory, builds it with Vivado
+XSim through HDL Verifier, and cycle-compares eight boundary and nominal cases
+against MATLAB. The recorded M3 run passed 8/8 decisions, valid-cycle timing,
+fractional offsets, and peak logs exactly; both model and HDL latency were 38
+cycles. Evidence is in
+[`docs/data/simulink-m3-hdl-cosimulation.csv`](../../docs/data/simulink-m3-hdl-cosimulation.csv).
 
 ```matlab
 report = run_synthesis(Part="xc7z020clg484-1");
@@ -384,7 +400,6 @@ interpolator, then records post-route timing and vectorless power at the 4 MHz
 application clock in `docs/data/simulink-m3-post-route.csv`. This remains a
 core-only OOC estimate: it excludes board clocking, AXI, package I/O, the
 processing system, and the AD936x interface, and it is not measured rail power.
-Cosimulation is still not run because no HDL simulator is installed.
 
 The measured counts are in
 [`docs/simulink-m2-acceptance.md`](../../docs/simulink-m2-acceptance.md). The
@@ -398,6 +413,5 @@ SF7/L=8/16 bits, and HDL Coder adds 34 cycles of latency on top of the model.
 - Version the model, initialization script, HDL configuration, and vector-export
   script together.
 - Generate Verilog, not VHDL, for the first ZynqSDR integration.
-- Run fixed-point comparison before synthesis; HDL cosimulation still has no
-  simulator to run on.
+- Run fixed-point comparison and HDL cosimulation before synthesis.
 - Never hand-edit generated algorithmic Verilog.

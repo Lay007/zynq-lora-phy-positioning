@@ -37,8 +37,8 @@ module lora_iq_history_buffer #(
 
     input  wire                    read_req,
     input  wire [63:0]             read_sample_count,
-    output reg  signed [15:0]      read_iq_re,
-    output reg  signed [15:0]      read_iq_im,
+    output wire signed [15:0]      read_iq_re,
+    output wire signed [15:0]      read_iq_im,
     output reg  [63:0]             read_sample_count_out,
     output reg                     read_valid,
     output reg                     read_miss,
@@ -52,6 +52,10 @@ module lora_iq_history_buffer #(
 
     // A packed complex word maps naturally to one simple dual-port RAM.
     (* ram_style = "block" *) reg [31:0] iq_mem [0:DEPTH-1];
+    reg [31:0] read_iq_word;
+
+    assign read_iq_re = read_iq_word[31:16];
+    assign read_iq_im = read_iq_word[15:0];
 
     wire [ADDR_WIDTH-1:0] write_addr = next_sample_count[ADDR_WIDTH-1:0];
     wire [ADDR_WIDTH-1:0] read_addr  = read_sample_count[ADDR_WIDTH-1:0];
@@ -69,16 +73,16 @@ module lora_iq_history_buffer #(
             $error("lora_iq_history_buffer DEPTH must be a power of two >= 2");
     end
 
+    // Keep the read and write ports in separate clocked processes. This is
+    // the canonical Vivado simple-dual-port template; combining the ports in
+    // one process caused the 16k x 32 history to be implemented as more than
+    // 11k LUTRAMs despite ram_style="block".
     always @(posedge clk) begin
         if (!resetn || stream_reset) begin
-            read_iq_re            <= 16'sd0;
-            read_iq_im            <= 16'sd0;
+            read_iq_word          <= 32'd0;
             read_sample_count_out <= 64'd0;
             read_valid            <= 1'b0;
             read_miss             <= 1'b0;
-            next_sample_count     <= 64'd0;
-            oldest_sample_count   <= 64'd0;
-            samples_retained      <= 32'd0;
         end else begin
             read_valid <= 1'b0;
             read_miss  <= 1'b0;
@@ -86,14 +90,21 @@ module lora_iq_history_buffer #(
             if (read_req) begin
                 read_sample_count_out <= read_sample_count;
                 if (read_in_range && !read_write_collision) begin
-                    read_iq_re <= iq_mem[read_addr][31:16];
-                    read_iq_im <= iq_mem[read_addr][15:0];
+                    read_iq_word <= iq_mem[read_addr];
                     read_valid <= 1'b1;
                 end else begin
                     read_miss <= 1'b1;
                 end
             end
+        end
+    end
 
+    always @(posedge clk) begin
+        if (!resetn || stream_reset) begin
+            next_sample_count   <= 64'd0;
+            oldest_sample_count <= 64'd0;
+            samples_retained    <= 32'd0;
+        end else begin
             if (sample_valid) begin
                 iq_mem[write_addr] <= {iq_in_re, iq_in_im};
                 next_sample_count  <= next_sample_count + 64'd1;

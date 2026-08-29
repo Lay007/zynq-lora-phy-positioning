@@ -13,7 +13,11 @@
 `timescale 1 ns / 1 ns
 
 `ifndef LORA_FFT_GENERATED_DUT
+`ifdef LORA_NAMESPACED_GENERATED
+`define LORA_FFT_GENERATED_DUT lora_fft_DUT
+`else
 `define LORA_FFT_GENERATED_DUT DUT
+`endif
 `endif
 
 module fft_correlator_route_top
@@ -83,7 +87,11 @@ module fft_correlator_route_top
          .ce_out(dut_ce_out),
          .symbolIndex(dut_symbolIndex),
          .symbolValid(dut_symbolValid),
+`ifdef LORA_NAMESPACED_GENERATED
+         .confidence(dut_confidence),
+`else
          .confidence_1(dut_confidence),
+`endif
          .peakMagnitudeSquared(dut_peakMagnitudeSquared),
          .spectrumSum(dut_spectrumSum),
          .symbolBoundary(dut_symbolBoundary),

@@ -10,9 +10,8 @@ function report = run_hdl_generation(options)
 % and must never be reported as LUT/FF/DSP/BRAM.
 %
 % For silicon numbers use RUN_SYNTHESIS, which drives Vivado out of context.
-% Earlier versions of this file claimed no Vivado was installed; that was a
-% wrong finding on my part, not a property of the host. Cosimulation is still
-% not run, because no HDL simulator is installed.
+% For cycle-accurate HDL verification use RUN_HDL_COSIMULATION, which builds a
+% temporary namespaced ToA core with Vivado XSim through HDL Verifier.
 %
 % Each target gets a unique ModulePrefix. Without it every generated
 % subsystem is named DUT, which is valid out of context but prevents several

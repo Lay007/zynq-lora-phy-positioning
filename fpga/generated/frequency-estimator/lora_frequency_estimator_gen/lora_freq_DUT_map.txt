@@ -1,0 +1,2 @@
+lora_frequency_estimator_gen/DUT/FrequencyEstimator --> lora_freq_FrequencyEstimator
+lora_frequency_estimator_gen/DUT --> lora_freq_DUT

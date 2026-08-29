@@ -20,7 +20,9 @@
 //   0x10 COARSE_HI RO  timestamp_coarse[63:32]
 //   0x14 FRACTION  RO  signed Q12 fractional ToA, raw 32-bit value
 //   0x18 VERSION   RO  0x0001_0000 (register-map version 1.0)
-module lora_axi_lite_status (
+module lora_axi_lite_status #(
+    parameter DEFAULT_RECEIVER_ENABLE = 1'b0
+) (
     input  wire         s_axi_aclk,
     input  wire         s_axi_aresetn,
 
@@ -87,7 +89,7 @@ module lora_axi_lite_status (
             s_axi_rdata                  <= 32'd0;
             s_axi_rresp                  <= 2'b00;
             s_axi_rvalid                 <= 1'b0;
-            receiver_enable              <= 1'b0;
+            receiver_enable              <= DEFAULT_RECEIVER_ENABLE;
             timestamp_coarse_snapshot    <= 64'd0;
             timestamp_fractional_snapshot<= 32'd0;
             sequence_counter             <= 32'd0;

@@ -1,0 +1,2 @@
+lora_joint_sync_gen/DUT/JointEstimator --> lora_sync_JointEstimator
+lora_joint_sync_gen/DUT --> lora_sync_DUT

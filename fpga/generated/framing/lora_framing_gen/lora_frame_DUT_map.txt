@@ -1,0 +1,2 @@
+lora_framing_gen/DUT/FramingFsm --> lora_frame_FramingFsm
+lora_framing_gen/DUT --> lora_frame_DUT
