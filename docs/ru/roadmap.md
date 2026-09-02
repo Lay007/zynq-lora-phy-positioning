@@ -141,9 +141,11 @@
   `uEnv.txt` и artifact manifest. Результат находится в
   `fpga/build/clg400-board/boot-set-board-b`; это offline packaging evidence,
   а не успешная загрузка.
-- [ ] Скопировать набор на клонированную SD-карту, выполнить cold boot и
-  квалифицировать его на `xc7z020clg400-2`. Отчёты CLG484 остаются только
-  сравнительными данными по ядрам.
+- [x] Скопировать набор на SD-карту с предварительной резервной копией и
+  выполнить cold boot на `xc7z020clg400-2`. Проверены Linux, драйвер AD9361,
+  RX DMA, сигнатуры `LORA` в gpreg и режим 1 Мвыб/с с включённым FIR AD9361.
+  QSPI не менялась. Это boot/acquisition evidence; квалификация metadata/ToA
+  остаётся gate этапов M4/M5.
 
 Критерий: Verilog воспроизводимо генерируется, проходит cosimulation, выполняет
 timing и выдаёт те же символы, что MATLAB/Simulink.
@@ -151,9 +153,13 @@ timing и выдаёт те же символы, что MATLAB/Simulink.
 ## M4 — Символьный приёмник ZynqSDR
 
 - [x] Подключить сгенерированное ядро к форматированному RX1-потоку AD9361 в
-  Vivado. Исходная композиция, gpreg map, CDC-regression и полный board
-  implementation готовы; непроверенный SD boot-набор упакован, а квалификация
-  живой платы остаётся отдельным gate.
+  Vivado. Исходная композиция, gpreg map, CDC-regression, полный board
+  implementation, cold boot с SD и smoke test живого RX DMA готовы.
+- [x] Подтвердить первый эфирный acquisition от Heltec WiFi LoRa 32 V4.3 на
+  868,1 МГц, BW 125 кГц, SF7, CR 4/5. RX1 записал пакет с ожидаемой ориентацией
+  IQ, а при ручном усилении 50 dB в PL установился sticky packet-start. Sequence
+  metadata осталась нулевой, поэтому восстановление символов/ToA этим не закрыто.
+  Протокол: `docs/clg400-hardware-session-2026-09-02.md`.
 - [ ] Проверить Heltec → ZynqSDR при BW 125 кГц и SF7.
 - [ ] Расширить до полного пакетного PHY и двусторонней совместимости.
 - [ ] Измерить PER по SNR/мощности и допуски CFO/SFO.

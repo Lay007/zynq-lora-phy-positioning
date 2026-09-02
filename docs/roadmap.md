@@ -144,9 +144,11 @@ and has a successful recorded timestamp-metadata execution. Measurements are in
   `uEnv.txt`, and an artifact manifest. The generated directory is
   `fpga/build/clg400-board/boot-set-board-b`; it is offline packaging evidence,
   not a successful boot.
-- [ ] Copy the packaged directory to a cloned SD card, cold-boot it, and qualify
-  it on the `xc7z020clg400-2` board. The existing CLG484 OOC reports remain
-  secondary comparison evidence.
+- [x] Copy the packaged directory to the backed-up development SD card and
+  cold-boot it on the `xc7z020clg400-2` board. Linux, the AD9361 driver, RX DMA,
+  the `LORA` gpreg signatures, and 1 MS/s operation with the AD9361 FIR enabled
+  were verified. QSPI was not modified. This is boot and acquisition evidence;
+  packet metadata/ToA qualification remains an M4/M5 gate.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.
@@ -154,9 +156,13 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
 ## M4 — ZynqSDR symbol receiver
 
 - [x] Integrate the generated core in Vivado and connect the formatted AD9361
-  RX1 sample path. The source composition, gpreg map, CDC regression and full
-  board implementation are complete, and an unqualified SD boot directory is
-  packaged; live-board qualification remains a separate gate.
+  RX1 sample path. The source composition, gpreg map, CDC regression, full board
+  implementation, SD cold boot, and live RX DMA smoke test are complete.
+- [x] Verify first over-the-air acquisition from a Heltec WiFi LoRa 32 V4.3 at
+  868.1 MHz, BW 125 kHz, SF7, CR 4/5. RX1 captured the packet with the expected
+  IQ orientation, and the PL packet-start flag became sticky at 50 dB manual RX
+  gain. The metadata sequence remained zero, so this does not close symbol or
+  timestamp recovery. See `docs/clg400-hardware-session-2026-09-02.md`.
 - [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
