@@ -78,5 +78,69 @@ errors, and zero critical warnings. The 2,511,068-byte bitstream has SHA-256
 It was copied to `/mnt/mmcblk0p1/system_top.bit` and verified there; the prior
 bitstream is retained as `system_top.bit.pre_diag_20260902T0718Z` with SHA-256
 `8c39730d9f5d6f7732d0e143e010c2efebfd310d2f82454ad8656977e1a2cc17`.
-The diagnostic image is prepared but is not considered active until the next
-full power cycle.
+The diagnostic image became active after the next full power cycle. Its idle
+value was `gp_debug=0x00010000`, confirming that the new map and internal
+receiver enable were live.
+
+## Diagnostic result and root cause
+
+With the same 1 MS/s RF profile, one packet changed `gp_debug` to
+`0x0431ec00`. Decoding the sticky bits showed:
+
+- packet start count low word `0xec00`;
+- ToA search reached;
+- at least one matched-filter correlation completed;
+- no peak triplet, fractional ToA, or metadata event;
+- `toa_mac_read_miss_error` asserted.
+
+Two reset-to-transmit measurements separated by 0.20 seconds changed the
+detected packet-start low word by `0x0c00` modulo 65,536. Accounting for three
+counter wraps gives about 998.4 ksample/s, consistent with the configured
+1 MS/s stream rather than a continuous 62.5 MHz valid signal.
+
+The full-size matched-filter regression previously stopped writes before
+starting the 17-lag search. After changing it to preload 11,264 samples and
+continue accepting one sample every clock during the search, the 16,384-sample
+history reproduced the board failure: only 3 of 17 correlations completed,
+then `read_miss` aborted the search and no triplet was produced. A 65,536-sample
+history passes the same live-history golden-vector test, the complete packet
+ToA receiver test, and the CLG400 bridge test.
+
+The enlarged-history full-board build also passed implementation sign-off. It
+uses 30,312 slice LUTs, 37,595 slice registers, 76 of 140 BRAM tiles, and 84
+DSPs. All 56,263 routable nets are fully routed with zero routing errors;
+post-route WNS is +0.211 ns and WHS is +0.033 ns. The 2,535,616-byte bitstream
+has SHA-256
+`5a3d17991a4ae3c07c9836b5bb79234eae4bcf44bea346fad967364167cc4094`.
+It was copied and checksum-verified as `/mnt/mmcblk0p1/system_top.bit`; the
+active diagnostic image was retained as
+`system_top.bit.pre_history65k_20260902T120400Z`. A cold-boot hardware retest
+was still required before the fix could be called verified on board.
+
+## Enlarged-history cold-boot result
+
+The board cold-booted the enlarged-history image with FPGA manager state
+`operating`, both `LORA` signatures present, and the expected idle
+`gp_debug=0x00010000`. The AD9361 profile was restored and read back as RX/TX
+1 MS/s, both FIR paths enabled, RX LO 868,099,998 Hz, RX bandwidth 200 kHz,
+and manual 50 dB gain on both receive channels. The receiver-only cold-boot
+smoke test passed with `status=0x00011243` and no overflow.
+
+Three individually commanded Heltec packets were used; periodic transmission
+was never started and every `send` was followed immediately by `stop`:
+
+- the first packet was not acquired and left `gp_debug=0x00010000`;
+- the second reached all correlations without `read_miss`, then reported
+  `peak_at_boundary_error` as `gp_debug=0x00b12800`;
+- the third completed the complete timestamp path with
+  `status=0x00011267`, `gp_debug=0x003f7c00`, and sequence `1`.
+
+The accepted metadata snapshot for the third packet was coarse timestamp
+`0x00000000000f7bfc` (1,014,780 accepted samples), fractional ToA `0x42b`
+(+0.260498 sample in Q12), and log-peak word `0x0000e9b8`. Debug bits 16
+through 21 were all set and bits 31 through 22 were all clear: metadata,
+fractional ToA, peak triplet, correlation, and search were reached with no
+sticky abort cause. This closes the single-packet hardware-connectivity gate
+for the enlarged history. It does not yet establish acquisition probability,
+timestamp repeatability, calibrated delay, PER, or sensitivity; those require
+the controlled cable run.

@@ -163,6 +163,11 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   IQ orientation, and the PL packet-start flag became sticky at 50 dB manual RX
   gain. The metadata sequence remained zero, so this does not close symbol or
   timestamp recovery. See `docs/clg400-hardware-session-2026-09-02.md`.
+- [x] Diagnose and close the single-packet hardware timestamp path. A live-IQ
+  regression reproduced the 16K-history `read_miss`; a 65K-history image routes
+  with +0.211 ns WNS and cold-boots successfully. One Heltec packet produced
+  sequence 1, coarse/fractional ToA, all stage bits, and no sticky error bits.
+  This is connectivity evidence, not the 1,000-packet acceptance run.
 - [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
