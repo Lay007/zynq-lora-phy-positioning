@@ -47,13 +47,16 @@ fpga/**/*.str
 **/work/
 *.asv
 
-# Editors, scratch, and OS files
+# Editors, scratch, OS and IDE-local files
 #article/
 .idea/
 .vscode/
 tmp/
 .DS_Store
 Thumbs.db
+desktop.ini
+*.vcxproj.user
+*.pcm
 
 # Script-generated Simulink models and reports
 model/simulink/generated/
