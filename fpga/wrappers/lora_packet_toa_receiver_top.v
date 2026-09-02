@@ -19,7 +19,7 @@
 `endif
 
 module lora_packet_toa_receiver_top #(
-    parameter integer HISTORY_DEPTH = 16384,
+    parameter integer HISTORY_DEPTH = 65536,
     parameter integer REF_SAMPLES = 1024,
     parameter integer SEARCH_RADIUS = 8,
     parameter integer MATCH_ACC_WIDTH = 48,
