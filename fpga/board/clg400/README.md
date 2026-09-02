@@ -111,7 +111,7 @@ The overlay extends the existing AXI interconnect with `axi_gpreg_lora` at
 | `0x790404c8` | read | coarse timestamp `[63:32]` |
 | `0x79040508` | read | signed fractional ToA Q12 |
 | `0x79040548` | read | signed log peak Q12 |
-| `0x79040588` | read | debug: last RX Q sample and internal-enable bit |
+| `0x79040588` | read | sticky receiver-stage/error diagnostics and packet-start count low word |
 | `0x790405c8` | read | bridge signature, `0x4c4f5241` |
 
 Status bits are:
@@ -131,6 +131,15 @@ Read `SEQUENCE`, then all timestamp words, then `SEQUENCE` again; retry if the
 two sequence reads differ. The board bridge transfers all timestamp fields as
 one request/acknowledge mailbox entry, and status bit 3 reports an event that
 arrived before the prior one was acknowledged.
+
+`DEBUG` is cleared by stream reset. Bits 15:0 capture
+`packet_start_count[15:0]` on the latest acquisition, bit 16 is the internal
+receiver-enable state, and bits 17, 18, 19, 20, and 21 respectively indicate
+that metadata, fractional ToA, peak triplet, matched-filter correlation, and
+ToA-search stages were reached. Bits 31:22 are sticky errors in this order:
+alignment, symbol-index width,
+search underflow, search restart, MAC window mismatch, MAC read miss, MAC
+response mismatch, MAC restart, peak-at-boundary, and peak restart.
 
 ## Package the board-B SD directory
 

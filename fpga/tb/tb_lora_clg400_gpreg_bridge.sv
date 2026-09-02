@@ -73,7 +73,21 @@ module tb_lora_clg400_gpreg_bridge;
         force dut.metadata_valid = 1'b0;
         force dut.metadata_overflow = 1'b0;
         force dut.packet_start_valid = 1'b0;
+        force dut.packet_start_count = 64'd0;
         force dut.toa_search_busy = 1'b0;
+        force dut.correlation_magnitude_valid = 1'b0;
+        force dut.peak_triplet_valid = 1'b0;
+        force dut.toa_offset_valid = 1'b0;
+        force dut.alignment_error = 1'b0;
+        force dut.symbol_index_width_error = 1'b0;
+        force dut.toa_underflow_error = 1'b0;
+        force dut.toa_search_restart_error = 1'b0;
+        force dut.toa_mac_window_mismatch_error = 1'b0;
+        force dut.toa_mac_read_miss_error = 1'b0;
+        force dut.toa_mac_response_mismatch_error = 1'b0;
+        force dut.toa_mac_restart_error = 1'b0;
+        force dut.toa_peak_boundary_error = 1'b0;
+        force dut.toa_peak_restart_error = 1'b0;
         force dut.metadata_coarse = 64'd0;
         force dut.metadata_fractional_q12 = 32'd0;
         force dut.toa_log_peak_q12 = 32'd0;
@@ -89,6 +103,23 @@ module tb_lora_clg400_gpreg_bridge;
             $display("FAIL receiver request/active status=0x%08x", gp_status);
             $fatal(1);
         end
+
+        // Diagnostic stage/error pulses are sticky until stream reset, while
+        // packet-start count is captured from the same sample-domain event.
+        @(negedge sample_clk);
+        force dut.packet_start_count = 64'h0000_0000_1234_abcd;
+        force dut.packet_start_valid = 1'b1;
+        force dut.toa_search_busy = 1'b1;
+        force dut.correlation_magnitude_valid = 1'b1;
+        force dut.toa_peak_boundary_error = 1'b1;
+        @(negedge sample_clk);
+        force dut.packet_start_valid = 1'b0;
+        force dut.toa_search_busy = 1'b0;
+        force dut.correlation_magnitude_valid = 1'b0;
+        force dut.toa_peak_boundary_error = 1'b0;
+        repeat (2) @(posedge sample_clk);
+        expect32(gp_debug, 32'h00b1_abcd,
+                 "sticky diagnostic and packet-start count");
 
         // The control clock is deliberately slower than the sample clock. The
         // second event arrives while the first mailbox entry is pending and

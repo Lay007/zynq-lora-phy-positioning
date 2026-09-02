@@ -48,7 +48,21 @@ module lora_clg400_gpreg_bridge #(
     wire metadata_overflow;
     wire signed [31:0] toa_log_peak_q12;
     wire toa_search_busy;
+    wire [63:0] packet_start_count;
     wire packet_start_valid;
+    wire correlation_magnitude_valid;
+    wire peak_triplet_valid;
+    wire toa_offset_valid;
+    wire alignment_error;
+    wire symbol_index_width_error;
+    wire toa_underflow_error;
+    wire toa_search_restart_error;
+    wire toa_mac_window_mismatch_error;
+    wire toa_mac_read_miss_error;
+    wire toa_mac_response_mismatch_error;
+    wire toa_mac_restart_error;
+    wire toa_peak_boundary_error;
+    wire toa_peak_restart_error;
     wire internal_receiver_enable;
 
     wire unused_awready;
@@ -98,18 +112,18 @@ module lora_clg400_gpreg_bridge #(
         .detected(),
         .preamble_detected(),
         .sync_valid(),
-        .packet_start_count(),
+        .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
         .toa_search_first_count(),
         .correlation_magnitude(),
-        .correlation_magnitude_valid(),
+        .correlation_magnitude_valid(correlation_magnitude_valid),
         .correlation_sample_count(),
         .peak_index(),
         .peak_sample_count(),
-        .peak_triplet_valid(),
+        .peak_triplet_valid(peak_triplet_valid),
         .toa_offset_q12(),
-        .toa_offset_valid(),
+        .toa_offset_valid(toa_offset_valid),
         .toa_log_peak_q12(toa_log_peak_q12),
         .metadata_coarse(metadata_coarse),
         .metadata_fractional_q12(metadata_fractional_q12),
@@ -117,17 +131,17 @@ module lora_clg400_gpreg_bridge #(
         .history_next_sample_count(),
         .history_oldest_sample_count(),
         .history_samples_retained(),
-        .alignment_error(),
-        .symbol_index_width_error(),
+        .alignment_error(alignment_error),
+        .symbol_index_width_error(symbol_index_width_error),
         .metadata_overflow(metadata_overflow),
-        .toa_underflow_error(),
-        .toa_search_restart_error(),
-        .toa_mac_window_mismatch_error(),
-        .toa_mac_read_miss_error(),
-        .toa_mac_response_mismatch_error(),
-        .toa_mac_restart_error(),
-        .toa_peak_boundary_error(),
-        .toa_peak_restart_error()
+        .toa_underflow_error(toa_underflow_error),
+        .toa_search_restart_error(toa_search_restart_error),
+        .toa_mac_window_mismatch_error(toa_mac_window_mismatch_error),
+        .toa_mac_read_miss_error(toa_mac_read_miss_error),
+        .toa_mac_response_mismatch_error(toa_mac_response_mismatch_error),
+        .toa_mac_restart_error(toa_mac_restart_error),
+        .toa_peak_boundary_error(toa_peak_boundary_error),
+        .toa_peak_restart_error(toa_peak_restart_error)
     );
 
     // Sample-domain event mailbox. A new record may replace the holding
@@ -137,6 +151,8 @@ module lora_clg400_gpreg_bridge #(
     reg bridge_overflow_sample;
     reg packet_seen_sample;
     reg sample_seen_sample;
+    reg [15:0] packet_start_count_low_sample;
+    reg [14:0] diagnostic_sticky_sample;
     (* ASYNC_REG = "TRUE" *) reg event_ack_meta;
     (* ASYNC_REG = "TRUE" *) reg event_ack_sync;
 
@@ -162,6 +178,8 @@ module lora_clg400_gpreg_bridge #(
             bridge_overflow_sample<= 1'b0;
             packet_seen_sample    <= 1'b0;
             sample_seen_sample    <= 1'b0;
+            packet_start_count_low_sample <= 16'd0;
+            diagnostic_sticky_sample <= 15'd0;
         end else begin
             ctrl_sample_meta <= gp_ctrl;
             ctrl_sample_sync <= ctrl_sample_meta;
@@ -171,11 +189,33 @@ module lora_clg400_gpreg_bridge #(
             if (stream_reset) begin
                 packet_seen_sample <= 1'b0;
                 sample_seen_sample <= 1'b0;
+                packet_start_count_low_sample <= 16'd0;
+                diagnostic_sticky_sample <= 15'd0;
             end else begin
                 if (rx_valid)
                     sample_seen_sample <= 1'b1;
-                if (packet_start_valid)
+                if (packet_start_valid) begin
                     packet_seen_sample <= 1'b1;
+                    packet_start_count_low_sample <= packet_start_count[15:0];
+                end
+
+                diagnostic_sticky_sample <= diagnostic_sticky_sample | {
+                    alignment_error,
+                    symbol_index_width_error,
+                    toa_underflow_error,
+                    toa_search_restart_error,
+                    toa_mac_window_mismatch_error,
+                    toa_mac_read_miss_error,
+                    toa_mac_response_mismatch_error,
+                    toa_mac_restart_error,
+                    toa_peak_boundary_error,
+                    toa_peak_restart_error,
+                    toa_search_busy,
+                    correlation_magnitude_valid,
+                    peak_triplet_valid,
+                    toa_offset_valid,
+                    metadata_valid
+                };
             end
 
             if (metadata_overflow)
@@ -245,7 +285,11 @@ module lora_clg400_gpreg_bridge #(
         status_sync[0],
         gp_ctrl[0]
     };
-    assign gp_debug = {15'd0, internal_receiver_enable, rx_sample_bus[15:0]};
+    assign gp_debug = {
+        diagnostic_sticky_sample,
+        internal_receiver_enable,
+        packet_start_count_low_sample
+    };
     assign gp_signature = SIGNATURE;
 
 endmodule
