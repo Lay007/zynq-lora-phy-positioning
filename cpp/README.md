@@ -19,13 +19,16 @@ HDL / FPGA
 
 Visual Studio solution сохранён для удобной работы в Windows, а
 `CMakeLists.txt` является основным воспроизводимым способом сборки и
-используется в GitHub Actions.
+используется в GitHub Actions. Для повседневной работы рекомендуется использовать
+`CMakePresets.json`: он задаёт одинаковые имена конфигураций для Linux,
+Windows, Visual Studio и командной строки.
 
 ## Содержимое каталога
 
 ```text
 cpp/
 ├── CMakeLists.txt              CMake-сборка
+├── CMakePresets.json           готовые Debug/Release preset'ы
 ├── README.md                   этот документ
 ├── LoRa.slnx                   Visual Studio solution
 ├── LoRa/
@@ -36,7 +39,7 @@ cpp/
 │   ├── reader_file.h           чтение бинарных данных
 │   └── writer_file.h           запись бинарных данных
 └── tests/
-    └── test_chirp.cpp           regression-тест C++ ↔ golden ROM
+    └── test_chirp.cpp          regression-тест C++ ↔ golden ROM
 ```
 
 ## Требования
@@ -55,9 +58,58 @@ cpp/
 Для самой C++ модели MATLAB, Vivado и дополнительные библиотеки не нужны.
 Golden regression использует уже сохранённый в репозитории файл FPGA ROM.
 
-## Быстрый старт
+## Быстрый старт через CMake Presets
 
-Из корня репозитория:
+`CMakePresets.json` находится рядом с `CMakeLists.txt`, поэтому команды preset
+запускаются из каталога `cpp/`.
+
+Release:
+
+```bash
+cd cpp
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
+```
+
+Debug:
+
+```bash
+cd cpp
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug
+```
+
+Preset автоматически включает `BUILD_TESTING=ON` и создаёт отдельные каталоги
+сборки:
+
+```text
+build/cpp-release/
+build/cpp-debug/
+```
+
+Имена `release` и `debug` одинаковы для трёх стадий:
+
+```text
+cmake --preset <имя>          configure
+cmake --build --preset <имя>  build
+ctest --preset <имя>          tests
+```
+
+Это рекомендуемый способ локальной сборки: он уменьшает число ручных параметров
+и делает команды одинаковыми на разных рабочих местах.
+
+Посмотреть доступные preset'ы можно так:
+
+```bash
+cd cpp
+cmake --list-presets=all
+```
+
+## Сборка без preset'ов
+
+При необходимости остаётся доступна обычная CMake-команда из корня репозитория:
 
 ```bash
 cmake -S cpp -B build/cpp -DCMAKE_BUILD_TYPE=Release
@@ -65,7 +117,7 @@ cmake --build build/cpp --config Release --parallel
 ctest --test-dir build/cpp -C Release --output-on-failure
 ```
 
-После сборки создаются две основные цели:
+После сборки создаются основные цели:
 
 - `lora_cpp_core` — библиотека с алгоритмами;
 - `lora_chirp_demo` — демонстрационная программа;
@@ -91,9 +143,10 @@ git clone https://github.com/Lay007/zynq-lora-phy-positioning.git
 cd zynq-lora-phy-positioning
 git checkout lora_cpp
 
-cmake -S cpp -B build/cpp -DCMAKE_BUILD_TYPE=Release
-cmake --build build/cpp --parallel
-ctest --test-dir build/cpp --output-on-failure
+cd cpp
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 ```
 
 Для GCC/Clang библиотека и тесты компилируются с:
@@ -110,12 +163,19 @@ ctest --test-dir build/cpp --output-on-failure
 В Developer PowerShell for Visual Studio:
 
 ```powershell
-cmake -S cpp -B build/cpp
-cmake --build build/cpp --config Release --parallel
-ctest --test-dir build/cpp -C Release --output-on-failure
+git checkout lora_cpp
+cd cpp
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 ```
 
 Для MSVC используются `/W4` и `/permissive-`.
+
+Preset не фиксирует конкретный генератор CMake. На Windows CMake может выбрать
+Visual Studio generator, а на Linux — Makefiles/Ninja в зависимости от
+установленного окружения. Поле `configuration` в build/test preset позволяет
+корректно работать и с multi-config генераторами Visual Studio.
 
 ## Windows: Visual Studio
 
@@ -124,8 +184,9 @@ ctest --test-dir build/cpp -C Release --output-on-failure
 ### Вариант 1 — открыть CMake-проект
 
 В Visual Studio выберите `Open -> Folder` и откройте каталог `cpp/` или весь
-репозиторий. Visual Studio обнаружит `cpp/CMakeLists.txt` и сможет выполнить
-configure/build непосредственно через CMake.
+репозиторий. Visual Studio обнаружит `cpp/CMakeLists.txt` и
+`cpp/CMakePresets.json` и сможет выполнить configure/build непосредственно
+через CMake.
 
 Этот вариант предпочтителен, потому что совпадает с CI и Linux-сборкой.
 
@@ -145,18 +206,20 @@ Git и исключены через `.gitignore`.
 
 ## Демонстрационная программа
 
-После сборки можно запустить `lora_chirp_demo`.
+После Release-сборки через preset исполняемый файл находится внутри
+`build/cpp-release/` (для multi-config генератора — дополнительно в каталоге
+`Release`).
 
 Linux, single-config generator:
 
 ```bash
-./build/cpp/lora_chirp_demo
+./build/cpp-release/lora_chirp_demo
 ```
 
 Windows/Visual Studio generator:
 
 ```powershell
-.\build\cpp\Release\lora_chirp_demo.exe
+.\build\cpp-release\Release\lora_chirp_demo.exe
 ```
 
 Demo генерирует восемь upchirp со следующими параметрами:
@@ -363,6 +426,15 @@ FPGA golden Q10 ROM
 
 ## Запуск только тестов
 
+Через preset:
+
+```bash
+cd cpp
+ctest --preset release
+```
+
+Без preset:
+
 ```bash
 ctest --test-dir build/cpp --output-on-failure
 ```
@@ -371,20 +443,6 @@ ctest --test-dir build/cpp --output-on-failure
 
 ```powershell
 ctest --test-dir build/cpp -C Release --output-on-failure
-```
-
-При необходимости сам test executable можно запустить напрямую.
-
-Linux:
-
-```bash
-./build/cpp/lora_cpp_tests
-```
-
-Windows:
-
-```powershell
-.\build\cpp\Release\lora_cpp_tests.exe
 ```
 
 Успешный regression заканчивается сообщением вида:
