@@ -39,6 +39,7 @@ class SymbolTrace:
     capture_sequence: int
     preamble_bin: int
     captured_count: int
+    grid_realigned: bool
     entries: tuple[TraceEntry, ...]
 
 
@@ -198,6 +199,7 @@ def parse_trace(text: str) -> SymbolTrace:
         raise ValueError("captured count exceeds returned trace depth")
 
     preamble_bin = rows[0][7] >> 16
+    grid_realigned = bool(rows[0][7] & 0x100)
     entries = tuple(
         TraceEntry(
             index=row[0],
@@ -208,7 +210,9 @@ def parse_trace(text: str) -> SymbolTrace:
         )
         for row in rows[:captured_count]
     )
-    return SymbolTrace(rows[0][2], preamble_bin, captured_count, entries)
+    return SymbolTrace(
+        rows[0][2], preamble_bin, captured_count, grid_realigned, entries
+    )
 
 
 def read_trace(args: argparse.Namespace) -> SymbolTrace:
@@ -229,9 +233,23 @@ def _payload_summary(payload: bytes) -> dict[str, object]:
     return summary
 
 
+def grid_phase(trace: SymbolTrace) -> int:
+    """The bin offset software still has to remove from the raw decisions.
+
+    The preamble bin measures where the symbol grid sat when the packet
+    arrived. If the receiver then realigned its grid to that packet, it has
+    already removed the offset -- including the integer part of any carrier
+    offset, which an upchirp-only measurement cannot tell apart from timing --
+    and the raw decisions are the transmitted symbols. Subtracting the measured
+    bin again would remove it twice.
+    """
+
+    return 0 if trace.grid_realigned else trace.preamble_bin
+
+
 def build_report(trace: SymbolTrace) -> dict[str, object]:
     candidate = decode_lora_symbol_trace(
-        [entry.symbol for entry in trace.entries], trace.preamble_bin
+        [entry.symbol for entry in trace.entries], grid_phase(trace)
     )
     result = candidate.result
     header = asdict(result.header) if result.header is not None else None
@@ -239,7 +257,9 @@ def build_report(trace: SymbolTrace) -> dict[str, object]:
         "schema": "zynq-lora-clg400-symbol-trace-v1",
         "capture_sequence": trace.capture_sequence,
         "preamble_bin": trace.preamble_bin,
+        "grid_phase_removed": grid_phase(trace),
         "captured_count": trace.captured_count,
+        "grid_realigned": trace.grid_realigned,
         "decode": {
             "success": result.success,
             "header_valid": result.header_valid,
@@ -302,7 +322,9 @@ def main() -> int:
     payload = decode["payload"]
     print(
         f"capture={report['capture_sequence']} symbols={report['captured_count']} "
-        f"preamble_bin={report['preamble_bin']} offset={decode['symbol_offset']} "
+        f"preamble_bin={report['preamble_bin']} "
+        f"grid_realigned={report['grid_realigned']} "
+        f"offset={decode['symbol_offset']} "
         f"bin_adjust={decode['bin_adjustment']}"
     )
     print(

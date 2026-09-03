@@ -209,6 +209,7 @@ def main() -> int:
         f"tx_sequence={record['sequence']} capture={report['capture_sequence']} "
         f"captured={report['captured_count']} "
         f"preamble_bin={report['preamble_bin']} "
+        f"grid_realigned={report['grid_realigned']} "
         f"offset={decode['symbol_offset']} "
         f"bin_adjustment={decode['bin_adjustment']}"
     )

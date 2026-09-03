@@ -30,6 +30,13 @@ HARDWARE_TRACE = (
     / "clg400-symbol-trace-2026-09-03.json"
 )
 
+REALIGNED_TRACE = (
+    Path(__file__).parents[1]
+    / "docs"
+    / "data"
+    / "clg400-grid-resync-2026-09-04.json"
+)
+
 
 def test_python_hard_decoder_matches_matlab_golden_vector() -> None:
     vector = json.loads(GOLDEN.read_text(encoding="utf-8"))
@@ -194,3 +201,82 @@ def test_recorded_hardware_trace_decodes_the_heltec_payload() -> None:
     assert payload == b"ZLP1" + sequence.to_bytes(4, "little") + start_ms.to_bytes(
         4, "little"
     ) + bytes((sequence + index - 12) & 0xFF for index in range(12, 32))
+
+
+def test_realigned_grid_trace_decodes_without_removing_a_bin() -> None:
+    """What the PL grid realignment is expected to hand software.
+
+    The receiver withholds ``mod(chipsToBoundary + 2**(SF-2), 2**SF)`` chips on
+    the detector pulse, which lands the window grid on the payload boundaries.
+    The raw decisions are then the transmitted symbols, so the reader must pass
+    a grid phase of zero rather than the measured preamble bin: the skip already
+    removed it.
+    """
+
+    vector = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    config = CssConfig(spreading_factor=7, samples_per_chip=8)
+    frame = _build_frame(config, vector["cssSymbols"])
+    lead = np.zeros(4096, dtype=np.complex128)
+    tail = np.zeros(80 * config.samples_per_symbol, dtype=np.complex128)
+    size = config.samples_per_symbol
+    count = config.symbol_count
+
+    for grid_delta in (0, 57, 200, 1000):
+        stream = np.concatenate([lead, frame, tail])
+        base = lead.size + grid_delta
+        bins = _free_running_grid_bins(stream, config, base, 40)
+        preamble_bins = bins[1:11]
+        preamble_bin = max(set(preamble_bins), key=preamble_bins.count)
+
+        chips_to_boundary = (-preamble_bin) % count
+        skip = ((chips_to_boundary + count // 4) % count) * config.samples_per_chip
+        # The detector fires on the second sync window; any grid boundary gives
+        # the same phase, so start from the one that window began on.
+        detector_boundary = base + 14 * size
+        aligned = _free_running_grid_bins(
+            stream, config, detector_boundary + skip, 128
+        )
+
+        candidate = decode_lora_symbol_trace(aligned, 0)
+
+        assert candidate.result.success, grid_delta
+        assert candidate.result.crc_valid
+        assert candidate.result.payload == bytes(vector["payload"])
+        assert candidate.bin_adjustment == 0
+
+
+def test_recorded_realigned_hardware_trace_decodes_without_a_grid_phase() -> None:
+    """Replay the accepted capture from the realigned-grid build.
+
+    The receiver moved its own symbol grid onto the packet for this capture, so
+    the raw decisions are the transmitted symbols and the decoder must not
+    remove a bin of its own. The free-running counterpart in
+    `clg400-symbol-trace-2026-09-03.json` needs a quarter symbol; this one needs
+    nothing, and that difference is the whole point of the change.
+    """
+
+    evidence = json.loads(REALIGNED_TRACE.read_text(encoding="utf-8"))
+    attempt = evidence["accepted_attempt"]
+    raw = [entry["symbol"] for entry in attempt["entries"]]
+
+    assert attempt["grid_realigned"]
+    assert attempt["grid_phase_removed"] == 0
+
+    candidate = decode_lora_symbol_trace(raw, attempt["grid_phase_removed"])
+    result = candidate.result
+
+    assert len(raw) == 128
+    assert candidate.bin_adjustment == 0
+    assert result.success
+    assert result.crc_valid
+    assert result.header is not None
+    assert result.header.checksum_valid
+    assert result.header.payload_length == 32
+
+    sequence = attempt["serial"]["tx_sequence"]
+    start_ms = attempt["serial"]["tx_start_ms"]
+    assert result.payload == b"ZLP1" + sequence.to_bytes(
+        4, "little"
+    ) + start_ms.to_bytes(4, "little") + bytes(
+        (sequence + index - 12) & 0xFF for index in range(12, 32)
+    )
