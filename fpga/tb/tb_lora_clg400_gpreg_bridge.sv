@@ -20,6 +20,7 @@ module tb_lora_clg400_gpreg_bridge;
     wire [31:0] gp_log_peak_q12;
     wire [31:0] gp_debug;
     wire [31:0] gp_signature;
+    integer i;
 
     lora_clg400_gpreg_bridge dut (
         .ctrl_clk(ctrl_clk),
@@ -91,6 +92,13 @@ module tb_lora_clg400_gpreg_bridge;
         force dut.metadata_coarse = 64'd0;
         force dut.metadata_fractional_q12 = 32'd0;
         force dut.toa_log_peak_q12 = 32'd0;
+        force dut.packet_detected = 1'b0;
+        force dut.preamble_bin = 16'd0;
+        force dut.symbol_index = 32'd0;
+        force dut.symbol_valid = 1'b0;
+        force dut.symbol_confidence = 16'd0;
+        force dut.symbol_sample_count = 64'd0;
+        force dut.symbol_timestamp_valid = 1'b0;
 
         repeat (4) @(posedge ctrl_clk);
         ctrl_resetn = 1'b1;
@@ -118,6 +126,7 @@ module tb_lora_clg400_gpreg_bridge;
         force dut.correlation_magnitude_valid = 1'b0;
         force dut.toa_peak_boundary_error = 1'b0;
         repeat (2) @(posedge sample_clk);
+        repeat (3) @(posedge ctrl_clk);
         expect32(gp_debug, 32'h00b1_abcd,
                  "sticky diagnostic and packet-start count");
 
@@ -151,6 +160,55 @@ module tb_lora_clg400_gpreg_bridge;
         expect32(gp_coarse_hi, 32'h1020_3040, "second coarse high");
         expect32(gp_fractional_q12, 32'h0000_0400, "second fractional");
         expect32(gp_log_peak_q12, 32'h0003_0000, "second log peak");
+
+        // Re-arm the symbol trace, trigger on the packet decision, and then
+        // provide the 128 following symbol decisions. The detector-cycle
+        // symbol itself must not occupy entry zero.
+        gp_ctrl = 32'h0000_1203;
+        repeat (3) @(posedge sample_clk);
+        gp_ctrl = 32'h0000_1201;
+        repeat (3) @(posedge sample_clk);
+
+        @(negedge sample_clk);
+        force dut.packet_detected = 1'b1;
+        force dut.preamble_bin = 16'd7;
+        force dut.symbol_index = 32'h0000_007f;
+        force dut.symbol_valid = 1'b1;
+        force dut.symbol_confidence = 16'h7fff;
+        force dut.symbol_sample_count = 64'd100;
+        force dut.symbol_timestamp_valid = 1'b1;
+        @(negedge sample_clk);
+        force dut.packet_detected = 1'b0;
+
+        for (i = 0; i < 128; i = i + 1) begin
+            force dut.symbol_index = 32'h0000_0040 + i;
+            force dut.symbol_confidence = 16'h0200 + i;
+            force dut.symbol_sample_count = 64'd1000 + i*1024;
+            @(negedge sample_clk);
+        end
+        force dut.symbol_valid = 1'b0;
+        force dut.symbol_timestamp_valid = 1'b0;
+
+        repeat (6) @(posedge ctrl_clk);
+        // Page one, trace index five, receiver remains enabled with sync 0x12.
+        gp_ctrl = 32'h0501_1201;
+        repeat (5) @(posedge ctrl_clk);
+        expect32(gp_status, 32'h5359_0280, "symbol trace complete status");
+        expect32(gp_sequence, 32'd1, "symbol trace sequence");
+        expect32(gp_coarse_lo, 32'h0000_0045, "symbol trace index");
+        expect32(gp_coarse_hi, 32'd6120, "symbol trace sample count low");
+        expect32(gp_fractional_q12, 32'd0, "symbol trace sample count high");
+        expect32(gp_log_peak_q12, 32'h0002_0205,
+                 "symbol trace flags and confidence");
+        expect32(gp_debug, 32'h0007_0a80,
+                 "symbol trace preamble bin, index, and count");
+
+        // Returning to page zero must preserve the timestamp snapshot ABI.
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+        expect32(gp_sequence, 32'd2, "timestamp sequence after trace read");
+        expect32(gp_coarse_lo, 32'h5060_7080,
+                 "timestamp snapshot after trace read");
 
         $display("PASS tb_lora_clg400_gpreg_bridge");
         $finish;

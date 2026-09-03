@@ -19,11 +19,11 @@ module lora_clg400_gpreg_bridge #(
     input  wire [32:0]             rx_sample_bus,
 
     output wire [31:0]             gp_status,
-    output reg  [31:0]             gp_sequence,
-    output reg  [31:0]             gp_coarse_lo,
-    output reg  [31:0]             gp_coarse_hi,
-    output reg  [31:0]             gp_fractional_q12,
-    output reg  [31:0]             gp_log_peak_q12,
+    output wire [31:0]             gp_sequence,
+    output wire [31:0]             gp_coarse_lo,
+    output wire [31:0]             gp_coarse_hi,
+    output wire [31:0]             gp_fractional_q12,
+    output wire [31:0]             gp_log_peak_q12,
     output wire [31:0]             gp_debug,
     output wire [31:0]             gp_signature
 );
@@ -64,6 +64,13 @@ module lora_clg400_gpreg_bridge #(
     wire toa_peak_boundary_error;
     wire toa_peak_restart_error;
     wire internal_receiver_enable;
+    wire [31:0] symbol_index;
+    wire symbol_valid;
+    wire [15:0] symbol_confidence;
+    wire [63:0] symbol_sample_count;
+    wire symbol_timestamp_valid;
+    wire packet_detected;
+    wire [15:0] preamble_bin;
 
     wire unused_awready;
     wire unused_wready;
@@ -107,11 +114,15 @@ module lora_clg400_gpreg_bridge #(
         .s_axi_rready(1'b1),
 
         .receiver_enable(internal_receiver_enable),
-        .symbol_index(),
-        .symbol_valid(),
-        .detected(),
+        .symbol_index(symbol_index),
+        .symbol_valid(symbol_valid),
+        .symbol_confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .symbol_timestamp_valid(symbol_timestamp_valid),
+        .detected(packet_detected),
         .preamble_detected(),
         .sync_valid(),
+        .preamble_bin(preamble_bin),
         .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
@@ -161,11 +172,60 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg event_request_sync;
     reg event_ack_toggle;
     reg snapshot_valid_ctrl;
+    reg [31:0] timestamp_sequence_ctrl;
+    reg [31:0] timestamp_coarse_lo_ctrl;
+    reg [31:0] timestamp_coarse_hi_ctrl;
+    reg [31:0] timestamp_fractional_ctrl;
+    reg [31:0] timestamp_log_peak_ctrl;
+
+    // A second software page exposes a frozen 128-decision symbol trace while
+    // preserving the qualified timestamp ABI at page zero. gp_ctrl[16] selects
+    // the page and gp_ctrl[30:24] selects a trace entry. The trace starts with
+    // the first SFD decision after the detector pulse.
+    wire [31:0] trace_symbol_index_ctrl;
+    wire [63:0] trace_sample_count_ctrl;
+    wire [15:0] trace_confidence_ctrl;
+    wire [7:0] trace_flags_ctrl;
+    wire [15:0] trace_preamble_bin_ctrl;
+    wire [7:0] trace_captured_count_ctrl;
+    wire trace_capture_active_ctrl;
+    wire trace_capture_complete_ctrl;
+    wire [31:0] trace_capture_sequence_ctrl;
+
+    lora_symbol_trace_buffer #(
+        .TRACE_DEPTH(128),
+        .TRACE_ADDR_WIDTH(7)
+    ) u_symbol_trace (
+        .sample_clk(sample_clk),
+        .sample_resetn(sample_resetn),
+        .stream_reset(stream_reset),
+        .packet_detected(packet_detected),
+        .preamble_bin(preamble_bin),
+        .symbol_index(symbol_index),
+        .symbol_valid(symbol_valid),
+        .confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .symbol_timestamp_valid(symbol_timestamp_valid),
+        .ctrl_clk(ctrl_clk),
+        .ctrl_resetn(ctrl_resetn),
+        .ctrl_read_index(gp_ctrl[30:24]),
+        .ctrl_symbol_index(trace_symbol_index_ctrl),
+        .ctrl_sample_count(trace_sample_count_ctrl),
+        .ctrl_confidence(trace_confidence_ctrl),
+        .ctrl_flags(trace_flags_ctrl),
+        .ctrl_preamble_bin(trace_preamble_bin_ctrl),
+        .ctrl_captured_count(trace_captured_count_ctrl),
+        .ctrl_capture_active(trace_capture_active_ctrl),
+        .ctrl_capture_complete(trace_capture_complete_ctrl),
+        .ctrl_capture_sequence(trace_capture_sequence_ctrl)
+    );
 
     // Low-rate diagnostic flags cross independently; they are status only and
     // do not form part of the atomic timestamp record.
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_meta;
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] debug_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] debug_sync;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -243,11 +303,13 @@ module lora_clg400_gpreg_bridge #(
             event_ack_toggle   <= 1'b0;
             status_meta        <= 5'd0;
             status_sync        <= 5'd0;
-            gp_sequence        <= 32'd0;
-            gp_coarse_lo       <= 32'd0;
-            gp_coarse_hi       <= 32'd0;
-            gp_fractional_q12  <= 32'd0;
-            gp_log_peak_q12    <= 32'd0;
+            debug_meta         <= 32'd0;
+            debug_sync         <= 32'd0;
+            timestamp_sequence_ctrl  <= 32'd0;
+            timestamp_coarse_lo_ctrl <= 32'd0;
+            timestamp_coarse_hi_ctrl <= 32'd0;
+            timestamp_fractional_ctrl<= 32'd0;
+            timestamp_log_peak_ctrl  <= 32'd0;
             snapshot_valid_ctrl<= 1'b0;
         end else begin
             event_request_meta <= event_request_toggle;
@@ -260,20 +322,26 @@ module lora_clg400_gpreg_bridge #(
                 receiver_requested
             };
             status_sync <= status_meta;
+            debug_meta <= {
+                diagnostic_sticky_sample,
+                internal_receiver_enable,
+                packet_start_count_low_sample
+            };
+            debug_sync <= debug_meta;
 
             if (event_request_sync != event_ack_toggle) begin
-                gp_coarse_lo       <= event_hold_sample[31:0];
-                gp_coarse_hi       <= event_hold_sample[63:32];
-                gp_fractional_q12  <= event_hold_sample[95:64];
-                gp_log_peak_q12    <= event_hold_sample[127:96];
-                gp_sequence        <= gp_sequence + 32'd1;
+                timestamp_coarse_lo_ctrl <= event_hold_sample[31:0];
+                timestamp_coarse_hi_ctrl <= event_hold_sample[63:32];
+                timestamp_fractional_ctrl<= event_hold_sample[95:64];
+                timestamp_log_peak_ctrl  <= event_hold_sample[127:96];
+                timestamp_sequence_ctrl  <= timestamp_sequence_ctrl + 32'd1;
                 snapshot_valid_ctrl<= 1'b1;
                 event_ack_toggle   <= event_request_sync;
             end
         end
     end
 
-    assign gp_status = {
+    wire [31:0] timestamp_status = {
         16'h0001,
         gp_ctrl[15:8],
         gp_ctrl[1],
@@ -285,11 +353,34 @@ module lora_clg400_gpreg_bridge #(
         status_sync[0],
         gp_ctrl[0]
     };
-    assign gp_debug = {
-        diagnostic_sticky_sample,
-        internal_receiver_enable,
-        packet_start_count_low_sample
+    wire [31:0] timestamp_debug = debug_sync;
+    wire symbol_page_selected = gp_ctrl[16];
+    wire [31:0] trace_status = {
+        16'h5359, // "SY": symbol-trace ABI version marker
+        6'd0,
+        trace_capture_complete_ctrl,
+        trace_capture_active_ctrl,
+        trace_captured_count_ctrl
     };
+    wire [31:0] trace_debug = {
+        trace_preamble_bin_ctrl,
+        gp_ctrl[30:24],
+        1'b0,
+        trace_captured_count_ctrl
+    };
+
+    assign gp_status = symbol_page_selected ? trace_status : timestamp_status;
+    assign gp_sequence = symbol_page_selected ?
+        trace_capture_sequence_ctrl : timestamp_sequence_ctrl;
+    assign gp_coarse_lo = symbol_page_selected ?
+        trace_symbol_index_ctrl : timestamp_coarse_lo_ctrl;
+    assign gp_coarse_hi = symbol_page_selected ?
+        trace_sample_count_ctrl[31:0] : timestamp_coarse_hi_ctrl;
+    assign gp_fractional_q12 = symbol_page_selected ?
+        trace_sample_count_ctrl[63:32] : timestamp_fractional_ctrl;
+    assign gp_log_peak_q12 = symbol_page_selected ?
+        {8'd0, trace_flags_ctrl, trace_confidence_ctrl} : timestamp_log_peak_ctrl;
+    assign gp_debug = symbol_page_selected ? trace_debug : timestamp_debug;
     assign gp_signature = SIGNATURE;
 
 endmodule

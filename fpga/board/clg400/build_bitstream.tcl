@@ -30,6 +30,18 @@ set run_failed [catch {
     reset_run impl_1
   }
 
+  # The full receiver is close enough to the 62.5 MHz boundary that the
+  # default router can leave a seed-dependent single-path violation of only a
+  # few picoseconds. Keep the sign-off flow reproducible: spend the extra
+  # implementation effort and allow a post-route physical optimization pass
+  # before accepting or exporting a bitstream.
+  set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
+    [get_runs impl_1]
+  set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true \
+    [get_runs impl_1]
+  set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
+    [get_runs impl_1]
+
   # Preserve a completed synthesis run. On Windows this design takes tens of
   # minutes to synthesize, and the Vivado run launcher can remain alive after
   # the checkpoint and completion marker have already been written.

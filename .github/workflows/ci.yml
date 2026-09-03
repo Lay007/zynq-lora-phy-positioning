@@ -179,6 +179,7 @@ jobs:
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \
             fpga/wrappers/lora_packet_toa_receiver_top.v \
+            fpga/board/clg400/lora_symbol_trace_buffer.v \
             fpga/board/clg400/lora_clg400_gpreg_bridge.v \
             fpga/tb/tb_lora_clg400_gpreg_bridge.sv
           vvp /tmp/lora_clg400_gpreg_bridge_tb

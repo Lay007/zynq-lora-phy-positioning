@@ -61,9 +61,13 @@ module lora_packet_toa_receiver_top #(
 
     output wire [31:0]        symbol_index,
     output wire               symbol_valid,
+    output wire [15:0]        symbol_confidence,
+    output wire [63:0]        symbol_sample_count,
+    output wire               symbol_timestamp_valid,
     output wire               detected,
     output wire               preamble_detected,
     output wire               sync_valid,
+    output wire [15:0]        preamble_bin,
     output wire [63:0]        packet_start_count,
     output wire               packet_start_valid,
 
@@ -117,10 +121,6 @@ module lora_packet_toa_receiver_top #(
             toa_reset_reg <= reset_in;
     end
 
-    wire [15:0] confidence_unused;
-    wire [63:0] symbol_sample_count_unused;
-    wire timestamp_valid_unused;
-    wire [15:0] preamble_bin_unused;
     wire [15:0] chips_to_boundary_unused;
     wire [7:0] bins_seen_unused;
     wire [63:0] preamble_start_count_unused;
@@ -138,13 +138,13 @@ module lora_packet_toa_receiver_top #(
         .sync_word(sync_word),
         .symbol_index(symbol_index),
         .symbol_valid(symbol_valid),
-        .confidence(confidence_unused),
-        .symbol_sample_count(symbol_sample_count_unused),
-        .timestamp_valid(timestamp_valid_unused),
+        .confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .timestamp_valid(symbol_timestamp_valid),
         .detected(detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
-        .preamble_bin(preamble_bin_unused),
+        .preamble_bin(preamble_bin),
         .chips_to_boundary(chips_to_boundary_unused),
         .bins_seen(bins_seen_unused),
         .preamble_start_count(preamble_start_count_unused),
