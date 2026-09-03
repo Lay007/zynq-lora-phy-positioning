@@ -200,8 +200,11 @@ module tb_lora_clg400_gpreg_bridge;
         expect32(gp_fractional_q12, 32'd0, "symbol trace sample count high");
         expect32(gp_log_peak_q12, 32'h0002_0205,
                  "symbol trace flags and confidence");
-        expect32(gp_debug, 32'h0007_0a80,
-                 "symbol trace preamble bin, index, and count");
+        // Bit 8 reports that the grid was realigned for this capture. The
+        // receiver instance inside the bridge does that on the detector pulse,
+        // so a completed capture always shows it set.
+        expect32(gp_debug, 32'h0007_0b80,
+                 "symbol trace preamble bin, resync flag, index, and count");
 
         // Returning to page zero must preserve the timestamp snapshot ABI.
         gp_ctrl = 32'h0000_1201;

@@ -27,6 +27,9 @@ captures/**/*.cfile
 !captures/reference/**/*.cfile
 fpga/build/
 fpga/.Xil/
+# Vivado also drops a scratch directory beside the working directory it was
+# launched from, which for the board scripts is the repository root.
+/.Xil/
 # Vivado PS7 summary emitted at the repository root when the board preset has
 # no report output directory configured.
 /NA/

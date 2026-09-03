@@ -155,11 +155,19 @@ jobs:
             fpga/wrappers/lora_matched_filter_mac.v \
             fpga/wrappers/lora_peak_triplet_capture.v \
             fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_symbol_grid_resync.v \
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \
             fpga/wrappers/lora_packet_toa_receiver_top.v \
             fpga/tb/tb_lora_packet_toa_receiver_top.sv
           vvp /tmp/lora_packet_toa_receiver_top_tb
+      - name: Compile and run symbol grid resync testbench
+        run: |
+          iverilog -g2012 -Wall -s tb_lora_symbol_grid_resync \
+            -o /tmp/lora_symbol_grid_resync_tb \
+            fpga/wrappers/lora_symbol_grid_resync.v \
+            fpga/tb/tb_lora_symbol_grid_resync.sv
+          vvp /tmp/lora_symbol_grid_resync_tb
       - name: Compile and run CLG400 metadata CDC bridge testbench
         run: |
           iverilog -g2012 -Wall -DLORA_NAMESPACED_GENERATED -s tb_lora_clg400_gpreg_bridge \
@@ -176,6 +184,7 @@ jobs:
             fpga/wrappers/lora_matched_filter_mac.v \
             fpga/wrappers/lora_peak_triplet_capture.v \
             fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_symbol_grid_resync.v \
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \
             fpga/wrappers/lora_packet_toa_receiver_top.v \

@@ -79,6 +79,7 @@ set source_files [concat [lsort [glob -nocomplain [file join $fft_dir *.v]]] [li
   [file join $repo_root fpga wrappers lora_matched_filter_mac.v] \
   [file join $repo_root fpga wrappers lora_peak_triplet_capture.v] \
   [file join $repo_root fpga wrappers lora_matched_filter_search.v] \
+  [file join $repo_root fpga wrappers lora_symbol_grid_resync.v] \
   [file join $repo_root fpga wrappers lora_timestamp_metadata_join.v] \
   [file join $repo_root fpga wrappers lora_axi_lite_status.v] \
   [file join $repo_root fpga wrappers lora_packet_toa_receiver_top.v] \

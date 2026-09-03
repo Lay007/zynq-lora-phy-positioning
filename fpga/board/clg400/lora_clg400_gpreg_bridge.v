@@ -71,6 +71,7 @@ module lora_clg400_gpreg_bridge #(
     wire symbol_timestamp_valid;
     wire packet_detected;
     wire [15:0] preamble_bin;
+    wire grid_resync_armed;
 
     wire unused_awready;
     wire unused_wready;
@@ -123,6 +124,7 @@ module lora_clg400_gpreg_bridge #(
         .preamble_detected(),
         .sync_valid(),
         .preamble_bin(preamble_bin),
+        .grid_resync_armed(grid_resync_armed),
         .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
@@ -226,6 +228,10 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] debug_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] debug_sync;
+    // Status only: the flag is static once a capture has frozen, so software
+    // never samples it while the sample domain is changing it.
+    (* ASYNC_REG = "TRUE" *) reg grid_resync_meta;
+    (* ASYNC_REG = "TRUE" *) reg grid_resync_sync;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -305,6 +311,8 @@ module lora_clg400_gpreg_bridge #(
             status_sync        <= 5'd0;
             debug_meta         <= 32'd0;
             debug_sync         <= 32'd0;
+            grid_resync_meta   <= 1'b1;
+            grid_resync_sync   <= 1'b1;
             timestamp_sequence_ctrl  <= 32'd0;
             timestamp_coarse_lo_ctrl <= 32'd0;
             timestamp_coarse_hi_ctrl <= 32'd0;
@@ -328,6 +336,8 @@ module lora_clg400_gpreg_bridge #(
                 packet_start_count_low_sample
             };
             debug_sync <= debug_meta;
+            grid_resync_meta <= grid_resync_armed;
+            grid_resync_sync <= grid_resync_meta;
 
             if (event_request_sync != event_ack_toggle) begin
                 timestamp_coarse_lo_ctrl <= event_hold_sample[31:0];
@@ -362,10 +372,14 @@ module lora_clg400_gpreg_bridge #(
         trace_capture_active_ctrl,
         trace_captured_count_ctrl
     };
+    // Bit 8 reports that the symbol grid was realigned for this capture. It
+    // separates "the aligner never fired" from "it fired and the arithmetic is
+    // wrong", which are otherwise indistinguishable from the decoded trace and
+    // cost a rebuild and a cold boot to tell apart.
     wire [31:0] trace_debug = {
         trace_preamble_bin_ctrl,
         gp_ctrl[30:24],
-        1'b0,
+        ~grid_resync_sync,
         trace_captured_count_ctrl
     };
 
