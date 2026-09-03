@@ -184,11 +184,14 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   the realignment and decode with no bin adjustment, where the previous build
   needed a quarter symbol. The payload rate did not follow, at 3 of 16 against
   1 of 10 before.
-- [ ] Remove the one-sided sub-bin decision bias. Of 204 wrong symbols across
-  thirteen realigned captures, 190 are exactly +1 bin and none is -1, so an
-  integer grid advance cannot reach it. Estimating the fractional offset and
-  using the captured per-symbol confidence is the next step; a parity-guided
-  guess was measured on the same captures and rejected at 4 of 13.
+- [ ] Explain the one-sided +1 bin decision bias. It depends on the reported
+  bin, peaking at 56 % either side of the bin wrap and sagging to 10-18 % in the
+  middle, and it is scattered through the packet. Noise to -10 dB, sub-chip
+  alignment, Q10/16-bit widths, and carrier offset to 8 bins were each driven
+  through the model and none reproduces it; a parity-guided guess was measured
+  on the same captures and rejected at 4 of 13. Capture raw IQ through RX DMA
+  and run the reference receiver over the same packet the PL decided on, which
+  separates a correlator defect from an upstream one.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

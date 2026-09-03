@@ -218,6 +218,13 @@ decoder divides the bin by four. The payload is not, and a Gray-mapped +1 bin
 error is a single bit error that CR 4/5 detects but cannot correct. Guessing
 which symbols tipped from that parity was measured on the recorded captures and
 reached 4 of 13, which is not enough to be worth the risk of a parity-clean wrong
-answer. Estimating the fractional offset — the per-symbol confidence the trace
-already stores is the input a hard decision throws away — is what remains, not
-more transmit power.
+answer.
+
+The bias depends on the reported bin, peaking near 56 % either side of the bin
+wrap and sagging to 10-18 % in the middle. Noise down to -10 dB, sub-chip
+alignment, the Q10 reference and 16-bit magnitudes, and a carrier offset of up to
+eight bins were each driven through the model on their own and none reproduces
+that shape; nor can any constant offset produce a mixture inside one packet,
+since symbols are integers. The next step is raw-IQ observability, not more
+transmit power: `docs/clg400-payload-session-2026-09-03.md` records the full
+elimination.

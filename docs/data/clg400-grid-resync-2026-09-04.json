@@ -1167,8 +1167,39 @@
     "header_checksum_valid": 16,
     "payload_crc_valid": 3
   },
+  "residual_profile": {
+    "description": "Share of decisions that came out one bin high, grouped by the bin the PL reported, over the thirteen captures of the rate measurement. Errors are scattered through the packet rather than clustered, and the captured confidence barely separates the two populations: 17241 for wrong decisions against 17975 for right ones.",
+    "reported_bin_group": [
+      "0-15",
+      "16-31",
+      "32-47",
+      "48-63",
+      "64-79",
+      "80-95",
+      "96-111",
+      "112-127"
+    ],
+    "one_bin_high_percent": [
+      57.5,
+      33.9,
+      10.0,
+      14.0,
+      17.9,
+      14.3,
+      25.0,
+      55.6
+    ],
+    "ruled_out_in_the_model": {
+      "awgn_to_minus_10_db": "0 % symbol errors with the grid aligned",
+      "sub_chip_residual_within_three_eighths": "0 %",
+      "sub_chip_residual_at_half_a_chip": "mixed, but flat across bin values",
+      "sub_chip_residual_beyond_five_eighths": "100 %, uniform, absorbed by the decoder adjustment",
+      "q10_reference_and_16_bit_magnitudes": "0 %",
+      "carrier_offset_to_8_bins_with_its_mistiming": "0 %"
+    }
+  },
   "residual": {
     "observation": "Symbol errors survive the realignment and remain one-sided: over the 13 saved captures of the rate measurement, 190 of 204 wrong symbols are exactly +1 bin and none is -1.",
-    "conclusion": "The remaining defect is a sub-bin offset, which an integer grid advance cannot remove. Estimating the fractional offset is the next step; guessing it from the CR 4/5 parity was measured on these same captures and only reached 4 of 13, so it was rejected."
+    "conclusion": "A constant offset of any kind cannot produce a mixture inside one packet, because symbols are integers and a constant offset moves all of them together. Every impairment listed under residual_profile was driven through the model separately and none reproduces the measured shape, so the defect sits in the receive chain itself. The next step is observability rather than another model: capture raw IQ through RX DMA and run the reference receiver over the same packet the PL decided on, which separates a correlator defect from an upstream one. Guessing the tipped symbols from the CR 4/5 parity was measured on these captures and reached only 4 of 13, so it was rejected."
   }
 }

@@ -334,6 +334,55 @@ The material is already there: the model layer has `joint_timing_cfo_from_bins`
 and soft-decision decoding, and the trace already carries a per-symbol
 confidence that a hard decision throws away.
 
+## Ruling the usual suspects out
+
+The one-sided +1 bias is worth naming precisely before guessing at it. Over the
+thirteen realigned captures the error rate depends on the reported bin and not
+on the position in the packet or on the previous symbol:
+
+| Reported bin | Decisions one bin high |
+|---|---:|
+| 0–15 | 57.5 % |
+| 16–31 | 33.9 % |
+| 32–95 | 10–18 % |
+| 96–111 | 25.0 % |
+| 112–127 | 55.6 % |
+
+It peaks either side of the bin wrap and sags in the middle. Errors are also
+scattered through the packet rather than clustered at one end, which rules out a
+sampling-frequency drift, and the captured per-symbol confidence barely
+separates the two populations — 17,241 for the wrong decisions against 17,975
+for the right ones — so it is not usable as a soft metric in the form the trace
+stores it.
+
+Driving the project CSS model with each candidate impairment in turn produced no
+match:
+
+| Impairment driven through the model | Symbol errors |
+|---|---|
+| AWGN down to −10 dB SNR with the grid aligned | 0 % |
+| Sub-chip timing residual within ±3/8 chip | 0 % |
+| Sub-chip residual at ±4/8 chip | mixed, but flat across bin values |
+| Sub-chip residual beyond ±5/8 chip | 100 %, uniform, and absorbed by the decoder's own adjustment |
+| Q10 reference ROM and 16-bit magnitudes | 0 % |
+| Carrier offset up to 8 bins, with the mistiming the bin correction leaves behind | 0 % |
+
+The last row is the one that surprised. Correcting timing and carrier offset
+together with a single time shift leaves a real timing error equal to the
+carrier offset — up to eight chips at this link's crystal tolerances — and
+LoRa's cyclic symbol structure absorbs all of it.
+
+So none of noise, sub-chip alignment, fixed-point width, or carrier offset
+explains what the board does, and a constant residual of any kind cannot produce
+a mixture within one packet in the first place, because symbols are integers and
+a constant offset moves all of them together.
+
+That makes the next step an observability step rather than another model. The
+board can capture raw IQ through RX DMA, and the reference receiver can then be
+run over the same packet the PL decided on. That separates a defect inside the
+generated correlator from one upstream of it, which is the fork this evidence
+cannot resolve on its own.
+
 ## Where the receiver stands now
 
 Established on hardware: a real over-the-air SX1262 packet decoded end to end
@@ -344,4 +393,5 @@ flag the PL sets and by the bin adjustment the decoder no longer needs.
 
 Not established: packet error rate, sensitivity, acquisition probability,
 timestamp repeatability, or calibrated ToA. Three payloads in sixteen at a
-strong signal level measures a sub-bin decision defect, not a link.
+strong signal level measures a decision defect in the receive chain, not a link,
+and that defect is now characterised but not explained.
