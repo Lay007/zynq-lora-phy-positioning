@@ -33,6 +33,13 @@ std::size_t samples_per_chip(double bw, double fs) {
 
     return static_cast<std::size_t>(rounded);
 }
+
+std::size_t symbol_count(int sf) {
+    if (sf < 5 || sf > 12) {
+        throw std::invalid_argument("sf must be in the range 5..12");
+    }
+    return std::size_t{1} << sf;
+}
 }  // namespace
 
 std::vector<CPLX<short>> ChirpModulator::generate_chirps(
@@ -44,12 +51,9 @@ std::vector<CPLX<short>> ChirpModulator::generate_chirps(
     if (num_chirps < 0) {
         throw std::invalid_argument("num_chirps must be non-negative");
     }
-    if (sf < 5 || sf > 12) {
-        throw std::invalid_argument("sf must be in the range 5..12");
-    }
 
     const std::size_t l = samples_per_chip(bw, fs);
-    const std::size_t n_chips = std::size_t{1} << sf;
+    const std::size_t n_chips = symbol_count(sf);
     const std::size_t samples_per_symbol = n_chips * l;
 
     std::vector<CPLX<short>> output;
@@ -80,4 +84,23 @@ std::vector<CPLX<short>> ChirpModulator::generate_chirps(
     }
 
     return output;
+}
+
+std::vector<CPLX<short>> ChirpModulator::modulate_symbol(
+    int symbol,
+    int sf,
+    double bw,
+    double fs) const {
+    const std::size_t n_chips = symbol_count(sf);
+    if (symbol < 0 || static_cast<std::size_t>(symbol) >= n_chips) {
+        throw std::invalid_argument("symbol must be in the range 0..2^sf-1");
+    }
+
+    const std::size_t l = samples_per_chip(bw, fs);
+    auto samples = generate_chirps(1, true, sf, bw, fs);
+    const std::size_t shift = static_cast<std::size_t>(symbol) * l;
+
+    // MATLAB: circshift(reference_chirp, -shift) — циклический сдвиг влево.
+    std::rotate(samples.begin(), samples.begin() + shift, samples.end());
+    return samples;
 }
