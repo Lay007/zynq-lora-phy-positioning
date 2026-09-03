@@ -17,10 +17,23 @@ from .tdoa import (
     solve_tdoa,
     tdoa_from_toas,
 )
+from .lora_packet import (
+    LoRaDecodeResult,
+    LoRaHeader,
+    LoRaTraceDecode,
+    decode_lora_packet,
+    decode_lora_symbol_trace,
+    payload_crc,
+    quarter_symbol_bin_adjustments,
+    whitening_sequence,
+)
 from .toa import ToaEstimate, estimate_toa
 
 __all__ = [
     "CssConfig",
+    "LoRaDecodeResult",
+    "LoRaHeader",
+    "LoRaTraceDecode",
     "PositionEstimate",
     "SPEED_OF_LIGHT_M_S",
     "ToaEstimate",
@@ -29,12 +42,17 @@ __all__ = [
     "delay_signal",
     "demodulate",
     "demodulate_symbol",
+    "decode_lora_packet",
+    "decode_lora_symbol_trace",
     "estimate_frequency_offset",
     "estimate_toa",
     "modulate",
     "modulate_symbol",
+    "payload_crc",
+    "quarter_symbol_bin_adjustments",
     "predict_tdoa",
     "reference_chirp",
     "solve_tdoa",
     "tdoa_from_toas",
+    "whitening_sequence",
 ]
