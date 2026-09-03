@@ -58,35 +58,51 @@ not meet that clock. The required radio/sample configuration is 1 Msps.
 ## Recorded synthesis gate
 
 The complete `system_top` synthesis for `xc7z020clg400-2` completed with zero
-errors and zero critical warnings (checkpoint checksum `ad4832b9`). With the
+errors and zero critical warnings (checkpoint checksum `d8b4dfb2`). With the
 authoritative root clocks restored for checkpoint reporting, all timing
 constraints are met: overall WNS is +0.433 ns and the active 62.5 MHz
-`clk_div_sel_0_s` domain has +2.640 ns WNS. The structurally retained 125 MHz
+`clk_div_sel_0_s` domain has +1.695 ns WNS. The structurally retained 125 MHz
 leg has no setup endpoints.
 
-The synthesized design uses 31,768 LUTs, 38,132 registers, 28 BRAM tiles and 84
-DSPs; the 16K x 32 IQ history maps to 16 RAMB36 blocks. `TIMING-6`, `TIMING-7`
-and `LUTAR-1` are absent from the final methodology report. The custom bridge
-has no Critical CDC findings; its CDC-15 warnings describe the payload held
-stable around the tested request/acknowledge mailbox. The concise evidence row
-is in
+The synthesized design uses 34,652 LUTs, 40,115 registers, 78 BRAM tiles and 84
+DSPs; the 64K x 32 IQ history maps to 64 RAMB36 blocks and the 128 x 128-bit
+symbol trace adds exactly 2 more. `TIMING-6`, `TIMING-7` and `LUTAR-1` are
+absent from the final methodology report. The custom bridge has no Critical CDC
+findings; its CDC-3/CDC-6 entries are the declared `ASYNC_REG` synchronizers of
+the status, debug, and trace-state words. The Critical CDC-1/CDC-13 rows in the
+whole-design report all belong to the inherited ADI DMA and are not part of this
+bridge. The concise evidence row is in
 [`docs/data/rtl-m4-clg400-board-synthesis.csv`](../../../docs/data/rtl-m4-clg400-board-synthesis.csv).
 This is not yet post-route or live-board evidence.
 
 ## Recorded implementation gate
 
-The complete design also places and routes successfully. All 54,993 routable
-nets are fully routed, with exact post-route WNS +0.064 ns and WHS +0.031 ns.
-The active 62.5 MHz domain is the setup limit at +0.064 ns; the unused 125 MHz
-leg still has no setup endpoints. Bitgen and XSA export complete with zero
+The complete design also places and routes successfully. All 59,392 routable
+nets are fully routed, with exact post-route WNS +0.029 ns and WHS +0.020 ns
+over 99,930 setup/hold endpoints and zero total violation. The active 62.5 MHz
+domain is the setup limit at +0.029 ns; the unused 125 MHz leg still has no
+setup endpoints. This margin is small enough that `build_bitstream.tcl` pins the
+router to `AggressiveExplore` and runs a post-route physical optimization pass
+before the bitstream is accepted. Bitgen and XSA export complete with zero
 errors and zero critical warnings.
 
-The generated files are ignored build products:
+The implemented design uses 32,007 LUTs, 39,408 registers, 78 BRAM tiles and 84
+DSPs. The generated files are ignored build products:
 
-- `lora_receiver_clg400.runs/impl_1/system_top.bit` — 2,527,536 bytes,
-  SHA-256 `8c39730d9f5d6f7732d0e143e010c2efebfd310d2f82454ad8656977e1a2cc17`;
-- `lora_receiver_clg400.sdk/system_top.xsa` — 1,259,468 bytes,
-  SHA-256 `e497c61f2756cd992da4b3f58e9bd92986c4eb29e458a045742f18a8c553acfb`.
+- `lora_receiver_clg400.runs/impl_1/system_top.bit` — 2,537,496 bytes,
+  SHA-256 `86940ddba6fae4db7e49e5e0bb9447d78755a05d2388f38e70af7f0cfa6de148`;
+- `lora_receiver_clg400.sdk/system_top.xsa` — 1,334,646 bytes,
+  SHA-256 `83a3f9f6fd6068e1782f6ce89cbba68144bbd56e762d6ca04730cb04e982683d`.
+
+If a Vivado session is interrupted after `write_bitstream` but before the XSA is
+written, do not re-run implementation: a fresh route would change the artifact
+that was already signed off. Export the platform from the completed run instead,
+which re-checks the run status and the timing summary first:
+
+```powershell
+& G:\Xilinx\Vivado\2021.1\bin\vivado.bat -mode batch -nojournal -nolog `
+  -source fpga\board\clg400\export_hw_platform.tcl
+```
 
 The routed DRC contains no errors, but retains warnings from the inherited ADI
 shell and generated DSP: asynchronous-reset checks on BRAM controls and
@@ -104,7 +120,7 @@ The overlay extends the existing AXI interconnect with `axi_gpreg_lora` at
 |---|---|---|
 | `0x79040000` | read | `axi_gpreg` version |
 | `0x79040004` | read | core ID, `0x4c4f5241` |
-| `0x79040404` | write | control: bit 0 enable, bit 1 stream reset, bits 15:8 sync word; zero sync word selects `0x12` |
+| `0x79040404` | read/write | control: bit 0 enable, bit 1 stream reset, bits 15:8 sync word; bit 16 selects the symbol page; bits 30:24 select its trace entry; zero sync word selects `0x12` |
 | `0x79040408` | read | status/build word |
 | `0x79040448` | read | accepted metadata sequence |
 | `0x79040488` | read | coarse timestamp `[31:0]` |
@@ -131,6 +147,23 @@ Read `SEQUENCE`, then all timestamp words, then `SEQUENCE` again; retry if the
 two sequence reads differ. The board bridge transfers all timestamp fields as
 one request/acknowledge mailbox entry, and status bit 3 reports an event that
 arrived before the prior one was acknowledged.
+
+Control bit 16 selects a second, read-only view of the same gpreg outputs. It
+exposes a frozen 128-entry post-acquisition symbol trace without changing the
+timestamp page-zero ABI. Bits 30:24 select the entry. On this page `STATUS`
+contains the `0x5359` (`SY`) marker, complete/active flags in bits 9:8, and the
+captured count in bits 7:0; `SEQUENCE` is the trace sequence; the next three
+words contain the raw symbol and 64-bit sample count; `LOG_PEAK` contains trace
+flags and confidence; and `DEBUG` contains the preamble bin, selected index,
+and count. A complete trace reports `STATUS=0x53590280`. The full capture and
+software-decoder contract is documented in
+[`docs/clg400-symbol-trace.md`](../../../docs/clg400-symbol-trace.md).
+
+This page carried the first decoded over-the-air LoRa payload on this
+board: a Heltec packet whose frozen trace passed the explicit-header
+checksum and the LoRa payload CRC and returned the transmitted sequence
+number. The run is recorded in
+[`docs/clg400-payload-session-2026-09-03.md`](../../../docs/clg400-payload-session-2026-09-03.md).
 
 `DEBUG` is cleared by stream reset. Bits 15:0 capture
 `packet_start_count[15:0]` on the latest acquisition, bit 16 is the internal

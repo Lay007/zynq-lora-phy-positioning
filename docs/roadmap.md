@@ -168,7 +168,20 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   with +0.211 ns WNS and cold-boots successfully. One Heltec packet produced
   sequence 1, coarse/fractional ToA, all stage bits, and no sticky error bits.
   This is connectivity evidence, not the 1,000-packet acceptance run.
-- [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
+- [x] Add a frozen 128-decision PL symbol trace and a Python hard packet
+  decoder. The page-zero timestamp ABI remains unchanged; RTL regression checks
+  the BRAM/page contract, and Python golden-vector tests cover the explicit
+  header, FEC, whitening, and payload CRC.
+- [x] Decode a real over-the-air Heltec payload at BW 125 kHz and SF7. One
+  frozen trace produced a valid explicit header and checksum, a valid LoRa
+  payload CRC, and the `ZLP1` signature with the same sequence number the
+  transmitter reported for that single `send`. Ten saved attempts recovered the
+  header every time and the payload once: the symbol grid never realigns to the
+  packet, so a sub-bin residual costs individual payload symbols. See
+  `docs/clg400-payload-session-2026-09-03.md`.
+- [ ] Drive the correlator resync inputs from the detector so the symbol grid
+  aligns to the packet, and re-measure the payload success rate.
+- [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
 
@@ -177,8 +190,12 @@ matching internal MATLAB/Simulink/Verilog test points.
 
 ## M5 — Single-receiver ToA
 
-- [ ] Coarse sample counter captured in PL.
-- [ ] Fractional ToA estimator and confidence metric.
+- [x] Capture the coarse sample counter in PL and expose an atomic 64-bit value
+  to software. One OTA packet produced coarse sample `1,014,780`; repeatability
+  and calibration are still open.
+- [x] Run the fractional ToA estimator and confidence/log-peak path in PL. The
+  same connectivity packet produced `+0.260498` sample in Q12; this is not yet
+  an accuracy qualification.
 - [ ] Cable-loopback delay calibration.
 - [ ] Repeatability study versus SNR, SF, BW, AGC mode, and input level.
 
