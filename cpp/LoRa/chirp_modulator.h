@@ -16,4 +16,14 @@ public:
         int sf = 7,
         double bw = 125'000.0,
         double fs = 500'000.0) const;
+
+    /// Сформировать один CSS/LoRa-символ как циклический сдвиг upchirp.
+    ///
+    /// Реализация повторяет MATLAB lora_phy.modulate_symbol: символ k
+    /// соответствует сдвигу базового upchirp влево на k*samplesPerChip.
+    std::vector<CPLX<short>> modulate_symbol(
+        int symbol,
+        int sf = 7,
+        double bw = 125'000.0,
+        double fs = 500'000.0) const;
 };
