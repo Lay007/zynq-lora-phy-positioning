@@ -179,8 +179,16 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   header every time and the payload once: the symbol grid never realigns to the
   packet, so a sub-bin residual costs individual payload symbols. See
   `docs/clg400-payload-session-2026-09-03.md`.
-- [ ] Drive the correlator resync inputs from the detector so the symbol grid
-  aligns to the packet, and re-measure the payload success rate.
+- [x] Drive the correlator resync inputs from the detector so the symbol grid
+  aligns to the packet. Confirmed on hardware: all sixteen saved captures report
+  the realignment and decode with no bin adjustment, where the previous build
+  needed a quarter symbol. The payload rate did not follow, at 3 of 16 against
+  1 of 10 before.
+- [ ] Remove the one-sided sub-bin decision bias. Of 204 wrong symbols across
+  thirteen realigned captures, 190 are exactly +1 bin and none is -1, so an
+  integer grid advance cannot reach it. Estimating the fractional offset and
+  using the captured per-symbol confidence is the next step; a parity-guided
+  guess was measured on the same captures and rejected at 4 of 13.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

@@ -2,3 +2,4 @@ Part,Top,SampleClockMode,SampleClockMHz,OverallWnsNs,SampleClockWnsNs,HighRateCl
 xc7z020clg400-2,system_top,fixed_divide_by_4,62.5,0.433,2.640,125.0,0,31768,38132,28,84,16,0,0,0,0,0,0,ad4832b9
 xc7z020clg400-2,system_top,fixed_divide_by_4,62.5,0.433,2.640,125.0,0,32887,38300,76,84,64,0,0,0,0,0,0,9b487464
 xc7z020clg400-2,system_top,fixed_divide_by_4,62.5,0.433,1.695,125.0,0,34652,40115,78,84,64,0,0,0,0,0,0,d8b4dfb2
+xc7z020clg400-2,system_top,fixed_divide_by_4,62.5,0.433,1.695,125.0,0,34820,40166,78,84,64,0,0,0,0,0,0,45823695

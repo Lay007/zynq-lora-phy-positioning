@@ -23,6 +23,7 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 - [CLG400 frozen symbol trace and hard packet decoder](clg400-symbol-trace.md)
 - [CLG400 symbol trace and first decoded payload — 2026-09-03](clg400-payload-session-2026-09-03.md)
 - [CLG400 accepted over-the-air payload evidence](data/clg400-symbol-trace-2026-09-03.json)
+- [CLG400 realigned-grid evidence](data/clg400-grid-resync-2026-09-04.json)
 - [CLG400 board-level synthesis evidence](data/rtl-m4-clg400-board-synthesis.csv)
 - [CLG400 board-level implementation evidence](data/rtl-m4-clg400-board-implementation.csv)
 - [CLG400 offline boot-package evidence](data/rtl-m4-clg400-board-boot-package.csv)

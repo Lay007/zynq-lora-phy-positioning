@@ -1,7 +1,8 @@
-# CLG400 symbol trace and payload session — 2026-09-03
+# CLG400 symbol trace and payload session — 2026-09-03/04
 
-This note records the frozen-symbol-trace image, its deployment, and the
-over-the-air payload attempt that followed. It continues
+This note records the frozen-symbol-trace image, its deployment, the
+over-the-air payload attempt that followed, and the receiver change that
+attempt made necessary. It continues
 [`clg400-hardware-session-2026-09-02.md`](clg400-hardware-session-2026-09-02.md),
 which closed the single-packet timestamp path but produced no payload.
 
@@ -189,7 +190,7 @@ the packet lands relative to a grid that never realigns, which is why one attemp
 in ten decoded cleanly at a strong signal level. Raising the transmit power would
 not change it.
 
-## What this does and does not establish
+## What the payload result does and does not establish
 
 Established: a real SX1262 packet transmitted over the air was received by the
 ZynqSDR, frozen as PL symbol decisions, and decoded in software through the
@@ -199,7 +200,148 @@ yielding the exact bytes the transmitter built for that specific sequence number
 Not established: packet error rate, sensitivity, acquisition probability,
 timestamp repeatability, or calibrated ToA. A one-in-ten payload rate at a strong
 signal level is a measurement of the free-running grid, not of the link, and it
-is not a PER figure. The next receiver step is to drive the correlator resync
-inputs from the detector so the symbol grid aligns to the packet; the receiver
-top already exposes `resync_valid`/`resync_skip` and the detector already
-produces `chips_to_boundary`, and the overlay ties them off today.
+is not a PER figure.
+
+## Aligning the symbol grid
+
+The port for the fix had been in the design from the start, tied to zero. The
+generated correlator does not just accept `resyncValid`/`resyncSkip`; it states
+the mechanism and where the decision belongs:
+
+> Realignment works by dropping samples, not by loading a phase… Mechanism, not
+> policy. Choosing s belongs to the front-end that owns the detector; for a
+> preamble at bin d the required advance is `chipsToBoundary*L = mod(-d, N)*L`.
+
+That formula lands the grid on the **preamble** boundary. The payload does not
+start there: the 2.25-downchirp SFD puts it a further quarter symbol on, so the
+advance is `mod(chipsToBoundary + 2**(SF-2), 2**SF)` chips. For the accepted
+capture, with preamble bin 20 and `chipsToBoundary` 108, that is
+`mod(140, 128) = 12` chips rather than 140 — the grid repeats every 128 chips,
+so the short advance is equivalent and cheaper. Writing 140 into the unit test
+was the first thing tried, and the test rejected it.
+
+Three details decided the implementation.
+
+The request is raised on `detected`, not on the earlier `preambleDetected`. The
+generated detector deliberately decides the preamble early, on the newest eight
+bins, and says why: so that a grid realignment derived from it can take effect
+before the sync word has gone past. But its sync check compares the sync symbols
+against `reference = history[0]`, a preamble bin captured on the old grid. Moving
+the grid in between would compare bins measured on two different grids, and the
+packet would stop being detected at all. Waiting costs nothing: the advance is
+under one and a quarter symbols and the SFD still has 2.25 symbols to run.
+
+The request has to be held. The correlator only latches it on an accepted
+sample, and at 1 MS/s against a 62.5 MHz clock roughly one clock in sixty is an
+accepted sample, so a single-cycle pulse would simply never be seen. It is held
+until one accepted sample has passed and then dropped, because holding longer
+would let a second window of the same packet take it again. One realignment per
+armed capture, re-armed by a receive-stream reset.
+
+The ToA path is untouched. The IQ history and the 64-bit sample counter are both
+written before the withholding, so no holes appear in either and the monotonic
+count TDoA depends on is preserved. The complete receiver regression reproduces
+the same timestamp and fractional ToA with the aligner active.
+
+## The double subtraction the fix would have caused
+
+Aligning the grid changes what software must do, and missing that would have
+broken decoding with the very change that fixes it. On a realigned grid the raw
+decisions are the transmitted symbols: the advance removes the grid phase and,
+with it, the integer part of any carrier offset, which an upchirp-only
+measurement cannot distinguish from timing in the first place. Subtracting the
+measured `preamble_bin` again would remove it twice.
+
+So the trace page reports it. `DEBUG` bit 8 is set once the receiver has
+realigned for that capture, the reader removes the measured bin only when the
+receiver did not, and the saved report records which value it used as
+`grid_phase_removed`. The flag also separates "the aligner never fired" from
+"it fired and the arithmetic is wrong" — indistinguishable from a decoded trace
+alone, and each round trip here costs a rebuild and a cold boot.
+
+## What the model predicts
+
+Rebuilding a frame with the project CSS model, slicing it on a free-running grid
+across a sweep of arrival phases, and repeating with the realigned grid:
+
+| Fractional CFO | Clean packets, free-running grid | Clean packets, realigned grid |
+|---:|---:|---:|
+| 0.00 bins | 79 % | 99 % |
+| 0.25 bins | 50 % | 99 % |
+| 0.45 bins | 17 % | 100 % |
+| 3.40 bins | 28 % | 96 % |
+| 8.60 bins | 63 % | 92 % |
+
+The 0.45-bin row is the one that matches the board: 17 % predicted against
+1 payload in 10 measured. The model has no noise and no sampling-frequency
+offset, so the agreement is qualitative, not a forecast.
+
+`tests/test_lora_packet.py` pins both halves of the change: one case decodes a
+free-running-grid trace and requires the −32 adjustment, the other decodes a
+realigned-grid trace with a grid phase of zero and requires no adjustment at
+all. `fpga/tb/tb_lora_symbol_grid_resync.sv` covers the advance arithmetic, the
+wrap, the hold across a sparse sample stream, and the one-shot behaviour.
+
+## What the realigned build actually did
+
+The image built, routed to +0.031 ns post-route WNS and +0.035 ns WHS over
+100,045 endpoints with all 59,523 routable nets fully routed and no routing
+errors, and cold-booted. Synthesis added 51 registers, which is exactly the
+aligner's state: armed, request, a 16-bit held advance, a 32-bit held skip, and
+the two synchroniser stages for the status flag.
+
+On the board the change does what it claims, and the trace says so directly.
+Across sixteen saved captures:
+
+| Measurement | Result |
+|---|---:|
+| Captures with the grid realigned (`DEBUG` bit 8) | 16 / 16 |
+| Captures decoded with no bin adjustment | 16 / 16 |
+| Explicit header valid with a valid checksum | 16 / 16 |
+| Payload CRC valid | 3 / 16 |
+
+The quarter symbol is gone: every capture now decodes at `bin_adjustment` 0
+where the previous build needed −32, and the header moved from trace entry 2 or
+3 to entry 1 or 2, which is the skip showing up in the capture window.
+
+**The payload rate did not improve the way the model predicted.** Three captures
+in sixteen against one in ten before is not a distinguishable difference at
+these sample sizes, and it is nowhere near the ~100 % the noiseless model
+suggested. The prediction was wrong, and the reason is worth more than the
+prediction was.
+
+## The residual is one-sided, and alignment cannot reach it
+
+Rebuilding the transmitted symbols and diffing them against the realigned
+captures shows the errors survived the change and kept their shape: of 204 wrong
+symbols across thirteen captures, **190 are exactly +1 bin and not one is −1**.
+A one-sided sub-bin bias is left after the grid has been moved by a whole number
+of chips, and no integer advance can remove it. So the 75 %/25 % window straddle
+was not the dominant cause after all; a fractional offset was, and the quarter
+symbol was simply sitting on top of it.
+
+One shortcut was measured and rejected. A +1 symbol error is exactly one Gray
+bit flip, which lands in exactly one CR 4/5 codeword and shows up there as odd
+parity, and the bias is one-sided — so each symbol in a block is either as read
+or one lower, 32 hypotheses per five-symbol block. Run against these same
+captures it lifted 2 of 13 to 4 of 13. That is not a fix: a distance-2 code
+cannot tell a clean block from one with two tipped symbols, so beyond the
+easiest cases the search would be guessing, and the payload CRC would be the
+only thing standing between a guess and a wrong packet reported as good.
+
+The honest next step is to estimate the fractional offset rather than guess it.
+The material is already there: the model layer has `joint_timing_cfo_from_bins`
+and soft-decision decoding, and the trace already carries a per-symbol
+confidence that a hard decision throws away.
+
+## Where the receiver stands now
+
+Established on hardware: a real over-the-air SX1262 packet decoded end to end
+through header checksum, FEC, dewhitening and payload CRC to the exact bytes the
+transmitter built, on both the free-running and the realigned build; and a
+symbol grid that the receiver aligns to the packet it acquired, verified by a
+flag the PL sets and by the bin adjustment the decoder no longer needs.
+
+Not established: packet error rate, sensitivity, acquisition probability,
+timestamp repeatability, or calibrated ToA. Three payloads in sixteen at a
+strong signal level measures a sub-bin decision defect, not a link.

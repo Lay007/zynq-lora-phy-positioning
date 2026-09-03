@@ -58,13 +58,13 @@ not meet that clock. The required radio/sample configuration is 1 Msps.
 ## Recorded synthesis gate
 
 The complete `system_top` synthesis for `xc7z020clg400-2` completed with zero
-errors and zero critical warnings (checkpoint checksum `d8b4dfb2`). With the
+errors and zero critical warnings (checkpoint checksum `45823695`). With the
 authoritative root clocks restored for checkpoint reporting, all timing
 constraints are met: overall WNS is +0.433 ns and the active 62.5 MHz
 `clk_div_sel_0_s` domain has +1.695 ns WNS. The structurally retained 125 MHz
 leg has no setup endpoints.
 
-The synthesized design uses 34,652 LUTs, 40,115 registers, 78 BRAM tiles and 84
+The synthesized design uses 34,820 LUTs, 40,166 registers, 78 BRAM tiles and 84
 DSPs; the 64K x 32 IQ history maps to 64 RAMB36 blocks and the 128 x 128-bit
 symbol trace adds exactly 2 more. `TIMING-6`, `TIMING-7` and `LUTAR-1` are
 absent from the final methodology report. The custom bridge has no Critical CDC
@@ -77,22 +77,22 @@ This is not yet post-route or live-board evidence.
 
 ## Recorded implementation gate
 
-The complete design also places and routes successfully. All 59,392 routable
-nets are fully routed, with exact post-route WNS +0.029 ns and WHS +0.020 ns
-over 99,930 setup/hold endpoints and zero total violation. The active 62.5 MHz
-domain is the setup limit at +0.029 ns; the unused 125 MHz leg still has no
+The complete design also places and routes successfully. All 59,523 routable
+nets are fully routed, with exact post-route WNS +0.031 ns and WHS +0.035 ns
+over 100,045 setup/hold endpoints and zero total violation. The active 62.5 MHz
+domain is the setup limit at +0.031 ns; the unused 125 MHz leg still has no
 setup endpoints. This margin is small enough that `build_bitstream.tcl` pins the
 router to `AggressiveExplore` and runs a post-route physical optimization pass
 before the bitstream is accepted. Bitgen and XSA export complete with zero
 errors and zero critical warnings.
 
-The implemented design uses 32,007 LUTs, 39,408 registers, 78 BRAM tiles and 84
+The implemented design uses 32,193 LUTs, 39,462 registers, 78 BRAM tiles and 84
 DSPs. The generated files are ignored build products:
 
-- `lora_receiver_clg400.runs/impl_1/system_top.bit` — 2,537,496 bytes,
-  SHA-256 `86940ddba6fae4db7e49e5e0bb9447d78755a05d2388f38e70af7f0cfa6de148`;
-- `lora_receiver_clg400.sdk/system_top.xsa` — 1,334,646 bytes,
-  SHA-256 `83a3f9f6fd6068e1782f6ce89cbba68144bbd56e762d6ca04730cb04e982683d`.
+- `lora_receiver_clg400.runs/impl_1/system_top.bit` — 2,530,520 bytes,
+  SHA-256 `65544c8b3c36a34feedc36943ab0c33ee0792b93cf228967ad8e4eb54b58b0c0`;
+- `lora_receiver_clg400.sdk/system_top.xsa` — 1,336,738 bytes,
+  SHA-256 `b5d4cabebfd03cfdb9d10f259c3124cf6410aa4548c3dc8f63d221b167f718db`.
 
 If a Vivado session is interrupted after `write_bitstream` but before the XSA is
 written, do not re-run implementation: a fresh route would change the artifact
@@ -155,14 +155,17 @@ contains the `0x5359` (`SY`) marker, complete/active flags in bits 9:8, and the
 captured count in bits 7:0; `SEQUENCE` is the trace sequence; the next three
 words contain the raw symbol and 64-bit sample count; `LOG_PEAK` contains trace
 flags and confidence; and `DEBUG` contains the preamble bin, selected index,
-and count. A complete trace reports `STATUS=0x53590280`. The full capture and
+the grid-realigned flag in bit 8, and the count. A complete trace reports
+`STATUS=0x53590280`. The full capture and
 software-decoder contract is documented in
 [`docs/clg400-symbol-trace.md`](../../../docs/clg400-symbol-trace.md).
 
 This page carried the first decoded over-the-air LoRa payload on this
 board: a Heltec packet whose frozen trace passed the explicit-header
 checksum and the LoRa payload CRC and returned the transmitted sequence
-number. The run is recorded in
+number. The receiver now also realigns its symbol grid to the packet it
+acquired, so those decisions are taken on the packet grid and `DEBUG` bit 8
+says so. Both runs are recorded in
 [`docs/clg400-payload-session-2026-09-03.md`](../../../docs/clg400-payload-session-2026-09-03.md).
 
 `DEBUG` is cleared by stream reset. Bits 15:0 capture
@@ -197,6 +200,21 @@ board and run it as root. It checks the two `LORA` identity words, performs a
 receiver-only reset/enable, verifies formatted RX activity and overflow, and
 reads an atomic metadata snapshot. It does not touch FPGA manager, QSPI, or TX
 controls.
+
+The AD9361 comes up at 30.72 MS/s with a bypassed filter chain, so every cold
+boot also needs `restore_rx_profile.sh` before any receive experiment. It writes
+only transceiver IIO attributes and reads them back, failing if the chain did
+not land on the requested rate with both FIR paths enabled. The attribute order
+is the part worth keeping: the RX FIR cannot be enabled while the chain still
+sits at a rate the filter cannot serve, and the driver answers that with a bare
+`EINVAL`. The script follows `ad9361_set_bb_rate()` from libad9361-iio — park at
+3 MS/s bypassed, load the 128-tap decimate- and interpolate-by-4 filter, enable
+the transmit side, move to the target rate, enable the receive side — and then
+sets bandwidth, LO, and manual gain. The expected read-back is:
+
+```text
+BBPLL:1024000000 ADC:32000000 R2:16000000 R1:8000000 RF:4000000 RXSAMP:1000000
+```
 
 ## Deployment boundary
 
