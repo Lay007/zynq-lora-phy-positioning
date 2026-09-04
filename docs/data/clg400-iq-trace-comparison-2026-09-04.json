@@ -29,6 +29,13 @@
       "pl_payload_crc_valid": false,
       "smallest_crc_valid_sample_corrections": [2, 3],
       "corresponding_bin_adjustment": 1,
+      "joint_upchirp_offset_samples": 7.7018551583751105,
+      "joint_downchirp_offset_samples": 13.890679112606449,
+      "joint_timing_offset_samples": 10.79626713549078,
+      "joint_cfo_displacement_samples": -3.0944119771156693,
+      "joint_correction_samples": 11,
+      "joint_correction_bin_adjustment": 0,
+      "joint_correction_crc_valid": true,
       "reference_payload_hex": "5a4c50311e000000d3d0b4001e1f202122232425262728292a2b2c2d2e2f3031"
     },
     {
@@ -49,6 +56,13 @@
       "pl_payload_crc_valid": false,
       "smallest_crc_valid_sample_corrections": [-1, -2],
       "corresponding_bin_adjustment": 0,
+      "joint_upchirp_offset_samples": -4.767956184805371,
+      "joint_downchirp_offset_samples": 1.5970123987353873,
+      "joint_timing_offset_samples": -1.5854718930349918,
+      "joint_cfo_displacement_samples": -3.182484291770379,
+      "joint_correction_samples": -2,
+      "joint_correction_bin_adjustment": 0,
+      "joint_correction_crc_valid": true,
       "reference_payload_hex": "5a4c50311f0000008808b5001f202122232425262728292a2b2c2d2e2f303132"
     },
     {
@@ -69,13 +83,20 @@
       "pl_payload_crc_valid": false,
       "smallest_crc_valid_sample_corrections": [1, 2],
       "corresponding_bin_adjustment": 0,
+      "joint_upchirp_offset_samples": -1.569921635556966,
+      "joint_downchirp_offset_samples": 4.820813451893628,
+      "joint_timing_offset_samples": 1.6254459081683308,
+      "joint_cfo_displacement_samples": -3.195367543725297,
+      "joint_correction_samples": 2,
+      "joint_correction_bin_adjustment": 0,
+      "joint_correction_crc_valid": true,
       "reference_payload_hex": "5a4c5031200000000343b500202122232425262728292a2b2c2d2e2f30313233"
     }
   ],
   "conclusions": {
     "raw_iq_decodes": "All three DMA captures independently produce the transmitted ZLP1 payload with a valid header checksum and payload CRC.",
     "pl_matches_reference": "The exact two-FFT reference agrees with 67 of the first 72 frozen PL decisions. The remaining five lie at the resync transition or on sample-phase-sensitive bin boundaries, so there is no evidence of a broad arithmetic or stream-format mismatch.",
-    "root_cause": "The integer-chip resync leaves an unresolved sub-chip sample phase. For the three packets the nearest CRC-valid phases require respectively +2/+3, -1/-2, and +1/+2 samples. A constant correction cannot cover all captures.",
-    "next_gate": "Estimate sample phase dynamically and apply it to the symbol grid before claiming a qualified link. The payload CRC must remain the acceptance criterion; parity-guided symbol guessing remains rejected."
+    "root_cause": "The integer-chip resync leaves an unresolved sample phase. Joint full-resolution up/down matched-filter peaks separate timing from their equal-and-opposite CFO displacement. They estimate +10.796, -1.585, and +1.625 samples and round to +11, -2, and +2; every correction produces the exact transmitted payload with zero bin adjustment. The independently estimated CFO displacement is stable at -3.09 to -3.20 samples.",
+    "next_gate": "Implement the joint up/down estimate in the packet-rate history path, apply its sample correction to the symbol grid, and repeat simultaneous IQ/PL capture before claiming a qualified link. The payload CRC must remain the acceptance criterion; parity-guided symbol guessing remains rejected."
   }
 }

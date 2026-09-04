@@ -196,10 +196,15 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   reference agrees with 67/72 PL decisions. The remaining packet-dependent
   corrections are +2/+3, -1/-2, and +1/+2 samples, localising the defect to the
   sample phase left unresolved by the integer-chip resync.
-- [ ] Estimate the packet's sample phase dynamically, realign the symbol grid
-  at sample resolution, and repeat the CRC-gated hardware capture before a PER
-  run. Prove the estimator and its search span in simulation before building a
-  new SD image.
+- [x] Prove a dynamic sample-phase estimator in the reference model. The
+  half-sum of full-resolution up/down matched-filter peak offsets cancels CFO;
+  it selected +11, -2, and +2 samples for the three captures, and every result
+  decoded with valid CRC and zero bin adjustment. Synthetic timing/CFO sweeps
+  pin the separation independently of payload decoding.
+- [ ] Integrate the joint up/down estimate into the packet-rate history path,
+  apply its correction to the symbol grid, and repeat the CRC-gated hardware
+  capture before a PER run. Prove the controller latency and search span before
+  building a new SD image.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

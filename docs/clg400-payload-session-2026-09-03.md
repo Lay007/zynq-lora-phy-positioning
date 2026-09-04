@@ -409,6 +409,25 @@ an unresolved phase within the eight samples of a chip. That is why the earlier
 clean-grid model did not reproduce the hardware distribution, and why no single
 constant bin or timing correction can qualify the link.
 
+The full-resolution SFD supplies the missing independent observation. CFO moves
+the matched-filter peak of an upchirp and a downchirp in opposite directions,
+while timing moves both in the same direction. Taking the half-sum of one
+central preamble peak and the first full SFD peak produced:
+
+| TX sequence | Up peak offset | Down peak offset | Joint timing | Rounded correction | Decode with bin adjustment 0 |
+|---:|---:|---:|---:|---:|---:|
+| 30 | +7.702 | +13.891 | +10.796 | +11 | pass |
+| 31 | −4.768 | +1.597 | −1.585 | −2 | pass |
+| 32 | −1.570 | +4.821 | +1.625 | +2 | pass |
+
+The half-difference, the CFO-equivalent displacement, is independently stable
+from −3.09 to −3.20 samples across the three packets. Unlike the earlier CRC
+scan, this estimate does not use decoded payload bits. Its rounded correction
+selects a CRC-valid grid with zero residual bin adjustment in all three cases.
+The reference implementation is `estimate_joint_chirp_timing`; synthetic tests
+sweep timing and CFO independently before the real captures are accepted as
+evidence.
+
 The reproducible summary, including SHA-256 hashes of every source capture, is
 [`data/clg400-iq-trace-comparison-2026-09-04.json`](data/clg400-iq-trace-comparison-2026-09-04.json).
 `tools/analyze_clg400_iq_trace.py` repeats the exact two-FFT comparison against
@@ -427,7 +446,7 @@ decoder no longer needs.
 Not established: packet error rate, sensitivity, acquisition probability,
 timestamp repeatability, or calibrated ToA. Three payloads in sixteen at a
 strong signal level measures a decision defect in the receive chain, not a link,
-and that defect is now localised to the unresolved sub-chip sample phase but not
-yet fixed in RTL. The next implementation gate is a dynamic sample-resolution
-phase estimate, followed by the same CRC-gated hardware capture before any PER
-claim.
+and that defect is now localised to the unresolved sample phase but not yet
+fixed in RTL. The up/down estimator is proven in the reference model and on the
+three captures; the next implementation gate is its packet-rate history/RTL
+path, followed by the same CRC-gated hardware capture before any PER claim.
