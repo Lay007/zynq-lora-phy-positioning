@@ -20,10 +20,11 @@
 //   * stream_reset restarts the accepted-sample epoch so this buffer stays
 //     aligned with the generated FFT correlator's symbolSampleCount semantics.
 //
-// DEPTH must be a power of two. 16384 samples is a practical first SF7/L=8
-// integration depth (512 KiBit for complex 16+16-bit IQ), but it is not yet a
-// universal sizing claim: the final depth must exceed measured detector latency
-// plus the matched-filter search window for every supported SF/L configuration.
+// DEPTH must be a power of two. The production SF7/L=8 receiver uses 65536
+// samples (2 MiBit for complex 16+16-bit IQ). The history must cover not only
+// detector latency and the 1024-sample correlation window, but also samples
+// accepted while the reused two-cycle MAC evaluates all 17 lags. A stopped-
+// stream regression hid this live-window requirement when the depth was 16384.
 module lora_iq_history_buffer #(
     parameter integer DEPTH = 16384
 ) (

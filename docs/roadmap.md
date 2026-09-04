@@ -144,9 +144,11 @@ and has a successful recorded timestamp-metadata execution. Measurements are in
   `uEnv.txt`, and an artifact manifest. The generated directory is
   `fpga/build/clg400-board/boot-set-board-b`; it is offline packaging evidence,
   not a successful boot.
-- [ ] Copy the packaged directory to a cloned SD card, cold-boot it, and qualify
-  it on the `xc7z020clg400-2` board. The existing CLG484 OOC reports remain
-  secondary comparison evidence.
+- [x] Copy the packaged directory to the backed-up development SD card and
+  cold-boot it on the `xc7z020clg400-2` board. Linux, the AD9361 driver, RX DMA,
+  the `LORA` gpreg signatures, and 1 MS/s operation with the AD9361 FIR enabled
+  were verified. QSPI was not modified. This is boot and acquisition evidence;
+  packet metadata/ToA qualification remains an M4/M5 gate.
 
 Acceptance: regenerated Verilog is reproducible, passes cosimulation, meets
 timing, and reports the same symbols as MATLAB/Simulink for the regression set.
@@ -154,10 +156,43 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
 ## M4 — ZynqSDR symbol receiver
 
 - [x] Integrate the generated core in Vivado and connect the formatted AD9361
-  RX1 sample path. The source composition, gpreg map, CDC regression and full
-  board implementation are complete, and an unqualified SD boot directory is
-  packaged; live-board qualification remains a separate gate.
-- [ ] Verify Heltec-to-ZynqSDR symbol recovery at BW 125 kHz and SF7.
+  RX1 sample path. The source composition, gpreg map, CDC regression, full board
+  implementation, SD cold boot, and live RX DMA smoke test are complete.
+- [x] Verify first over-the-air acquisition from a Heltec WiFi LoRa 32 V4.3 at
+  868.1 MHz, BW 125 kHz, SF7, CR 4/5. RX1 captured the packet with the expected
+  IQ orientation, and the PL packet-start flag became sticky at 50 dB manual RX
+  gain. The metadata sequence remained zero, so this does not close symbol or
+  timestamp recovery. See `docs/clg400-hardware-session-2026-09-02.md`.
+- [x] Diagnose and close the single-packet hardware timestamp path. A live-IQ
+  regression reproduced the 16K-history `read_miss`; a 65K-history image routes
+  with +0.211 ns WNS and cold-boots successfully. One Heltec packet produced
+  sequence 1, coarse/fractional ToA, all stage bits, and no sticky error bits.
+  This is connectivity evidence, not the 1,000-packet acceptance run.
+- [x] Add a frozen 128-decision PL symbol trace and a Python hard packet
+  decoder. The page-zero timestamp ABI remains unchanged; RTL regression checks
+  the BRAM/page contract, and Python golden-vector tests cover the explicit
+  header, FEC, whitening, and payload CRC.
+- [x] Decode a real over-the-air Heltec payload at BW 125 kHz and SF7. One
+  frozen trace produced a valid explicit header and checksum, a valid LoRa
+  payload CRC, and the `ZLP1` signature with the same sequence number the
+  transmitter reported for that single `send`. Ten saved attempts recovered the
+  header every time and the payload once: the symbol grid never realigns to the
+  packet, so a sub-bin residual costs individual payload symbols. See
+  `docs/clg400-payload-session-2026-09-03.md`.
+- [x] Drive the correlator resync inputs from the detector so the symbol grid
+  aligns to the packet. Confirmed on hardware: all sixteen saved captures report
+  the realignment and decode with no bin adjustment, where the previous build
+  needed a quarter symbol. The payload rate did not follow, at 3 of 16 against
+  1 of 10 before.
+- [ ] Explain the one-sided +1 bin decision bias. It depends on the reported
+  bin, peaking at 56 % either side of the bin wrap and sagging to 10-18 % in the
+  middle, and it is scattered through the packet. Noise to -10 dB, sub-chip
+  alignment, Q10/16-bit widths, and carrier offset to 8 bins were each driven
+  through the model and none reproduces it; a parity-guided guess was measured
+  on the same captures and rejected at 4 of 13. Capture raw IQ through RX DMA
+  and run the reference receiver over the same packet the PL decided on, which
+  separates a correlator defect from an upstream one.
+- [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
 
@@ -166,8 +201,12 @@ matching internal MATLAB/Simulink/Verilog test points.
 
 ## M5 — Single-receiver ToA
 
-- [ ] Coarse sample counter captured in PL.
-- [ ] Fractional ToA estimator and confidence metric.
+- [x] Capture the coarse sample counter in PL and expose an atomic 64-bit value
+  to software. One OTA packet produced coarse sample `1,014,780`; repeatability
+  and calibration are still open.
+- [x] Run the fractional ToA estimator and confidence/log-peak path in PL. The
+  same connectivity packet produced `+0.260498` sample in Q12; this is not yet
+  an accuracy qualification.
 - [ ] Cable-loopback delay calibration.
 - [ ] Repeatability study versus SNR, SF, BW, AGC mode, and input level.
 

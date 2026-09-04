@@ -19,7 +19,8 @@
 `endif
 
 module lora_packet_toa_receiver_top #(
-    parameter integer HISTORY_DEPTH = 16384,
+    parameter integer AUTO_GRID_RESYNC = 1,
+    parameter integer HISTORY_DEPTH = 65536,
     parameter integer REF_SAMPLES = 1024,
     parameter integer SEARCH_RADIUS = 8,
     parameter integer MATCH_ACC_WIDTH = 48,
@@ -61,9 +62,16 @@ module lora_packet_toa_receiver_top #(
 
     output wire [31:0]        symbol_index,
     output wire               symbol_valid,
+    output wire [15:0]        symbol_confidence,
+    output wire [63:0]        symbol_sample_count,
+    output wire               symbol_timestamp_valid,
     output wire               detected,
     output wire               preamble_detected,
     output wire               sync_valid,
+    output wire [15:0]        preamble_bin,
+    output wire [15:0]        chips_to_boundary,
+    output wire               grid_resync_armed,
+    output wire [15:0]        grid_resync_chips,
     output wire [63:0]        packet_start_count,
     output wire               packet_start_valid,
 
@@ -117,14 +125,43 @@ module lora_packet_toa_receiver_top #(
             toa_reset_reg <= reset_in;
     end
 
-    wire [15:0] confidence_unused;
-    wire [63:0] symbol_sample_count_unused;
-    wire timestamp_valid_unused;
-    wire [15:0] preamble_bin_unused;
-    wire [15:0] chips_to_boundary_unused;
     wire [7:0] bins_seen_unused;
     wire [63:0] preamble_start_count_unused;
     wire preamble_start_valid_unused;
+
+    // A caller-supplied request wins, so an integration that owns its own
+    // timing policy keeps the port it always had. With nothing driving it the
+    // receiver aligns its own grid to the packet it just acquired.
+    wire auto_resync_valid;
+    wire [31:0] auto_resync_skip;
+    wire effective_resync_valid = resync_valid || auto_resync_valid;
+    wire [31:0] effective_resync_skip =
+        resync_valid ? resync_skip : auto_resync_skip;
+
+    generate
+        if (AUTO_GRID_RESYNC != 0) begin : g_grid_resync
+            lora_symbol_grid_resync #(
+                .SPREADING_FACTOR(7),
+                .SAMPLES_PER_CHIP(8)
+            ) u_grid_resync (
+                .clk(clk),
+                .resetn(resetn),
+                .stream_reset(reset_in),
+                .sample_valid(gated_valid_in),
+                .packet_detected(detected),
+                .chips_to_boundary(chips_to_boundary),
+                .resync_valid(auto_resync_valid),
+                .resync_skip(auto_resync_skip),
+                .resync_armed(grid_resync_armed),
+                .resync_chips(grid_resync_chips)
+            );
+        end else begin : g_no_grid_resync
+            assign auto_resync_valid = 1'b0;
+            assign auto_resync_skip = 32'd0;
+            assign grid_resync_armed = 1'b0;
+            assign grid_resync_chips = 16'd0;
+        end
+    endgenerate
 
     lora_fft_detector_timestamp_path u_fft_detector_timestamp (
         .clk(clk),
@@ -133,19 +170,19 @@ module lora_packet_toa_receiver_top #(
         .iq_in_im(iq_in_im),
         .valid_in(gated_valid_in),
         .reset_in(reset_in),
-        .resync_valid(resync_valid),
-        .resync_skip(resync_skip),
+        .resync_valid(effective_resync_valid),
+        .resync_skip(effective_resync_skip),
         .sync_word(sync_word),
         .symbol_index(symbol_index),
         .symbol_valid(symbol_valid),
-        .confidence(confidence_unused),
-        .symbol_sample_count(symbol_sample_count_unused),
-        .timestamp_valid(timestamp_valid_unused),
+        .confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .timestamp_valid(symbol_timestamp_valid),
         .detected(detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
-        .preamble_bin(preamble_bin_unused),
-        .chips_to_boundary(chips_to_boundary_unused),
+        .preamble_bin(preamble_bin),
+        .chips_to_boundary(chips_to_boundary),
         .bins_seen(bins_seen_unused),
         .preamble_start_count(preamble_start_count_unused),
         .preamble_start_valid(preamble_start_valid_unused),

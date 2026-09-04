@@ -30,9 +30,30 @@ set run_failed [catch {
     reset_run impl_1
   }
 
+  # The full receiver is close enough to the 62.5 MHz boundary that the
+  # default router can leave a seed-dependent single-path violation of only a
+  # few picoseconds. Keep the sign-off flow reproducible: spend the extra
+  # implementation effort and allow a post-route physical optimization pass
+  # before accepting or exporting a bitstream.
+  set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
+    [get_runs impl_1]
+  set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true \
+    [get_runs impl_1]
+  set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
+    [get_runs impl_1]
+
   # Preserve a completed synthesis run. On Windows this design takes tens of
   # minutes to synthesize, and the Vivado run launcher can remain alive after
   # the checkpoint and completion marker have already been written.
+  #
+  # A completed run is only worth keeping if it still matches its sources.
+  # Vivado leaves STATUS reading Complete after a source edit and flags the run
+  # stale instead, so checking the status alone would happily implement a
+  # netlist that no longer corresponds to the RTL in the repository.
+  if {[get_property NEEDS_REFRESH [get_runs synth_1]]} {
+    puts "SYNTH_STALE: sources changed since the last run; resetting synth_1."
+    reset_run synth_1
+  }
   set synth_status [get_property STATUS [get_runs synth_1]]
   if {![string match "*Complete*" $synth_status]} {
     launch_runs synth_1 -jobs 4

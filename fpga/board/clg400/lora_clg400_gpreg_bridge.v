@@ -19,11 +19,11 @@ module lora_clg400_gpreg_bridge #(
     input  wire [32:0]             rx_sample_bus,
 
     output wire [31:0]             gp_status,
-    output reg  [31:0]             gp_sequence,
-    output reg  [31:0]             gp_coarse_lo,
-    output reg  [31:0]             gp_coarse_hi,
-    output reg  [31:0]             gp_fractional_q12,
-    output reg  [31:0]             gp_log_peak_q12,
+    output wire [31:0]             gp_sequence,
+    output wire [31:0]             gp_coarse_lo,
+    output wire [31:0]             gp_coarse_hi,
+    output wire [31:0]             gp_fractional_q12,
+    output wire [31:0]             gp_log_peak_q12,
     output wire [31:0]             gp_debug,
     output wire [31:0]             gp_signature
 );
@@ -48,8 +48,30 @@ module lora_clg400_gpreg_bridge #(
     wire metadata_overflow;
     wire signed [31:0] toa_log_peak_q12;
     wire toa_search_busy;
+    wire [63:0] packet_start_count;
     wire packet_start_valid;
+    wire correlation_magnitude_valid;
+    wire peak_triplet_valid;
+    wire toa_offset_valid;
+    wire alignment_error;
+    wire symbol_index_width_error;
+    wire toa_underflow_error;
+    wire toa_search_restart_error;
+    wire toa_mac_window_mismatch_error;
+    wire toa_mac_read_miss_error;
+    wire toa_mac_response_mismatch_error;
+    wire toa_mac_restart_error;
+    wire toa_peak_boundary_error;
+    wire toa_peak_restart_error;
     wire internal_receiver_enable;
+    wire [31:0] symbol_index;
+    wire symbol_valid;
+    wire [15:0] symbol_confidence;
+    wire [63:0] symbol_sample_count;
+    wire symbol_timestamp_valid;
+    wire packet_detected;
+    wire [15:0] preamble_bin;
+    wire grid_resync_armed;
 
     wire unused_awready;
     wire unused_wready;
@@ -93,23 +115,28 @@ module lora_clg400_gpreg_bridge #(
         .s_axi_rready(1'b1),
 
         .receiver_enable(internal_receiver_enable),
-        .symbol_index(),
-        .symbol_valid(),
-        .detected(),
+        .symbol_index(symbol_index),
+        .symbol_valid(symbol_valid),
+        .symbol_confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .symbol_timestamp_valid(symbol_timestamp_valid),
+        .detected(packet_detected),
         .preamble_detected(),
         .sync_valid(),
-        .packet_start_count(),
+        .preamble_bin(preamble_bin),
+        .grid_resync_armed(grid_resync_armed),
+        .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
         .toa_search_first_count(),
         .correlation_magnitude(),
-        .correlation_magnitude_valid(),
+        .correlation_magnitude_valid(correlation_magnitude_valid),
         .correlation_sample_count(),
         .peak_index(),
         .peak_sample_count(),
-        .peak_triplet_valid(),
+        .peak_triplet_valid(peak_triplet_valid),
         .toa_offset_q12(),
-        .toa_offset_valid(),
+        .toa_offset_valid(toa_offset_valid),
         .toa_log_peak_q12(toa_log_peak_q12),
         .metadata_coarse(metadata_coarse),
         .metadata_fractional_q12(metadata_fractional_q12),
@@ -117,17 +144,17 @@ module lora_clg400_gpreg_bridge #(
         .history_next_sample_count(),
         .history_oldest_sample_count(),
         .history_samples_retained(),
-        .alignment_error(),
-        .symbol_index_width_error(),
+        .alignment_error(alignment_error),
+        .symbol_index_width_error(symbol_index_width_error),
         .metadata_overflow(metadata_overflow),
-        .toa_underflow_error(),
-        .toa_search_restart_error(),
-        .toa_mac_window_mismatch_error(),
-        .toa_mac_read_miss_error(),
-        .toa_mac_response_mismatch_error(),
-        .toa_mac_restart_error(),
-        .toa_peak_boundary_error(),
-        .toa_peak_restart_error()
+        .toa_underflow_error(toa_underflow_error),
+        .toa_search_restart_error(toa_search_restart_error),
+        .toa_mac_window_mismatch_error(toa_mac_window_mismatch_error),
+        .toa_mac_read_miss_error(toa_mac_read_miss_error),
+        .toa_mac_response_mismatch_error(toa_mac_response_mismatch_error),
+        .toa_mac_restart_error(toa_mac_restart_error),
+        .toa_peak_boundary_error(toa_peak_boundary_error),
+        .toa_peak_restart_error(toa_peak_restart_error)
     );
 
     // Sample-domain event mailbox. A new record may replace the holding
@@ -137,6 +164,8 @@ module lora_clg400_gpreg_bridge #(
     reg bridge_overflow_sample;
     reg packet_seen_sample;
     reg sample_seen_sample;
+    reg [15:0] packet_start_count_low_sample;
+    reg [14:0] diagnostic_sticky_sample;
     (* ASYNC_REG = "TRUE" *) reg event_ack_meta;
     (* ASYNC_REG = "TRUE" *) reg event_ack_sync;
 
@@ -145,11 +174,64 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg event_request_sync;
     reg event_ack_toggle;
     reg snapshot_valid_ctrl;
+    reg [31:0] timestamp_sequence_ctrl;
+    reg [31:0] timestamp_coarse_lo_ctrl;
+    reg [31:0] timestamp_coarse_hi_ctrl;
+    reg [31:0] timestamp_fractional_ctrl;
+    reg [31:0] timestamp_log_peak_ctrl;
+
+    // A second software page exposes a frozen 128-decision symbol trace while
+    // preserving the qualified timestamp ABI at page zero. gp_ctrl[16] selects
+    // the page and gp_ctrl[30:24] selects a trace entry. The trace starts with
+    // the first SFD decision after the detector pulse.
+    wire [31:0] trace_symbol_index_ctrl;
+    wire [63:0] trace_sample_count_ctrl;
+    wire [15:0] trace_confidence_ctrl;
+    wire [7:0] trace_flags_ctrl;
+    wire [15:0] trace_preamble_bin_ctrl;
+    wire [7:0] trace_captured_count_ctrl;
+    wire trace_capture_active_ctrl;
+    wire trace_capture_complete_ctrl;
+    wire [31:0] trace_capture_sequence_ctrl;
+
+    lora_symbol_trace_buffer #(
+        .TRACE_DEPTH(128),
+        .TRACE_ADDR_WIDTH(7)
+    ) u_symbol_trace (
+        .sample_clk(sample_clk),
+        .sample_resetn(sample_resetn),
+        .stream_reset(stream_reset),
+        .packet_detected(packet_detected),
+        .preamble_bin(preamble_bin),
+        .symbol_index(symbol_index),
+        .symbol_valid(symbol_valid),
+        .confidence(symbol_confidence),
+        .symbol_sample_count(symbol_sample_count),
+        .symbol_timestamp_valid(symbol_timestamp_valid),
+        .ctrl_clk(ctrl_clk),
+        .ctrl_resetn(ctrl_resetn),
+        .ctrl_read_index(gp_ctrl[30:24]),
+        .ctrl_symbol_index(trace_symbol_index_ctrl),
+        .ctrl_sample_count(trace_sample_count_ctrl),
+        .ctrl_confidence(trace_confidence_ctrl),
+        .ctrl_flags(trace_flags_ctrl),
+        .ctrl_preamble_bin(trace_preamble_bin_ctrl),
+        .ctrl_captured_count(trace_captured_count_ctrl),
+        .ctrl_capture_active(trace_capture_active_ctrl),
+        .ctrl_capture_complete(trace_capture_complete_ctrl),
+        .ctrl_capture_sequence(trace_capture_sequence_ctrl)
+    );
 
     // Low-rate diagnostic flags cross independently; they are status only and
     // do not form part of the atomic timestamp record.
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_meta;
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] debug_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] debug_sync;
+    // Status only: the flag is static once a capture has frozen, so software
+    // never samples it while the sample domain is changing it.
+    (* ASYNC_REG = "TRUE" *) reg grid_resync_meta;
+    (* ASYNC_REG = "TRUE" *) reg grid_resync_sync;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -162,6 +244,8 @@ module lora_clg400_gpreg_bridge #(
             bridge_overflow_sample<= 1'b0;
             packet_seen_sample    <= 1'b0;
             sample_seen_sample    <= 1'b0;
+            packet_start_count_low_sample <= 16'd0;
+            diagnostic_sticky_sample <= 15'd0;
         end else begin
             ctrl_sample_meta <= gp_ctrl;
             ctrl_sample_sync <= ctrl_sample_meta;
@@ -171,11 +255,33 @@ module lora_clg400_gpreg_bridge #(
             if (stream_reset) begin
                 packet_seen_sample <= 1'b0;
                 sample_seen_sample <= 1'b0;
+                packet_start_count_low_sample <= 16'd0;
+                diagnostic_sticky_sample <= 15'd0;
             end else begin
                 if (rx_valid)
                     sample_seen_sample <= 1'b1;
-                if (packet_start_valid)
+                if (packet_start_valid) begin
                     packet_seen_sample <= 1'b1;
+                    packet_start_count_low_sample <= packet_start_count[15:0];
+                end
+
+                diagnostic_sticky_sample <= diagnostic_sticky_sample | {
+                    alignment_error,
+                    symbol_index_width_error,
+                    toa_underflow_error,
+                    toa_search_restart_error,
+                    toa_mac_window_mismatch_error,
+                    toa_mac_read_miss_error,
+                    toa_mac_response_mismatch_error,
+                    toa_mac_restart_error,
+                    toa_peak_boundary_error,
+                    toa_peak_restart_error,
+                    toa_search_busy,
+                    correlation_magnitude_valid,
+                    peak_triplet_valid,
+                    toa_offset_valid,
+                    metadata_valid
+                };
             end
 
             if (metadata_overflow)
@@ -203,11 +309,15 @@ module lora_clg400_gpreg_bridge #(
             event_ack_toggle   <= 1'b0;
             status_meta        <= 5'd0;
             status_sync        <= 5'd0;
-            gp_sequence        <= 32'd0;
-            gp_coarse_lo       <= 32'd0;
-            gp_coarse_hi       <= 32'd0;
-            gp_fractional_q12  <= 32'd0;
-            gp_log_peak_q12    <= 32'd0;
+            debug_meta         <= 32'd0;
+            debug_sync         <= 32'd0;
+            grid_resync_meta   <= 1'b1;
+            grid_resync_sync   <= 1'b1;
+            timestamp_sequence_ctrl  <= 32'd0;
+            timestamp_coarse_lo_ctrl <= 32'd0;
+            timestamp_coarse_hi_ctrl <= 32'd0;
+            timestamp_fractional_ctrl<= 32'd0;
+            timestamp_log_peak_ctrl  <= 32'd0;
             snapshot_valid_ctrl<= 1'b0;
         end else begin
             event_request_meta <= event_request_toggle;
@@ -220,20 +330,28 @@ module lora_clg400_gpreg_bridge #(
                 receiver_requested
             };
             status_sync <= status_meta;
+            debug_meta <= {
+                diagnostic_sticky_sample,
+                internal_receiver_enable,
+                packet_start_count_low_sample
+            };
+            debug_sync <= debug_meta;
+            grid_resync_meta <= grid_resync_armed;
+            grid_resync_sync <= grid_resync_meta;
 
             if (event_request_sync != event_ack_toggle) begin
-                gp_coarse_lo       <= event_hold_sample[31:0];
-                gp_coarse_hi       <= event_hold_sample[63:32];
-                gp_fractional_q12  <= event_hold_sample[95:64];
-                gp_log_peak_q12    <= event_hold_sample[127:96];
-                gp_sequence        <= gp_sequence + 32'd1;
+                timestamp_coarse_lo_ctrl <= event_hold_sample[31:0];
+                timestamp_coarse_hi_ctrl <= event_hold_sample[63:32];
+                timestamp_fractional_ctrl<= event_hold_sample[95:64];
+                timestamp_log_peak_ctrl  <= event_hold_sample[127:96];
+                timestamp_sequence_ctrl  <= timestamp_sequence_ctrl + 32'd1;
                 snapshot_valid_ctrl<= 1'b1;
                 event_ack_toggle   <= event_request_sync;
             end
         end
     end
 
-    assign gp_status = {
+    wire [31:0] timestamp_status = {
         16'h0001,
         gp_ctrl[15:8],
         gp_ctrl[1],
@@ -245,7 +363,38 @@ module lora_clg400_gpreg_bridge #(
         status_sync[0],
         gp_ctrl[0]
     };
-    assign gp_debug = {15'd0, internal_receiver_enable, rx_sample_bus[15:0]};
+    wire [31:0] timestamp_debug = debug_sync;
+    wire symbol_page_selected = gp_ctrl[16];
+    wire [31:0] trace_status = {
+        16'h5359, // "SY": symbol-trace ABI version marker
+        6'd0,
+        trace_capture_complete_ctrl,
+        trace_capture_active_ctrl,
+        trace_captured_count_ctrl
+    };
+    // Bit 8 reports that the symbol grid was realigned for this capture. It
+    // separates "the aligner never fired" from "it fired and the arithmetic is
+    // wrong", which are otherwise indistinguishable from the decoded trace and
+    // cost a rebuild and a cold boot to tell apart.
+    wire [31:0] trace_debug = {
+        trace_preamble_bin_ctrl,
+        gp_ctrl[30:24],
+        ~grid_resync_sync,
+        trace_captured_count_ctrl
+    };
+
+    assign gp_status = symbol_page_selected ? trace_status : timestamp_status;
+    assign gp_sequence = symbol_page_selected ?
+        trace_capture_sequence_ctrl : timestamp_sequence_ctrl;
+    assign gp_coarse_lo = symbol_page_selected ?
+        trace_symbol_index_ctrl : timestamp_coarse_lo_ctrl;
+    assign gp_coarse_hi = symbol_page_selected ?
+        trace_sample_count_ctrl[31:0] : timestamp_coarse_hi_ctrl;
+    assign gp_fractional_q12 = symbol_page_selected ?
+        trace_sample_count_ctrl[63:32] : timestamp_fractional_ctrl;
+    assign gp_log_peak_q12 = symbol_page_selected ?
+        {8'd0, trace_flags_ctrl, trace_confidence_ctrl} : timestamp_log_peak_ctrl;
+    assign gp_debug = symbol_page_selected ? trace_debug : timestamp_debug;
     assign gp_signature = SIGNATURE;
 
 endmodule

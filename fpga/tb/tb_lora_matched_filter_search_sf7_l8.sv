@@ -5,6 +5,8 @@ module tb_lora_matched_filter_search_sf7_l8;
     localparam integer SEARCH_RADIUS = 8;
     localparam integer SEARCH_LAGS = 17;
     localparam integer STIMULUS_SAMPLES = REF_SAMPLES + 2*SEARCH_RADIUS;
+    localparam integer PRELOAD_SAMPLES = 11264;
+    localparam integer WINDOW_FIRST_COUNT = 1016;
 
     reg clk = 1'b0;
     always #5 clk = ~clk;
@@ -55,7 +57,7 @@ module tb_lora_matched_filter_search_sf7_l8;
     integer triplet_seen = 0;
     integer timeout_cycles = 0;
 
-    lora_iq_history_buffer #(.DEPTH(2048)) u_history (
+    lora_iq_history_buffer #(.DEPTH(65536)) u_history (
         .clk(clk), .resetn(resetn), .stream_reset(stream_reset),
         .iq_in_re(iq_in_re), .iq_in_im(iq_in_im), .sample_valid(sample_valid),
         .read_req(iq_read_req), .read_sample_count(iq_read_sample_count),
@@ -75,7 +77,7 @@ module tb_lora_matched_filter_search_sf7_l8;
         .ACC_WIDTH(48), .POWER_SHIFT(30)
     ) dut (
         .clk(clk), .resetn(resetn), .stream_reset(stream_reset),
-        .start(search_start), .coarse_start_count(64'd8),
+        .start(search_start), .coarse_start_count(64'd1024),
         .iq_read_req(iq_read_req), .iq_read_sample_count(iq_read_sample_count),
         .iq_read_re(iq_read_re), .iq_read_im(iq_read_im),
         .iq_read_sample_count_out(iq_read_sample_count_out),
@@ -107,7 +109,8 @@ module tb_lora_matched_filter_search_sf7_l8;
                     errors = errors + 1;
                     $display("FAIL unexpected extra correlation result");
                 end else begin
-                    if (correlation_sample_count !== correlation_seen) begin
+                    if (correlation_sample_count !==
+                        WINDOW_FIRST_COUNT + correlation_seen) begin
                         errors = errors + 1;
                         $display("FAIL correlation[%0d] count got=%0d", correlation_seen,
                                  correlation_sample_count);
@@ -124,7 +127,7 @@ module tb_lora_matched_filter_search_sf7_l8;
 
             if (triplet_valid) begin
                 triplet_seen = triplet_seen + 1;
-                if (peak_index !== 16'd8 || peak_sample_count !== 64'd8 ||
+                if (peak_index !== 16'd8 || peak_sample_count !== 64'd1024 ||
                     magnitude_before !== expected_power[7] ||
                     magnitude_peak !== expected_power[8] ||
                     magnitude_after !== expected_power[9]) begin
@@ -154,15 +157,24 @@ module tb_lora_matched_filter_search_sf7_l8;
         resetn <= 1'b1;
         repeat (2) @(posedge clk);
 
-        for (sample_index = 0; sample_index < STIMULUS_SAMPLES;
+        // Model the live board: the detector confirms the packet after 11,264
+        // accepted samples, while the target 1,040-sample search window starts
+        // at count 1,016. Keep writing one sample per clock during the long
+        // packet-rate search instead of freezing history as the old test did.
+        for (sample_index = 0; sample_index < PRELOAD_SAMPLES;
              sample_index = sample_index + 1) begin
             @(negedge clk);
-            iq_in_re <= stimulus[sample_index][31:16];
-            iq_in_im <= stimulus[sample_index][15:0];
+            if (sample_index >= WINDOW_FIRST_COUNT &&
+                sample_index < WINDOW_FIRST_COUNT + STIMULUS_SAMPLES) begin
+                iq_in_re <= stimulus[sample_index-WINDOW_FIRST_COUNT][31:16];
+                iq_in_im <= stimulus[sample_index-WINDOW_FIRST_COUNT][15:0];
+            end else begin
+                iq_in_re <= 16'sd0;
+                iq_in_im <= 16'sd0;
+            end
             sample_valid <= 1'b1;
         end
         @(negedge clk);
-        sample_valid <= 1'b0;
         iq_in_re <= 16'sd0;
         iq_in_im <= 16'sd0;
 
@@ -175,6 +187,8 @@ module tb_lora_matched_filter_search_sf7_l8;
             @(posedge clk);
             timeout_cycles = timeout_cycles + 1;
         end
+        @(negedge clk);
+        sample_valid <= 1'b0;
         repeat (4) @(posedge clk);
 
         if (correlation_seen != SEARCH_LAGS) begin
@@ -186,9 +200,10 @@ module tb_lora_matched_filter_search_sf7_l8;
             errors = errors + 1;
             $display("FAIL expected one triplet, got=%0d", triplet_seen);
         end
-        if (search_first_count !== 64'd0) begin
+        if (search_first_count !== WINDOW_FIRST_COUNT) begin
             errors = errors + 1;
-            $display("FAIL search first count got=%0d expected=0", search_first_count);
+            $display("FAIL search first count got=%0d expected=%0d",
+                     search_first_count, WINDOW_FIRST_COUNT);
         end
 
         if (errors == 0)
@@ -201,4 +216,3 @@ module tb_lora_matched_filter_search_sf7_l8;
     end
 
 endmodule
-
