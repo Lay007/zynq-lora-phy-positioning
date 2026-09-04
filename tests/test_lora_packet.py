@@ -91,20 +91,22 @@ def test_truncated_packet_reports_valid_header_without_success() -> None:
 def _free_running_grid_bins(
     stream: np.ndarray, config: CssConfig, start: int, window_count: int
 ) -> list[int]:
-    """Peak bin of each fixed-grid window, in the style of the PL correlator."""
+    """Peak bin of each fixed-grid window using the generated two-FFT identity."""
 
     size = config.samples_per_symbol
     chips = config.symbol_count
-    conjugate = np.conjugate(reference_chirp(config))
+    samples_per_chip = config.samples_per_chip
+    reference_spectrum = np.conjugate(np.fft.fft(reference_chirp(config)))
     bins = []
     for index in range(window_count):
         begin = start + index * size
         window = stream[begin : begin + size]
         if window.size < size:
             break
-        spectrum = np.abs(np.fft.fft(window * conjugate)) ** 2
-        folded = spectrum.reshape(config.samples_per_chip, chips).sum(axis=0)
-        bins.append(int(np.argmax(folded)) % chips)
+        product = np.fft.fft(window) * reference_spectrum
+        partition = product.reshape(samples_per_chip, chips).sum(axis=0)
+        magnitude = np.abs(np.fft.fft(partition)) ** 2
+        bins.append(int(np.argmax(magnitude)) % chips)
     return bins
 
 
