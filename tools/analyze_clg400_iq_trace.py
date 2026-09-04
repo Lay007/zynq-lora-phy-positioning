@@ -25,7 +25,12 @@ from typing import Iterable
 import numpy as np
 from numpy.typing import NDArray
 
-from zynq_lora_phy import CssConfig, decode_lora_packet, reference_chirp
+from zynq_lora_phy import (
+    CssConfig,
+    decode_lora_packet,
+    estimate_joint_chirp_timing,
+    reference_chirp,
+)
 
 
 ComplexArray = NDArray[np.complex128]
@@ -232,6 +237,37 @@ def analyze(trace_path: Path, iq_path: Path) -> dict[str, object]:
                 }
             )
 
+    # A full-resolution up/down pair separates sample timing from the
+    # equal-and-opposite displacement caused by CFO. Use a central preamble
+    # chirp and the first full SFD downchirp; both starts are expressed relative
+    # to the current coarse header grid, not learned from the CRC scan above.
+    header_from_packet_samples = (
+        (12 + 2 + 2) * config.samples_per_symbol
+        + config.samples_per_symbol // 4
+    )
+    coarse_packet_start = current_header_start - header_from_packet_samples
+    coarse_up_start = coarse_packet_start + 6 * config.samples_per_symbol
+    coarse_down_start = coarse_packet_start + 14 * config.samples_per_symbol
+    joint = estimate_joint_chirp_timing(
+        iq,
+        coarse_up_start,
+        coarse_down_start,
+        config,
+        search_radius=32,
+    )
+    joint_header_start = current_header_start + joint.correction_samples
+    joint_starts = (
+        joint_header_start
+        + np.arange(window_count) * config.samples_per_symbol
+    )
+    joint_bins = fft_correlator_bins(iq, joint_starts, config)
+    joint_decode = decode_with_adjustment(
+        joint_bins,
+        config.spreading_factor,
+        [0],
+        transmitter_sequence,
+    )
+
     return {
         "schema": "zynq-lora-clg400-iq-trace-comparison-v1",
         "trace_file": trace_path.name,
@@ -250,6 +286,16 @@ def analyze(trace_path: Path, iq_path: Path) -> dict[str, object]:
             "current_header_start_dma_sample": current_header_start,
         },
         "transmitter_sequence": transmitter_sequence,
+        "joint_chirp_timing": {
+            "preamble_symbol_index": 6,
+            "sfd_downchirp_index": 0,
+            "search_radius_samples": 32,
+            **asdict(joint),
+            "corrected_header_start_dma_sample": joint_header_start,
+            "zero_bin_adjustment_decode": (
+                asdict(joint_decode) if joint_decode is not None else None
+            ),
+        },
         "crc_valid_corrections": corrections,
     }
 
@@ -296,7 +342,15 @@ def main() -> int:
             or "none"
         )
     )
-    return 0 if matching else 1
+    joint = report["joint_chirp_timing"]
+    print(
+        "joint up/down timing: "
+        f"{joint['timing_offset_samples']:+.3f} samples -> "
+        f"{joint['correction_samples']:+d}; "
+        "zero-bin-adjustment decode: "
+        + ("pass" if joint["zero_bin_adjustment_decode"] else "fail")
+    )
+    return 0 if matching and joint["zero_bin_adjustment_decode"] else 1
 
 
 if __name__ == "__main__":

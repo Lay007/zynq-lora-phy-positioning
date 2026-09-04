@@ -27,10 +27,16 @@ from .lora_packet import (
     quarter_symbol_bin_adjustments,
     whitening_sequence,
 )
-from .toa import ToaEstimate, estimate_toa
+from .toa import (
+    JointChirpTimingEstimate,
+    ToaEstimate,
+    estimate_joint_chirp_timing,
+    estimate_toa,
+)
 
 __all__ = [
     "CssConfig",
+    "JointChirpTimingEstimate",
     "LoRaDecodeResult",
     "LoRaHeader",
     "LoRaTraceDecode",
@@ -45,6 +51,7 @@ __all__ = [
     "decode_lora_packet",
     "decode_lora_symbol_trace",
     "estimate_frequency_offset",
+    "estimate_joint_chirp_timing",
     "estimate_toa",
     "modulate",
     "modulate_symbol",
