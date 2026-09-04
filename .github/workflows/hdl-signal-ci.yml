@@ -1,0 +1,80 @@
+name: HDL LoRa Signal CI
+
+on:
+  push:
+    branches: [lora_cpp]
+    paths:
+      - "hdl/**"
+      - "model/matlab/+lora_phy/reference_chirp.m"
+      - "model/matlab/+lora_phy/modulate_symbol.m"
+      - ".github/workflows/hdl-signal-ci.yml"
+  pull_request:
+    paths:
+      - "hdl/**"
+      - "model/matlab/+lora_phy/reference_chirp.m"
+      - "model/matlab/+lora_phy/modulate_symbol.m"
+      - ".github/workflows/hdl-signal-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lora-hdl-signal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golden-regression:
+    name: SF7/L16 HDL chirp golden regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghdl
+
+      - name: Check DDS IP interface configuration
+        shell: python
+        run: |
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          path = Path("hdl/ip/dds_sin_cos_only.xci")
+          root = ET.parse(path).getroot()
+          values = {}
+          for node in root.iter():
+              ref = node.attrib.get("referenceId")
+              if ref:
+                  values[ref] = (node.text or "").strip()
+
+          expected = {
+              "MODELPARAM_VALUE.C_HAS_PHASEGEN": "0",
+              "MODELPARAM_VALUE.C_HAS_SINCOS": "1",
+              "MODELPARAM_VALUE.C_HAS_S_PHASE": "1",
+              "MODELPARAM_VALUE.C_PHASE_ANGLE_WIDTH": "16",
+              "MODELPARAM_VALUE.C_S_PHASE_TDATA_WIDTH": "16",
+              "MODELPARAM_VALUE.C_OUTPUT_WIDTH": "16",
+              "MODELPARAM_VALUE.C_M_DATA_TDATA_WIDTH": "32",
+          }
+          for key, wanted in expected.items():
+              got = values.get(key)
+              if got != wanted:
+                  raise SystemExit(f"{key}: expected {wanted}, got {got}")
+          print("DDS IP interface configuration PASS")
+
+      - name: Compile production VHDL with behavioral DDS model
+        run: |
+          mkdir -p build/ghdl-lora
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/dds_sin_cos_only_stub.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/phase_to_sample.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_chirp.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
+
+      - name: Compare HDL waveform with MATLAB golden convention
+        run: |
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
+            --assert-level=error --stop-time=5ms
