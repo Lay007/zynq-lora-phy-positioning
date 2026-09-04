@@ -184,14 +184,22 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   the realignment and decode with no bin adjustment, where the previous build
   needed a quarter symbol. The payload rate did not follow, at 3 of 16 against
   1 of 10 before.
-- [ ] Explain the one-sided +1 bin decision bias. It depends on the reported
+- [x] Resolve the raw-IQ versus PL observability fork for the one-sided +1 bin
+  decision bias. It depends on the reported
   bin, peaking at 56 % either side of the bin wrap and sagging to 10-18 % in the
-  middle, and it is scattered through the packet. Noise to -10 dB, sub-chip
-  alignment, Q10/16-bit widths, and carrier offset to 8 bins were each driven
-  through the model and none reproduces it; a parity-guided guess was measured
-  on the same captures and rejected at 4 of 13. Capture raw IQ through RX DMA
-  and run the reference receiver over the same packet the PL decided on, which
-  separates a correlator defect from an upstream one.
+  middle, and it is scattered through the packet. Noise to -10 dB, a constant
+  sub-chip residual on clean windows, Q10/16-bit widths, and carrier offset to
+  8 bins were each driven through the model and none reproduces it; a
+  parity-guided guess was measured
+  on the same captures and rejected at 4 of 13. Three simultaneous RX DMA and
+  PL captures now decode from raw IQ with valid CRC, while the exact two-FFT
+  reference agrees with 67/72 PL decisions. The remaining packet-dependent
+  corrections are +2/+3, -1/-2, and +1/+2 samples, localising the defect to the
+  sample phase left unresolved by the integer-chip resync.
+- [ ] Estimate the packet's sample phase dynamically, realign the symbol grid
+  at sample resolution, and repeat the CRC-gated hardware capture before a PER
+  run. Prove the estimator and its search span in simulation before building a
+  new SD image.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

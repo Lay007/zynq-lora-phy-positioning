@@ -1,0 +1,81 @@
+{
+  "schema": "zynq-lora-clg400-iq-trace-comparison-summary-v1",
+  "capture_date_utc": "2026-09-03",
+  "analysis_date_utc": "2026-09-04",
+  "receiver": {
+    "host": "192.168.40.1",
+    "bitstream_sha256": "65544c8b3c36a34feedc36943ab0c33ee0792b93cf228967ad8e4eb54b58b0c0",
+    "sample_rate_hz": 1000000,
+    "spreading_factor": 7,
+    "samples_per_chip": 8
+  },
+  "method": "Each RX DMA file was captured concurrently with its frozen PL trace. The trace was mapped into the DMA sample epoch by maximising agreement between the raw PL bins and an independent implementation of the generated DUT's two-FFT correlation identity. Candidate sample-phase corrections were accepted only when the explicit header checksum, payload CRC, ZLP1 signature, and transmitter sequence all passed.",
+  "captures": [
+    {
+      "tx_sequence": 30,
+      "tx_start_ms": 11849939,
+      "capture_sequence": 18,
+      "preamble_bin": 73,
+      "trace_file": "clg400-trace-20260903T224859Z.json",
+      "trace_bytes": 18591,
+      "trace_sha256": "b73958ba552e64688987a04c7194edb3ec05269d2a6ebfff83445969eb4a2749",
+      "iq_file": "rx1-iq-20260903T224859Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "ff73597c2905266f107254e9b5205f4c16b6c9fe3b83114409cb0986d529c6d2",
+      "trace_iq_raw_bin_matches": 23,
+      "trace_iq_raw_bins_compared": 24,
+      "resync_skip_samples": 696,
+      "pl_header_checksum_valid": true,
+      "pl_payload_crc_valid": false,
+      "smallest_crc_valid_sample_corrections": [2, 3],
+      "corresponding_bin_adjustment": 1,
+      "reference_payload_hex": "5a4c50311e000000d3d0b4001e1f202122232425262728292a2b2c2d2e2f3031"
+    },
+    {
+      "tx_sequence": 31,
+      "tx_start_ms": 11864200,
+      "capture_sequence": 19,
+      "preamble_bin": 24,
+      "trace_file": "clg400-trace-20260903T224913Z.json",
+      "trace_bytes": 18604,
+      "trace_sha256": "11f5bdf14bd04592d22a4a0880c81962aa96ec20e4e6cefd74fcfeae6390858a",
+      "iq_file": "rx1-iq-20260903T224913Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "3e0e2ea05d8c46f152b409a70754074804fe7782a6f8782a900fae049e1ecda7",
+      "trace_iq_raw_bin_matches": 21,
+      "trace_iq_raw_bins_compared": 24,
+      "resync_skip_samples": 64,
+      "pl_header_checksum_valid": true,
+      "pl_payload_crc_valid": false,
+      "smallest_crc_valid_sample_corrections": [-1, -2],
+      "corresponding_bin_adjustment": 0,
+      "reference_payload_hex": "5a4c50311f0000008808b5001f202122232425262728292a2b2c2d2e2f303132"
+    },
+    {
+      "tx_sequence": 32,
+      "tx_start_ms": 11879171,
+      "capture_sequence": 20,
+      "preamble_bin": 19,
+      "trace_file": "clg400-trace-20260903T224927Z.json",
+      "trace_bytes": 18723,
+      "trace_sha256": "03b81d845c79ce2862ddf2ce69f2d2cd88c24ac3333e26657aed65d67ac7a4f3",
+      "iq_file": "rx1-iq-20260903T224927Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "72b668ee59907aa2123c424acfef95e000f88fc359ed05e74378e289c3923de4",
+      "trace_iq_raw_bin_matches": 23,
+      "trace_iq_raw_bins_compared": 24,
+      "resync_skip_samples": 104,
+      "pl_header_checksum_valid": true,
+      "pl_payload_crc_valid": false,
+      "smallest_crc_valid_sample_corrections": [1, 2],
+      "corresponding_bin_adjustment": 0,
+      "reference_payload_hex": "5a4c5031200000000343b500202122232425262728292a2b2c2d2e2f30313233"
+    }
+  ],
+  "conclusions": {
+    "raw_iq_decodes": "All three DMA captures independently produce the transmitted ZLP1 payload with a valid header checksum and payload CRC.",
+    "pl_matches_reference": "The exact two-FFT reference agrees with 67 of the first 72 frozen PL decisions. The remaining five lie at the resync transition or on sample-phase-sensitive bin boundaries, so there is no evidence of a broad arithmetic or stream-format mismatch.",
+    "root_cause": "The integer-chip resync leaves an unresolved sub-chip sample phase. For the three packets the nearest CRC-valid phases require respectively +2/+3, -1/-2, and +1/+2 samples. A constant correction cannot cover all captures.",
+    "next_gate": "Estimate sample phase dynamically and apply it to the symbol grid before claiming a qualified link. The payload CRC must remain the acceptance criterion; parity-guided symbol guessing remains rejected."
+  }
+}

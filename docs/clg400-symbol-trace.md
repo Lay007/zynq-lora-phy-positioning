@@ -151,19 +151,22 @@ payload decision therefore carries that constant offset on top of
 
 The receiver now closes that itself. `lora_symbol_grid_resync` asks the
 correlator to withhold `mod(chipsToBoundary + 2**(SF-2), 2**SF)` chips on the
-detector pulse, which lands the grid on the payload boundaries. It waits for the
-detector rather than the earlier preamble pulse because the generated detector
-checks the sync word against a preamble bin captured on the old grid: moving the
-grid in between would compare bins measured on different grids and the packet
-would never be detected. The skip is under one and a quarter symbols and the SFD
-still has 2.25 symbols to run, so it always completes first.
+detector pulse, which removes the coarse quarter-symbol offset and lands the
+grid on the correct integer-chip phase. It waits for the detector rather than
+the earlier preamble pulse because the generated detector checks the sync word
+against a preamble bin captured on the old grid: moving the grid in between
+would compare bins measured on different grids and the packet would never be
+detected. The skip is under one and a quarter symbols and the SFD still has 2.25
+symbols to run, so it always completes first. The skip cannot select one of the
+eight sample phases inside a chip.
 
-Which offset software must remove depends on that. On a realigned grid the raw
-decisions are already the transmitted symbols — the skip also absorbs the
-integer part of any carrier offset, which an upchirp-only measurement cannot
-tell apart from timing — so subtracting `preamble_bin` again would remove it
-twice. The reader consults `DEBUG` bit 8 and removes the measured bin only when
-the receiver did not, and reports the value it used as `grid_phase_removed`.
+Which coarse offset software must remove depends on that. On a realigned grid
+the skip already absorbs `preamble_bin` and the integer part of any carrier
+offset, which an upchirp-only measurement cannot tell apart from timing, so
+subtracting `preamble_bin` again would remove it twice. The reader consults
+`DEBUG` bit 8 and removes the measured bin only when the receiver did not, and
+reports the value it used as `grid_phase_removed`. Individual raw decisions can
+still be wrong when the unresolved sample phase puts a peak on a bin boundary.
 
 The trace decoder still searches a bounded hypothesis set around that: no
 adjustment, minus a quarter symbol, plus a quarter symbol, each with a residual
@@ -221,10 +224,17 @@ reached 4 of 13, which is not enough to be worth the risk of a parity-clean wron
 answer.
 
 The bias depends on the reported bin, peaking near 56 % either side of the bin
-wrap and sagging to 10-18 % in the middle. Noise down to -10 dB, sub-chip
-alignment, the Q10 reference and 16-bit magnitudes, and a carrier offset of up to
-eight bins were each driven through the model on their own and none reproduces
-that shape; nor can any constant offset produce a mixture inside one packet,
-since symbols are integers. The next step is raw-IQ observability, not more
-transmit power: `docs/clg400-payload-session-2026-09-03.md` records the full
-elimination.
+wrap and sagging to 10-18 % in the middle. Noise down to -10 dB, the Q10
+reference and 16-bit magnitudes, and a carrier offset of up to eight bins were
+each driven through the clean-grid model on their own and none reproduced that
+shape.
+
+Simultaneous RX DMA and PL traces have now resolved that observability fork.
+The exact two-FFT reference agrees with 67 of the first 72 PL decisions across
+three packets, and all three raw-IQ captures independently decode to the exact
+transmitted `ZLP1` payload with valid CRC. The nearest CRC-valid grid corrections
+are respectively +2/+3, −1/−2, and +1/+2 samples. The correlator arithmetic is
+therefore not broadly wrong; the whole-chip resync leaves a packet-dependent
+phase inside the eight samples of a chip. The evidence and full interpretation
+are in [`clg400-payload-session-2026-09-03.md`](clg400-payload-session-2026-09-03.md)
+and [`data/clg400-iq-trace-comparison-2026-09-04.json`](data/clg400-iq-trace-comparison-2026-09-04.json).

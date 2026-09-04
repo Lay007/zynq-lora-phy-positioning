@@ -330,9 +330,9 @@ easiest cases the search would be guessing, and the payload CRC would be the
 only thing standing between a guess and a wrong packet reported as good.
 
 The honest next step is to estimate the fractional offset rather than guess it.
-The material is already there: the model layer has `joint_timing_cfo_from_bins`
-and soft-decision decoding, and the trace already carries a per-symbol
-confidence that a hard decision throws away.
+The model layer already has `joint_timing_cfo_from_bins`, but the hardware path
+needs an observation that ties each PL decision to the same raw IQ before that
+estimator is connected to the symbol grid.
 
 ## Ruling the usual suspects out
 
@@ -372,26 +372,62 @@ together with a single time shift leaves a real timing error equal to the
 carrier offset — up to eight chips at this link's crystal tolerances — and
 LoRa's cyclic symbol structure absorbs all of it.
 
-So none of noise, sub-chip alignment, fixed-point width, or carrier offset
-explains what the board does, and a constant residual of any kind cannot produce
-a mixture within one packet in the first place, because symbols are integers and
-a constant offset moves all of them together.
+Those isolated tests ruled out noise, fixed-point width, carrier offset, and a
+constant timing residual on otherwise clean symbol windows. They did not prove
+that the live resync selected the right sample phase: the model had been slicing
+its synthetic packet on an internally consistent grid, while the hardware skip
+was only quantised to whole chips.
 
-That makes the next step an observability step rather than another model. The
-board can capture raw IQ through RX DMA, and the reference receiver can then be
-run over the same packet the PL decided on. That separates a defect inside the
-generated correlator from one upstream of it, which is the fork this evidence
-cannot resolve on its own.
+## Simultaneous IQ and PL trace comparison
+
+The missing observation was captured for Heltec sequences 30, 31, and 32. Each
+`send` produced both a 1.5-million-complex-sample RX1 DMA recording and the
+128-entry PL decision trace from the same packet. The offline comparison uses
+the generated correlator's actual identity — FFT of the input window, multiply
+by the conjugated reference FFT, sum the `q = r + mN` partitions, then the
+length-`N` FFT — rather than the usual sample-wise dechirp shortcut.
+
+| TX sequence | Exact reference / PL agreement | PL payload CRC | Independently decoded IQ | Nearest CRC-valid sample correction |
+|---:|---:|---:|---:|---:|
+| 30 | 23 / 24 | fail | pass, exact `ZLP1` sequence | +2 or +3 |
+| 31 | 21 / 24 | fail | pass, exact `ZLP1` sequence | −1 or −2 |
+| 32 | 23 / 24 | fail | pass, exact `ZLP1` sequence | +1 or +2 |
+
+The exact reference therefore agrees with 67 of the first 72 frozen PL
+decisions. The five exceptions are at the resync transition or at decisions
+that change with sample phase. Replaying the same windows through the generated
+floating-point and 16-bit fixed-point models matched 58 of 58 decisions and
+showed no saturation; inserting 8- and 63-clock gaps in `validIn` did not change
+the output either. There is no evidence here of a broad arithmetic, bit-width,
+or sparse-stream defect in the correlator.
+
+More importantly, all three raw-IQ captures decode to the exact payload reported
+by the transmitter with a valid explicit-header checksum and payload CRC once
+the sample phase is corrected. The required correction is packet-dependent.
+The present integer-chip resync removed the coarse quarter-symbol error but left
+an unresolved phase within the eight samples of a chip. That is why the earlier
+clean-grid model did not reproduce the hardware distribution, and why no single
+constant bin or timing correction can qualify the link.
+
+The reproducible summary, including SHA-256 hashes of every source capture, is
+[`data/clg400-iq-trace-comparison-2026-09-04.json`](data/clg400-iq-trace-comparison-2026-09-04.json).
+`tools/analyze_clg400_iq_trace.py` repeats the exact two-FFT comparison against
+the ignored raw capture directory without copying the multi-megabyte IQ files
+into Git.
 
 ## Where the receiver stands now
 
 Established on hardware: a real over-the-air SX1262 packet decoded end to end
 through header checksum, FEC, dewhitening and payload CRC to the exact bytes the
 transmitter built, on both the free-running and the realigned build; and a
-symbol grid that the receiver aligns to the packet it acquired, verified by a
-flag the PL sets and by the bin adjustment the decoder no longer needs.
+symbol grid that the receiver coarsely aligns to the packet it acquired,
+verified by a flag the PL sets and by the quarter-symbol bin adjustment the
+decoder no longer needs.
 
 Not established: packet error rate, sensitivity, acquisition probability,
 timestamp repeatability, or calibrated ToA. Three payloads in sixteen at a
 strong signal level measures a decision defect in the receive chain, not a link,
-and that defect is now characterised but not explained.
+and that defect is now localised to the unresolved sub-chip sample phase but not
+yet fixed in RTL. The next implementation gate is a dynamic sample-resolution
+phase estimate, followed by the same CRC-gated hardware capture before any PER
+claim.
