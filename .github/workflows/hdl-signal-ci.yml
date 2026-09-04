@@ -46,7 +46,11 @@ jobs:
           root = ET.parse(path).getroot()
           values = {}
           for node in root.iter():
-              ref = node.attrib.get("referenceId")
+              ref = next(
+                  (value for key, value in node.attrib.items()
+                   if key.endswith("referenceId")),
+                  None,
+              )
               if ref:
                   values[ref] = (node.text or "").strip()
 
