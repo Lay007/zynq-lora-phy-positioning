@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="LoRa/LoRa.vcxproj" Id="e9cb3a3d-7e5c-47a6-911d-ef530fb08c19" />
+</Solution>

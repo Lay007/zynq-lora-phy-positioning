@@ -1,0 +1,72 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/../build/cpp-${presetName}",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "C++ Release",
+      "description": "Release-сборка C++ LoRa/CSS модели с regression-тестами",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "C++ Debug",
+      "description": "Debug-сборка C++ LoRa/CSS модели с regression-тестами",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "displayName": "Собрать C++ Release",
+      "configurePreset": "release",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "debug",
+      "displayName": "Собрать C++ Debug",
+      "configurePreset": "debug",
+      "configuration": "Debug",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "release",
+      "displayName": "Проверить C++ Release",
+      "configurePreset": "release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Проверить C++ Debug",
+      "configurePreset": "debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
