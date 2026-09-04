@@ -201,10 +201,17 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   it selected +11, -2, and +2 samples for the three captures, and every result
   decoded with valid CRC and zero bin adjustment. Synthetic timing/CFO sweeps
   pin the separation independently of payload decoding.
-- [ ] Integrate the joint up/down estimate into the packet-rate history path,
-  apply its correction to the symbol grid, and repeat the CRC-gated hardware
-  capture before a PER run. Prove the controller latency and search span before
-  building a new SD image.
+- [x] Integrate the joint up/down estimate into the packet-rate history path and
+  apply its correction to the symbol grid. The reused ±16-sample searches plus
+  the largest observed fine skip consume 137,144 of the 145,152 conservative
+  SFD-deadline clocks, leaving 128.128 us at 62.5 MHz. Controller, history/MAC,
+  resync, portable-top, and board-bridge RTL regressions pass.
+- [x] Synthesize the portable joint-grid receiver OOC for `xc7z020clg400-2`.
+  Vivado 2021.1 reports 19,255 LUTs, 17,636 registers, 72 BRAM tiles and 56
+  DSPs; the 10 ns probe has WNS -4.032 ns, a derived 71.266 MHz that exceeds
+  the required 62.5 MHz. This is not full-board timing closure.
+- [ ] Route the complete joint-grid board design, package a new SD image,
+  cold-boot it, and repeat the simultaneous IQ/PL capture before a PER run.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.

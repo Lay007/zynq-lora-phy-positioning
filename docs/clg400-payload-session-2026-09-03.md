@@ -428,6 +428,40 @@ The reference implementation is `estimate_joint_chirp_timing`; synthetic tests
 sweep timing and CFO independently before the real captures are accepted as
 evidence.
 
+## Packet-rate RTL implementation
+
+The estimator now reuses the existing history-buffer matched-filter MAC rather
+than adding a continuous or parallel correlator. A bounded controller runs a
+33-lag search (±16 samples) first on a coarse-corrected preamble upchirp and then
+on the first full SFD downchirp. It rounds their integer-offset half-sum away
+from zero, exactly reproducing the `+11`, `−2`, and `+2` decisions above.
+
+Because the generated correlator can advance a grid only by dropping future
+samples, the coarse resync deliberately withholds a 16-sample guard from its
+first request. The late request adds the guard back together with the signed
+joint correction, yielding non-negative skips of 27, 14, and 18 samples for the
+three observed cases. The total of both requests is still the original coarse
+advance plus the measured timing correction.
+
+The integrated history/search regression measured 135,443 controller clocks.
+Charging the 27-sample late skip at a conservative 63 clocks per 1-MS/s input
+sample gives 137,144 clocks against the 145,152-clock SF7 SFD deadline: 8,008
+clocks, or 128.128 us at 62.5 MHz, remain. Separate regressions cover odd
+positive and negative rounding, unavailable downchirp history, restart and
+failed-search aborts, the guarded/fine resync handshake, the portable receiver
+top, and the CLG400 gpreg bridge. The evidence is
+[`data/rtl-joint-chirp-grid-2026-09-04.json`](data/rtl-joint-chirp-grid-2026-09-04.json).
+
+The changed portable receiver also passes a fresh Vivado 2021.1 OOC synthesis
+for `xc7z020clg400-2`: 19,255 LUTs, 17,636 registers, 72 BRAM tiles and 56 DSPs,
+with zero errors and zero critical warnings. The 10 ns probe has WNS -4.032 ns,
+which gives a derived 14.032 ns period / 71.266 MHz and therefore 1.968 ns of
+period margin against the board receiver clock's 16 ns / 62.5 MHz target. The
+critical path is still inside the generated FFT correlator. This closes the
+reference-model, RTL-simulation and portable OOC-synthesis gates; the changed
+receiver has not yet been routed in the complete board design, packaged onto
+SD, cold-booted, or measured on the board.
+
 The reproducible summary, including SHA-256 hashes of every source capture, is
 [`data/clg400-iq-trace-comparison-2026-09-04.json`](data/clg400-iq-trace-comparison-2026-09-04.json).
 `tools/analyze_clg400_iq_trace.py` repeats the exact two-FFT comparison against
@@ -446,7 +480,8 @@ decoder no longer needs.
 Not established: packet error rate, sensitivity, acquisition probability,
 timestamp repeatability, or calibrated ToA. Three payloads in sixteen at a
 strong signal level measures a decision defect in the receive chain, not a link,
-and that defect is now localised to the unresolved sample phase but not yet
-fixed in RTL. The up/down estimator is proven in the reference model and on the
-three captures; the next implementation gate is its packet-rate history/RTL
-path, followed by the same CRC-gated hardware capture before any PER claim.
+and that defect is now localised to the unresolved sample phase. The up/down
+estimator is proven in the reference model, on the three captures, through the
+packet-rate RTL simulation, and through portable OOC synthesis above the target
+clock. The next gate is full-board route/timing closure and a cold-booted SD
+image, followed by the same CRC-gated hardware capture before any PER claim.

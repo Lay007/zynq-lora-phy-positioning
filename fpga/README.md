@@ -134,19 +134,32 @@ packaging and hardware qualification remain open.
 single-clock SF7/L=8 timestamp path:
 
 ```text
-IQ -> FFT correlator -> blind packet detector -> coarse packet count
+IQ -> FFT correlator -> blind packet detector -> guarded coarse grid resync
  |                                                |
- +-> 16384-sample history -> 17-lag matched filter+
-                              -> peak triplet -> fractional ToA
-                              -> atomic metadata -> AXI4-Lite
+ +-> 65536-sample history -> 33-lag up/down search+
+                              |-> joint sample-grid correction
+                              +-> up peak -> fractional ToA
+                                  -> atomic metadata -> AXI4-Lite
 ```
 
-The matched filter uses the committed Q10 reference ROM under `rom/`. Its
-full-size regression checks all 17 exact correlation powers for a 1024-sample
-reference, rather than the one-tap control-path fixture. The receiver-level
-regression drives an actual preamble plus sync word, starts the ToA search from
-`packet_start_valid`, and reads the resulting coarse/fractional timestamp back
-through AXI.
+The matched filter uses the committed Q10 reference ROM under `rom/`. The
+packet-rate controller searches 16 samples either side of a corrected preamble
+upchirp and of the first full SFD downchirp with the same reused MAC. Their
+integer peak offsets are added and divided by two with ties-away-from-zero
+rounding: CFO moves the peaks in opposite directions and cancels, while timing
+moves them together. A 16-sample guard withheld from the first grid request
+makes the late correction non-negative. The measured controller path takes
+135,443 clocks and, including its largest recorded 27-sample fine skip, retains
+8,008 clocks / 128.128 us before the SF7/BW125 SFD deadline under a conservative
+63 clocks per input sample. The machine-readable simulation record is
+[`docs/data/rtl-joint-chirp-grid-2026-09-04.json`](../docs/data/rtl-joint-chirp-grid-2026-09-04.json).
+
+The receiver-level regression still drives an actual preamble plus sync word,
+starts the search from `packet_start_valid`, and reads the upchirp-derived
+coarse/fractional timestamp back through AXI. Separate controller and
+history/search regressions cover the downchirp pass, signed half-sum, search
+availability, restart/abort paths, guarded coarse request, late fine request,
+and the SFD timing budget.
 
 This top intentionally defines one coherent DSP clock domain. The CLG400
 adapter under [`board/clg400/`](board/clg400/) taps the formatted RX1 FIFO
@@ -156,16 +169,21 @@ regression verifies atomic snapshots, sequence handling and overflow behavior.
 
 The reproducible full-top OOC gate is
 [`scripts/synth_packet_toa_receiver_ooc.tcl`](scripts/synth_packet_toa_receiver_ooc.tcl).
-On `xc7z020clg400-2` at a 10 ns probe constraint it measured 16,886 LUTs,
-15,664 registers, 24 BRAM tiles, and 56 DSPs. WNS was -3.164 ns, corresponding
-to a derived 13.164 ns period / 75.965 MHz. The limiting path is inside the
-generated FFT correlator; the intended SF7/L=8 sample stream is 1 MHz. The
-machine-readable record is
-[`docs/data/rtl-m3-packet-toa-receiver-synthesis.csv`](../docs/data/rtl-m3-packet-toa-receiver-synthesis.csv).
+The joint-grid receiver now passes that gate on `xc7z020clg400-2`. At a 10 ns
+probe constraint it uses 19,255 LUTs, 17,636 registers, 72 BRAM tiles and 56
+DSPs. WNS is -4.032 ns, corresponding to a derived 14.032 ns period / 71.266
+MHz and 1.968 ns of derived period margin against the board's 16 ns / 62.5 MHz
+receiver clock. The critical path remains inside the generated FFT correlator,
+not the new controller. The machine-readable result is in
+[`docs/data/rtl-joint-chirp-grid-2026-09-04.json`](../docs/data/rtl-joint-chirp-grid-2026-09-04.json).
 
-The IQ history itself maps to 16 RAMB36 blocks and only 104 LUTs in the composed
-hierarchical report. This BRAM mapping is an explicit gate: an earlier coding
-form consumed 11,264 LUTRAMs and was rejected.
+The earlier 17-lag baseline was 16,886 LUTs, 15,664 registers, 24 BRAM tiles,
+56 DSPs and 75.965 MHz; it remains in
+[`docs/data/rtl-m3-packet-toa-receiver-synthesis.csv`](../docs/data/rtl-m3-packet-toa-receiver-synthesis.csv)
+for historical comparison. The extra BRAM is primarily the current 65,536-IQ
+history rather than a second matched-filter engine. OOC synthesis proves
+capacity and a useful timing probe only; full-board placement and routing still
+have to close with the AD9361 shell and board clocks.
 
 ### CLG400 board synthesis
 

@@ -1,0 +1,72 @@
+{
+  "schema": "zynq-lora-rtl-joint-chirp-grid-v1",
+  "date_utc": "2026-09-04",
+  "configuration": {
+    "spreading_factor": 7,
+    "samples_per_chip": 8,
+    "samples_per_symbol": 1024,
+    "search_radius_samples": 16,
+    "fine_guard_samples": 16,
+    "sample_clock_hz": 62500000,
+    "input_sample_rate_hz": 1000000,
+    "conservative_clocks_per_input_sample": 63,
+    "sfd_samples_before_header": 2304
+  },
+  "controller_regression": {
+    "capture_30_peak_offsets": [8, 14],
+    "capture_30_timing_correction_samples": 11,
+    "capture_30_fine_skip_samples": 27,
+    "capture_31_peak_offsets": [-5, 2],
+    "capture_31_timing_correction_samples": -2,
+    "capture_31_fine_skip_samples": 14,
+    "capture_32_peak_offsets": [-2, 5],
+    "capture_32_timing_correction_samples": 2,
+    "capture_32_fine_skip_samples": 18,
+    "rounding": "ties away from zero",
+    "restart_and_failed_search_paths_checked": true
+  },
+  "integrated_history_search_regression": {
+    "measured_controller_cycles": 135443,
+    "fine_skip_samples": 27,
+    "fine_skip_budget_cycles": 1701,
+    "sfd_deadline_cycles": 145152,
+    "remaining_margin_cycles": 8008,
+    "remaining_margin_us_at_62_5_mhz": 128.128,
+    "result": "pass"
+  },
+  "composition_regressions": {
+    "symbol_grid_coarse_guard_and_fine_request": "pass",
+    "portable_receiver_top": "pass",
+    "clg400_gpreg_bridge": "pass"
+  },
+  "ooc_synthesis": {
+    "tool": "Vivado 2021.1",
+    "part": "xc7z020clg400-2",
+    "top": "lora_packet_toa_receiver_top",
+    "checkpoint_checksum": "97e5a956",
+    "probe_period_ns": 10.0,
+    "wns_ns": -4.032,
+    "derived_achieved_period_ns": 14.032,
+    "derived_fmax_mhz": 71.26567844925884,
+    "required_board_clock_mhz": 62.5,
+    "required_board_period_ns": 16.0,
+    "derived_period_margin_ns": 1.968,
+    "luts": 19255,
+    "registers": 17636,
+    "bram_tiles": 72,
+    "dsps": 56,
+    "carry4": 2140,
+    "errors": 0,
+    "critical_warnings": 0,
+    "warnings": 22,
+    "result": "pass_for_62_5_mhz_ooc_probe",
+    "reproduce_with": "vivado -mode batch -source fpga/scripts/synth_packet_toa_receiver_ooc.tcl -tclargs <repo> xc7z020clg400-2 10 <summary-output>"
+  },
+  "implementation": {
+    "controller": "fpga/wrappers/lora_joint_chirp_grid_controller.v",
+    "grid_resync": "fpga/wrappers/lora_symbol_grid_resync.v",
+    "receiver_top": "fpga/wrappers/lora_packet_toa_receiver_top.v",
+    "policy": "The first resync withholds a 16-sample guard. One reused matched-filter search evaluates the corrected preamble upchirp and first full SFD downchirp. The rounded half-sum is added back with the guard as a non-negative late skip. Up-search results continue to feed the existing ToA metadata path; down-search results are used only for grid timing."
+  },
+  "evidence_boundary": "This is RTL simulation, integration, and out-of-context synthesis evidence for the portable receiver. It is not full-board place-and-route timing closure, an SD boot image, cold-boot, payload-PER, sensitivity, or hardware evidence."
+}

@@ -160,6 +160,15 @@ detected. The skip is under one and a quarter symbols and the SFD still has 2.25
 symbols to run, so it always completes first. The skip cannot select one of the
 eight sample phases inside a chip.
 
+The next RTL revision closes that second stage with the packet-rate IQ history.
+It withholds a 16-sample guard from the coarse request, reuses one ±16-sample
+matched-filter search on a preamble upchirp and the first full SFD downchirp,
+then adds the guard back with their rounded half-sum as a late fine request.
+CFO cancels between the opposite chirp slopes. Simulation leaves 128.128 us of
+conservative SFD margin. Portable OOC synthesis reaches a derived 71.266 MHz
+against the 62.5 MHz board target; full-board route and hardware qualification
+remain open.
+
 Which coarse offset software must remove depends on that. On a realigned grid
 the skip already absorbs `preamble_bin` and the integer part of any carrier
 offset, which an upchirp-only measurement cannot tell apart from timing, so
