@@ -13,11 +13,17 @@ module tb_lora_symbol_grid_resync;
     reg sample_valid = 1'b0;
     reg packet_detected = 1'b0;
     reg [15:0] chips_to_boundary = 16'd0;
+    reg fine_resync_valid = 1'b0;
+    reg [31:0] fine_resync_skip = 32'd0;
 
     wire resync_valid;
     wire [31:0] resync_skip;
     wire resync_armed;
     wire [15:0] resync_chips;
+    wire guarded_resync_valid;
+    wire [31:0] guarded_resync_skip;
+    wire guarded_resync_armed;
+    wire [15:0] guarded_resync_chips;
 
     integer errors = 0;
 
@@ -31,10 +37,28 @@ module tb_lora_symbol_grid_resync;
         .sample_valid(sample_valid),
         .packet_detected(packet_detected),
         .chips_to_boundary(chips_to_boundary),
+        .fine_resync_valid(fine_resync_valid),
+        .fine_resync_skip(fine_resync_skip),
         .resync_valid(resync_valid),
         .resync_skip(resync_skip),
         .resync_armed(resync_armed),
         .resync_chips(resync_chips)
+    );
+
+    lora_symbol_grid_resync #(
+        .SPREADING_FACTOR(SF),
+        .SAMPLES_PER_CHIP(SAMPLES_PER_CHIP),
+        .FINE_GUARD_SAMPLES(16)
+    ) guarded_dut (
+        .clk(clk), .resetn(resetn), .stream_reset(stream_reset),
+        .sample_valid(sample_valid), .packet_detected(packet_detected),
+        .chips_to_boundary(chips_to_boundary),
+        .fine_resync_valid(fine_resync_valid),
+        .fine_resync_skip(fine_resync_skip),
+        .resync_valid(guarded_resync_valid),
+        .resync_skip(guarded_resync_skip),
+        .resync_armed(guarded_resync_armed),
+        .resync_chips(guarded_resync_chips)
     );
 
     task expect32(input [31:0] actual, input [31:0] expected, input [255:0] label);
@@ -100,6 +124,10 @@ module tb_lora_symbol_grid_resync;
         expect32(resync_skip, 12 * SAMPLES_PER_CHIP,
                  "skip is chipsToBoundary plus a quarter symbol, wrapped");
         expect32({16'd0, resync_chips}, 32'd12, "held chip advance");
+        expect32(guarded_resync_skip, 10 * SAMPLES_PER_CHIP,
+                 "guard is withheld from the coarse request");
+        expect32({16'd0, guarded_resync_chips}, 32'd10,
+                 "guarded coarse chip advance");
 
         // The request has to survive until an accepted sample arrives: the
         // correlator only latches it on one, and they are rare here.
@@ -110,6 +138,16 @@ module tb_lora_symbol_grid_resync;
         expect1(resync_valid, 1'b0, "request dropped after one accepted sample");
         expect32(resync_skip, 12 * SAMPLES_PER_CHIP,
                  "skip value retained for inspection");
+
+        @(negedge clk);
+        fine_resync_skip = 32'd27;
+        fine_resync_valid = 1'b1;
+        @(negedge clk);
+        fine_resync_valid = 1'b0;
+        expect1(guarded_resync_valid, 1'b1, "fine request accepted once");
+        expect32(guarded_resync_skip, 32'd27, "joint timing fine skip");
+        accepted_sample();
+        expect1(guarded_resync_valid, 1'b0, "fine request consumed");
 
         // A second detection inside the same capture must not move the grid
         // again; only re-arming through a stream reset may.

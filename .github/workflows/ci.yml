@@ -155,6 +155,7 @@ jobs:
             fpga/wrappers/lora_matched_filter_mac.v \
             fpga/wrappers/lora_peak_triplet_capture.v \
             fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
             fpga/wrappers/lora_symbol_grid_resync.v \
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \
@@ -168,6 +169,25 @@ jobs:
             fpga/wrappers/lora_symbol_grid_resync.v \
             fpga/tb/tb_lora_symbol_grid_resync.sv
           vvp /tmp/lora_symbol_grid_resync_tb
+      - name: Compile and run joint chirp grid controller testbench
+        run: |
+          iverilog -g2012 -Wall -s tb_lora_joint_chirp_grid_controller \
+            -o /tmp/lora_joint_chirp_grid_controller_tb \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
+            fpga/tb/tb_lora_joint_chirp_grid_controller.sv
+          vvp /tmp/lora_joint_chirp_grid_controller_tb
+      - name: Compile and run joint chirp grid path timing testbench
+        run: |
+          iverilog -g2012 -Wall -s tb_lora_joint_chirp_grid_path \
+            -o /tmp/lora_joint_chirp_grid_path_tb \
+            fpga/wrappers/lora_iq_history_buffer.v \
+            fpga/wrappers/lora_reference_chirp_rom.v \
+            fpga/wrappers/lora_matched_filter_mac.v \
+            fpga/wrappers/lora_peak_triplet_capture.v \
+            fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
+            fpga/tb/tb_lora_joint_chirp_grid_path.sv
+          vvp /tmp/lora_joint_chirp_grid_path_tb
       - name: Compile and run CLG400 metadata CDC bridge testbench
         run: |
           iverilog -g2012 -Wall -DLORA_NAMESPACED_GENERATED -s tb_lora_clg400_gpreg_bridge \
@@ -184,6 +204,7 @@ jobs:
             fpga/wrappers/lora_matched_filter_mac.v \
             fpga/wrappers/lora_peak_triplet_capture.v \
             fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
             fpga/wrappers/lora_symbol_grid_resync.v \
             fpga/wrappers/lora_timestamp_metadata_join.v \
             fpga/wrappers/lora_axi_lite_status.v \

@@ -28,6 +28,8 @@ set files [concat [glob -nocomplain -directory $fftDir *.v] [list \
     [file join $wrapperDir lora_matched_filter_mac.v] \
     [file join $wrapperDir lora_peak_triplet_capture.v] \
     [file join $wrapperDir lora_matched_filter_search.v] \
+    [file join $wrapperDir lora_joint_chirp_grid_controller.v] \
+    [file join $wrapperDir lora_symbol_grid_resync.v] \
     [file join $wrapperDir lora_timestamp_metadata_join.v] \
     [file join $wrapperDir lora_axi_lite_status.v] \
     [file join $wrapperDir lora_packet_toa_receiver_top.v]]]

@@ -31,7 +31,8 @@
 // stream reset is the contract the rest of the capture path already uses.
 module lora_symbol_grid_resync #(
     parameter integer SPREADING_FACTOR = 7,
-    parameter integer SAMPLES_PER_CHIP = 8
+    parameter integer SAMPLES_PER_CHIP = 8,
+    parameter integer FINE_GUARD_SAMPLES = 0
 ) (
     input  wire        clk,
     input  wire        resetn,
@@ -39,6 +40,8 @@ module lora_symbol_grid_resync #(
     input  wire        sample_valid,
     input  wire        packet_detected,
     input  wire [15:0] chips_to_boundary,
+    input  wire        fine_resync_valid,
+    input  wire [31:0] fine_resync_skip,
 
     output wire        resync_valid,
     output wire [31:0] resync_skip,
@@ -49,34 +52,52 @@ module lora_symbol_grid_resync #(
     localparam integer SYMBOL_CHIPS = 1 << SPREADING_FACTOR;
     localparam integer QUARTER_CHIPS = SYMBOL_CHIPS / 4;
     localparam integer CHIP_MASK = SYMBOL_CHIPS - 1;
+    localparam integer SYMBOL_SAMPLES = SYMBOL_CHIPS * SAMPLES_PER_CHIP;
 
     // Plain integer constants, no part-selects: this file is compiled as
     // Verilog-2001 by the vendor flow, where selecting bits out of a parameter
     // is not legal even though the simulator accepts it in SystemVerilog mode.
     wire [15:0] advance_sum = chips_to_boundary + QUARTER_CHIPS;
     wire [15:0] payload_chips = advance_sum & CHIP_MASK;
+    wire [31:0] payload_samples = payload_chips * SAMPLES_PER_CHIP;
+    wire [31:0] guarded_samples =
+        (payload_samples + SYMBOL_SAMPLES - FINE_GUARD_SAMPLES)
+        & (SYMBOL_SAMPLES - 1);
 
     reg armed;
+    reg fine_armed;
     reg request;
     reg [15:0] chips_held;
     reg [31:0] skip_held;
 
+    initial begin
+        if (FINE_GUARD_SAMPLES < 0 || FINE_GUARD_SAMPLES >= SYMBOL_SAMPLES)
+            $error("FINE_GUARD_SAMPLES must be in [0, SYMBOL_SAMPLES)");
+    end
+
     always @(posedge clk or negedge resetn) begin
         if (!resetn) begin
             armed      <= 1'b1;
+            fine_armed <= 1'b0;
             request    <= 1'b0;
             chips_held <= 16'd0;
             skip_held  <= 32'd0;
         end else if (stream_reset) begin
             armed      <= 1'b1;
+            fine_armed <= 1'b0;
             request    <= 1'b0;
             chips_held <= 16'd0;
             skip_held  <= 32'd0;
         end else if (armed && packet_detected) begin
             armed      <= 1'b0;
+            fine_armed <= (FINE_GUARD_SAMPLES != 0);
             request    <= 1'b1;
-            chips_held <= payload_chips;
-            skip_held  <= payload_chips * SAMPLES_PER_CHIP;
+            chips_held <= guarded_samples / SAMPLES_PER_CHIP;
+            skip_held  <= guarded_samples;
+        end else if (fine_armed && fine_resync_valid && !request) begin
+            fine_armed <= 1'b0;
+            request    <= 1'b1;
+            skip_held  <= fine_resync_skip;
         end else if (request && sample_valid) begin
             // The correlator only latches a request on an accepted sample, and
             // accepted samples are rare against this clock. Hold the request

@@ -222,7 +222,7 @@ module tb_lora_packet_toa_receiver_top;
                 end
             end
             if (correlation_magnitude_valid) begin
-                if (correlation_sample_count !== 64'd1016 + correlation_seen) begin
+                if (correlation_sample_count !== 64'd1008 + correlation_seen) begin
                     errors = errors + 1;
                     $display("FAIL integrated correlation count[%0d] got=%0d",
                              correlation_seen, correlation_sample_count);
@@ -231,7 +231,7 @@ module tb_lora_packet_toa_receiver_top;
             end
             if (peak_triplet_valid) begin
                 triplet_seen = triplet_seen + 1;
-                if (peak_index !== 16'd8 || peak_sample_count !== 64'd1024) begin
+                if (peak_index !== 16'd16 || peak_sample_count !== 64'd1024) begin
                     errors = errors + 1;
                     $display("FAIL integrated peak index=%0d count=%0d",
                              peak_index, peak_sample_count);
@@ -279,7 +279,7 @@ module tb_lora_packet_toa_receiver_top;
         axi_write(6'h00, 32'h0000_0001);
 
         // The non-preamble prefix keeps the confirmed packet timestamp away
-        // from count zero, leaving a complete +/-8-sample ToA search window.
+        // from count zero, leaving a complete +/-16-sample ToA search window.
         drive_css_symbol(37);
         drive_css_symbol(0); drive_css_symbol(0); drive_css_symbol(0);
         drive_css_symbol(0); drive_css_symbol(0); drive_css_symbol(0);
@@ -297,7 +297,7 @@ module tb_lora_packet_toa_receiver_top;
         repeat (5) @(posedge clk);
 
         if (symbol_seen != 11 || packet_start_seen != 1 ||
-            correlation_seen != 17 || triplet_seen != 1 ||
+            correlation_seen != 33 || triplet_seen != 1 ||
             toa_seen != 1 || metadata_seen != 1) begin
             errors = errors + 1;
             $display("FAIL event counts symbols=%0d packet=%0d corr=%0d triplet=%0d toa=%0d metadata=%0d",
@@ -312,7 +312,7 @@ module tb_lora_packet_toa_receiver_top;
                      history_next_sample_count, history_samples_retained,
                      history_oldest_sample_count);
         end
-        if (toa_search_first_count !== 64'd1016) begin
+        if (toa_search_first_count !== 64'd1008) begin
             errors = errors + 1;
             $display("FAIL integrated search first count=%0d", toa_search_first_count);
         end
@@ -337,4 +337,3 @@ module tb_lora_packet_toa_receiver_top;
     end
 
 endmodule
-

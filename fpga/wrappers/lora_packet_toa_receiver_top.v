@@ -5,8 +5,10 @@
 // Accepted IQ samples feed both the generated symbol/acquisition path and a
 // circular sample history. A confirmed packet timestamp automatically starts a
 // short, packet-rate matched-filter search around that coarse sample. The
-// strongest integer lag and the generated log-parabolic fractional estimate
-// are joined atomically and exposed through AXI4-Lite.
+// strongest preamble lag and the generated log-parabolic fractional estimate
+// are joined atomically and exposed through AXI4-Lite. The same packet-rate MAC
+// is then reused on the first full SFD downchirp; the up/down half-sum supplies
+// a fine sample-grid correction before the header reaches the correlator.
 //
 // This top is intentionally single-clock. The board adapter must cross AD936x
 // samples into this domain and cross the joined metadata record into the PS AXI
@@ -22,7 +24,8 @@ module lora_packet_toa_receiver_top #(
     parameter integer AUTO_GRID_RESYNC = 1,
     parameter integer HISTORY_DEPTH = 65536,
     parameter integer REF_SAMPLES = 1024,
-    parameter integer SEARCH_RADIUS = 8,
+    parameter integer SEARCH_RADIUS = 16,
+    parameter integer GRID_FINE_GUARD_SAMPLES = 16,
     parameter integer MATCH_ACC_WIDTH = 48,
     parameter integer MATCH_POWER_SHIFT = 30,
     parameter DEFAULT_RECEIVER_ENABLE = 1'b0,
@@ -134,6 +137,8 @@ module lora_packet_toa_receiver_top #(
     // receiver aligns its own grid to the packet it just acquired.
     wire auto_resync_valid;
     wire [31:0] auto_resync_skip;
+    wire fine_resync_valid;
+    wire [31:0] fine_resync_skip;
     wire effective_resync_valid = resync_valid || auto_resync_valid;
     wire [31:0] effective_resync_skip =
         resync_valid ? resync_skip : auto_resync_skip;
@@ -142,7 +147,8 @@ module lora_packet_toa_receiver_top #(
         if (AUTO_GRID_RESYNC != 0) begin : g_grid_resync
             lora_symbol_grid_resync #(
                 .SPREADING_FACTOR(7),
-                .SAMPLES_PER_CHIP(8)
+                .SAMPLES_PER_CHIP(8),
+                .FINE_GUARD_SAMPLES(GRID_FINE_GUARD_SAMPLES)
             ) u_grid_resync (
                 .clk(clk),
                 .resetn(resetn),
@@ -150,6 +156,8 @@ module lora_packet_toa_receiver_top #(
                 .sample_valid(gated_valid_in),
                 .packet_detected(detected),
                 .chips_to_boundary(chips_to_boundary),
+                .fine_resync_valid(fine_resync_valid),
+                .fine_resync_skip(fine_resync_skip),
                 .resync_valid(auto_resync_valid),
                 .resync_skip(auto_resync_skip),
                 .resync_armed(grid_resync_armed),
@@ -223,7 +231,10 @@ module lora_packet_toa_receiver_top #(
 
     wire [15:0] reference_index;
     wire signed [15:0] reference_re;
-    wire signed [15:0] reference_im;
+    wire signed [15:0] reference_up_im;
+    wire reference_down;
+    wire signed [15:0] reference_im =
+        reference_down ? -reference_up_im : reference_up_im;
 
     lora_reference_chirp_rom #(
         .REF_SAMPLES(REF_SAMPLES),
@@ -231,12 +242,81 @@ module lora_packet_toa_receiver_top #(
     ) u_reference_rom (
         .reference_index(reference_index),
         .reference_re(reference_re),
-        .reference_im(reference_im)
+        .reference_im(reference_up_im)
     );
 
     wire [31:0] magnitude_before;
     wire [31:0] magnitude_peak;
     wire [31:0] magnitude_after;
+    wire raw_search_busy;
+    wire raw_peak_triplet_valid;
+    wire raw_search_restart_error;
+    wire raw_peak_boundary_error;
+    wire joint_grid_busy;
+    wire joint_grid_restart_error;
+    wire joint_grid_timing_range_error;
+    wire joint_search_start;
+    wire [63:0] joint_search_coarse_start;
+    wire signed [31:0] joint_timing_correction_unused;
+    wire joint_timing_valid_unused;
+    wire raw_search_failure = toa_underflow_error || raw_search_restart_error ||
+        toa_mac_window_mismatch_error || toa_mac_read_miss_error ||
+        toa_mac_response_mismatch_error || toa_mac_restart_error ||
+        raw_peak_boundary_error || toa_peak_restart_error;
+
+    generate
+        if (AUTO_GRID_RESYNC != 0) begin : g_joint_grid_timing
+            lora_joint_chirp_grid_controller #(
+                .SAMPLES_PER_CHIP(8),
+                .SYMBOL_SAMPLES(REF_SAMPLES),
+                .SEARCH_RADIUS(SEARCH_RADIUS),
+                .FINE_GUARD_SAMPLES(GRID_FINE_GUARD_SAMPLES),
+                .PREAMBLE_TO_SFD_SYMBOLS(10)
+            ) u_joint_grid_timing (
+                .clk(clk),
+                .resetn(resetn),
+                .stream_reset(reset_in),
+                .packet_start_valid(packet_start_valid && receiver_enable),
+                .packet_start_count(packet_start_count),
+                .chips_to_boundary(chips_to_boundary),
+                .history_next_sample_count(history_next_sample_count),
+                .search_busy(raw_search_busy),
+                .search_failed(raw_search_failure),
+                .search_triplet_valid(raw_peak_triplet_valid),
+                .search_peak_sample_count(peak_sample_count),
+                .search_start(joint_search_start),
+                .search_coarse_start(joint_search_coarse_start),
+                .reference_down(reference_down),
+                .busy(joint_grid_busy),
+                .timing_correction_samples(joint_timing_correction_unused),
+                .fine_skip(fine_resync_skip),
+                .fine_resync_valid(fine_resync_valid),
+                .timing_valid(joint_timing_valid_unused),
+                .restart_error(joint_grid_restart_error),
+                .timing_range_error(joint_grid_timing_range_error)
+            );
+        end else begin : g_legacy_toa_search
+            assign joint_search_start = packet_start_valid && receiver_enable;
+            assign joint_search_coarse_start = packet_start_count;
+            assign reference_down = 1'b0;
+            assign joint_grid_busy = raw_search_busy;
+            assign fine_resync_skip = 32'd0;
+            assign fine_resync_valid = 1'b0;
+            assign joint_timing_correction_unused = 32'sd0;
+            assign joint_timing_valid_unused = 1'b0;
+            assign joint_grid_restart_error = 1'b0;
+            assign joint_grid_timing_range_error = 1'b0;
+        end
+    endgenerate
+
+    assign toa_search_busy = joint_grid_busy;
+    assign peak_triplet_valid = raw_peak_triplet_valid && !reference_down;
+    assign toa_search_restart_error =
+        raw_search_restart_error || joint_grid_restart_error;
+    // A timing estimate outside the bounded search is operationally the same
+    // as a peak at its boundary: neither is safe to apply to the live grid.
+    assign toa_peak_boundary_error =
+        raw_peak_boundary_error || joint_grid_timing_range_error;
 
     lora_matched_filter_search #(
         .REF_SAMPLES(REF_SAMPLES),
@@ -247,8 +327,8 @@ module lora_packet_toa_receiver_top #(
         .clk(clk),
         .resetn(resetn),
         .stream_reset(reset_in),
-        .start(packet_start_valid && receiver_enable),
-        .coarse_start_count(packet_start_count),
+        .start(joint_search_start),
+        .coarse_start_count(joint_search_coarse_start),
         .iq_read_req(history_read_req),
         .iq_read_sample_count(history_read_sample_count),
         .iq_read_re(history_read_iq_re),
@@ -259,7 +339,7 @@ module lora_packet_toa_receiver_top #(
         .reference_index(reference_index),
         .reference_re(reference_re),
         .reference_im(reference_im),
-        .busy(toa_search_busy),
+        .busy(raw_search_busy),
         .search_first_count(toa_search_first_count),
         .correlation_magnitude(correlation_magnitude),
         .correlation_magnitude_valid(correlation_magnitude_valid),
@@ -269,14 +349,14 @@ module lora_packet_toa_receiver_top #(
         .magnitude_after(magnitude_after),
         .peak_index(peak_index),
         .peak_sample_count(peak_sample_count),
-        .triplet_valid(peak_triplet_valid),
+        .triplet_valid(raw_peak_triplet_valid),
         .underflow_error(toa_underflow_error),
-        .search_restart_error(toa_search_restart_error),
+        .search_restart_error(raw_search_restart_error),
         .mac_window_mismatch_error(toa_mac_window_mismatch_error),
         .mac_read_miss_error(toa_mac_read_miss_error),
         .mac_response_mismatch_error(toa_mac_response_mismatch_error),
         .mac_restart_error(toa_mac_restart_error),
-        .peak_boundary_error(toa_peak_boundary_error),
+        .peak_boundary_error(raw_peak_boundary_error),
         .peak_restart_error(toa_peak_restart_error)
     );
 
