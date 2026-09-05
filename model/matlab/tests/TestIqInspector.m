@@ -33,6 +33,29 @@ classdef TestIqInspector < matlab.unittest.TestCase
             testCase.verifyTrue(isnan(info.clippedComponentFraction));
         end
 
+        function hdlPcmCaptureIsLoaded(testCase)
+            path = [tempname, '.pcm'];
+            cleanup = onCleanup(@() delete_if_present(path));
+            file = fopen(path, "w", "ieee-le");
+            fileCleanup = onCleanup(@() fclose(file));
+
+            % Packed HDL words are {I[15:0], Q[15:0]}.
+            % 0x4000E000 -> I=+16384, Q=-8192
+            % 0xC0002000 -> I=-16384, Q=+8192
+            words = uint32([hex2dec('4000E000'), hex2dec('C0002000')]);
+            fwrite(file, words, "uint32");
+            clear fileCleanup
+
+            [iq, info] = lora_phy.load_iq_capture(path, "auto");
+
+            testCase.verifyEqual(iq, complex([1; -1], [-0.5; 0.5]), ...
+                "AbsTol", 1e-12);
+            testCase.verifyEqual(info.format, "hdl32");
+            testCase.verifyEqual(info.sampleCount, 2);
+            testCase.verifyEqual(info.componentCount, 4);
+            testCase.verifyTrue(isnan(info.clippedComponentFraction));
+        end
+
         function sfBandwidthAndCarrierAreEstimated(testCase)
             config = lora_phy.css_config(7, 4);
             payload = [3; 17; 64];
