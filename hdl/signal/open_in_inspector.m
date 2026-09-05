@@ -6,9 +6,6 @@ function [app, metadata] = open_in_inspector(fileName)
 %
 % File format is conventional complex int16 little-endian:
 %   I0, Q0, I1, Q1, ...
-%
-% Example:
-%   open_in_inspector("hdl_sf7_bw125k_fs2000k_package.pcm")
 
 signalDir = fileparts(mfilename("fullpath"));
 repoRoot = fileparts(fileparts(signalDir));
@@ -43,33 +40,7 @@ else
     end
 end
 
-[~, baseName, extension] = fileparts(filePath);
-fullName = string(baseName) + string(extension);
-expression = "^hdl_sf(?<sf>[0-9]+)_bw(?<bw>[0-9]+)k_fs(?<fs>[0-9]+)k_(?<tag>[a-z0-9-]+)\.pcm$";
-parsed = regexp(fullName, expression, "names", "once");
-
-if isempty(parsed)
-    error("lora_phy:InvalidHdlRecordingName", ...
-        ["HDL PCM filename must match " ...
-         "hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm"]);
-end
-
-metadata = struct;
-metadata.filePath = string(filePath);
-metadata.format = "ci16";
-metadata.spreadingFactor = str2double(parsed.sf);
-metadata.bandwidthHz = 1e3 * str2double(parsed.bw);
-metadata.sampleRateHz = 1e3 * str2double(parsed.fs);
-metadata.tag = string(parsed.tag);
-
-if metadata.spreadingFactor < 5 || metadata.spreadingFactor > 12
-    error("lora_phy:InvalidHdlRecordingName", ...
-        "SF encoded in filename must be in the range 5..12");
-end
-if metadata.bandwidthHz <= 0 || metadata.sampleRateHz <= 0
-    error("lora_phy:InvalidHdlRecordingName", ...
-        "BW and Fs encoded in filename must be positive");
-end
+metadata = lora_phy.parse_hdl_recording_name(filePath);
 
 app = lora_phy_inspector;
 app.FileField.Value = char(metadata.filePath);
@@ -84,5 +55,6 @@ fprintf("  format: ci16 (little-endian I,Q interleaved)\n");
 fprintf("  SF: %d\n", metadata.spreadingFactor);
 fprintf("  BW: %.0f kHz\n", metadata.bandwidthHz/1e3);
 fprintf("  Fs: %.3f MHz\n", metadata.sampleRateHz/1e6);
-fprintf("Press Analyze in the Inspector window to run the DSP analysis.\n");
+fprintf("  golden reference: %s\n", metadata.referenceDescription);
+fprintf("Press Analyze to run DSP analysis and MATLAB golden verification.\n");
 end
