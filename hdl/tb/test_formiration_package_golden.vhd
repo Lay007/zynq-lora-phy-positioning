@@ -15,7 +15,7 @@ architecture Behavioral of test_formiration_package_golden is
     constant SAMPLES_PER_CHIP : integer := 16;
     constant SYMBOL_COUNT     : integer := 10;
     constant TOTAL_SAMPLES    : integer := SYMBOL_COUNT * SYMBOL_SAMPLES;
-    constant CAPTURE_FILE     : string :=
+    constant CAPTURE_PATH     : string :=
         "build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm";
 
     type integer_array_t is array (natural range <>) of integer;
@@ -158,7 +158,7 @@ begin
             begin_in     <= '0';
         end procedure;
     begin
-        file_open(capture_file, CAPTURE_FILE, WRITE_MODE);
+        file_open(capture_file, CAPTURE_PATH, WRITE_MODE);
 
         for i in 1 to 6 loop
             wait_clock;
@@ -188,7 +188,7 @@ begin
 
         file_close(capture_file);
         report "HDL LoRa full-package golden regression PASS" severity note;
-        report "HDL CI16 capture written: " & CAPTURE_FILE severity note;
+        report "HDL CI16 capture written: " & CAPTURE_PATH severity note;
         finish;
         wait;
     end process;
