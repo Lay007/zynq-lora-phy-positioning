@@ -78,10 +78,27 @@ jobs:
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
           ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
 
-      - name: Analyze CI16 package testbench
+      - name: Verify CI16 file writer and package testbench
         run: |
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/ci16_file_io_pkg.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
-          ghdl -a --std=08 -fsynopsys --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_ci16_file_io.vhd
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_ci16_file_io
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_ci16_file_io
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("build/ghdl-lora/ci16_writer_test.pcm")
+          actual = path.read_bytes()
+          expected = bytes.fromhex("00 40 00 E0 00 C0 00 20")
+          if actual != expected:
+              raise SystemExit(
+                  f"CI16 byte order mismatch: expected {expected.hex()}, got {actual.hex()}"
+              )
+          print("CI16 byte layout PASS:", actual.hex(" "))
+          PY
 
       - name: Compare HDL waveform with MATLAB golden convention
         run: |
