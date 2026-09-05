@@ -126,16 +126,16 @@ begin
         wait_clock;
         wait_clock;
 
-        -- MATLAB/C++ representative symbol set plus downchirp checks.
-        run_case(0,   '0');
-        run_case(1,   '0');
-        run_case(17,  '0');
-        run_case(63,  '0');
-        run_case(127, '0');
-        run_case(0,   '1');
-        run_case(64,  '1');
+        -- Exhaustive SF7 symbol map: every cyclic shift is checked in both
+        -- directions against the MATLAB/C++ phase convention.
+        for symbol_value in 0 to 127 loop
+            run_case(symbol_value, '0');
+        end loop;
+        for symbol_value in 0 to 127 loop
+            run_case(symbol_value, '1');
+        end loop;
 
-        report "HDL LoRa chirp golden regression PASS" severity note;
+        report "HDL LoRa SF7 all-symbol golden regression PASS" severity note;
         finish;
         wait;
     end process;
