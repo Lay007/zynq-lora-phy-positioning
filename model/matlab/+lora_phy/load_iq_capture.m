@@ -2,10 +2,13 @@ function [iq, info] = load_iq_capture(filePath, format)
 %LOAD_IQ_CAPTURE Read supported complex IQ capture formats.
 %
 % Supported formats:
-%   cu8   - uint8 interleaved I,Q (RTL-SDR)
-%   cf32  - little-endian float32 interleaved I,Q (Pluto/GNU Radio)
-%   hdl32 - little-endian packed uint32 words {I[15:0], Q[15:0]} from HDL
-%           simulation, with signed Q14-like int16 components.
+%   cu8  - uint8 interleaved I,Q (RTL-SDR)
+%   cf32 - little-endian float32 interleaved I,Q (Pluto/GNU Radio)
+%   ci16 - little-endian signed int16 interleaved I,Q
+%
+% CI16 is a conventional headerless complex-int16 stream:
+%   I0, Q0, I1, Q1, ...
+% Components are normalized by the full int16 scale (32768).
 
 filePath = string(filePath);
 if nargin < 2 || string(format) == "auto"
@@ -15,8 +18,8 @@ if nargin < 2 || string(format) == "auto"
             format = "cu8";
         case {'.cf32', '.fc32', '.cfile'}
             format = "cf32";
-        case '.pcm'
-            format = "hdl32";
+        case {'.pcm', '.ci16', '.sc16'}
+            format = "ci16";
         otherwise
             error("lora_phy:UnknownIqFormat", ...
                 "Cannot infer IQ format from extension %s", extension);
@@ -52,28 +55,20 @@ switch format
         clippedComponents = NaN;
         iq = complex(raw(1:2:end), raw(2:2:end));
         componentCount = numel(raw);
-    case "hdl32"
+    case "ci16"
         file = fopen(filePath, "r", "ieee-le");
         cleanup = onCleanup(@() fclose(file));
-        raw = fread(file, Inf, "uint32=>uint32");
-
-        % HDL data_out is a 32-bit word {real[15:0], imag[15:0]}.
-        % Because the file is little-endian, reading it directly as int16
-        % would expose the halves as Q,I. Split the packed word explicitly.
-        iBits = bitshift(raw, -16);
-        qBits = bitand(raw, uint32(65535));
-        i = double(iBits);
-        q = double(qBits);
-        i(i >= 32768) = i(i >= 32768) - 65536;
-        q(q >= 32768) = q(q >= 32768) - 65536;
-
-        % phase_to_sample keeps the DDS output at an approximately Q14 level.
-        iq = complex(i, q) / 16384;
-        clippedComponents = NaN;
-        componentCount = 2*numel(raw);
+        raw = fread(file, Inf, "int16=>double");
+        if mod(numel(raw), 2) ~= 0
+            error("lora_phy:OddIqComponentCount", ...
+                "CI16 capture must contain interleaved I,Q pairs");
+        end
+        clippedComponents = nnz(raw == -32768 | raw == 32767);
+        iq = complex(raw(1:2:end), raw(2:2:end)) / 32768;
+        componentCount = numel(raw);
     otherwise
         error("lora_phy:UnsupportedIqFormat", ...
-            "Supported formats are auto, cu8, cf32, and hdl32");
+            "Supported formats are auto, cu8, cf32, and ci16");
 end
 
 iq = iq(:);
