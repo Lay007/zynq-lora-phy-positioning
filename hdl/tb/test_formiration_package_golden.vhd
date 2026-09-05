@@ -4,6 +4,8 @@ use IEEE.NUMERIC_STD.ALL;
 use IEEE.MATH_REAL.ALL;
 use std.env.all;
 
+use work.ci16_file_io_pkg.all;
+
 entity test_formiration_package_golden is
 end test_formiration_package_golden;
 
@@ -13,6 +15,8 @@ architecture Behavioral of test_formiration_package_golden is
     constant SAMPLES_PER_CHIP : integer := 16;
     constant SYMBOL_COUNT     : integer := 10;
     constant TOTAL_SAMPLES    : integer := SYMBOL_COUNT * SYMBOL_SAMPLES;
+    constant CAPTURE_FILE     : string :=
+        "build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm";
 
     type integer_array_t is array (natural range <>) of integer;
     constant EXPECTED_SYMBOLS : integer_array_t(0 to SYMBOL_COUNT-1) :=
@@ -33,6 +37,8 @@ architecture Behavioral of test_formiration_package_golden is
     signal data_out     : std_logic_vector(31 downto 0);
     signal sample_count : integer range 0 to TOTAL_SAMPLES := 0;
     signal done         : std_logic := '0';
+
+    file capture_file : byte_file;
 
     function q14_half(value : real) return signed is
         variable full_scale : signed(15 downto 0);
@@ -112,6 +118,11 @@ begin
                            " sample=" & integer'image(sample_index)
                     severity failure;
 
+                -- The same self-checked samples are exported for the MATLAB
+                -- Inspector end-to-end regression. File layout is CI16 LE:
+                -- I0,Q0,I1,Q1,...
+                write_ci16_sample(capture_file, data_out);
+
                 if sample_count = TOTAL_SAMPLES-1 then
                     sample_count <= TOTAL_SAMPLES;
                     done <= '1';
@@ -147,6 +158,8 @@ begin
             begin_in     <= '0';
         end procedure;
     begin
+        file_open(capture_file, CAPTURE_FILE, WRITE_MODE);
+
         for i in 1 to 6 loop
             wait_clock;
         end loop;
@@ -173,7 +186,9 @@ begin
                 severity failure;
         end loop;
 
+        file_close(capture_file);
         report "HDL LoRa full-package golden regression PASS" severity note;
+        report "HDL CI16 capture written: " & CAPTURE_FILE severity note;
         finish;
         wait;
     end process;
