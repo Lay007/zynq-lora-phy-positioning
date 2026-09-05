@@ -30,19 +30,20 @@ centreLabel.Layout.Column = 5;
 expectedLabel = uilabel(controls, "Text", "Expected frequency, Hz", "FontWeight", "bold");
 expectedLabel.Layout.Column = 6;
 statusLabel = uilabel(controls, ...
-    "Text", "Select an RTL-SDR or PlutoSDR recording");
+    "Text", "Select an IQ or HDL simulation recording");
 statusLabel.Layout.Row = 1;
 statusLabel.Layout.Column = [7 8];
 
 fileField = uieditfield(controls, "text", ...
-    "Placeholder", "capture.cu8 or capture.cf32");
+    "Placeholder", "capture.cu8, capture.cf32 or output_hdl.pcm");
 fileField.Layout.Row = 2;
 fileField.Layout.Column = 1;
 browseButton = uibutton(controls, "Text", "Browse…", ...
     "ButtonPushedFcn", @browse_file);
 browseButton.Layout.Row = 2;
 browseButton.Layout.Column = 2;
-formatDropDown = uidropdown(controls, "Items", ["auto", "cu8", "cf32"], "Value", "auto");
+formatDropDown = uidropdown(controls, ...
+    "Items", ["auto", "cu8", "cf32", "hdl32"], "Value", "auto");
 formatDropDown.Layout.Row = 2;
 formatDropDown.Layout.Column = 3;
 sampleRateField = uieditfield(controls, "numeric", "Value", 1e6, "Limits", [1 Inf]);
@@ -95,7 +96,7 @@ app.Analyze = @run_analysis;
 
     function browse_file(~, ~)
         [name, folder] = uigetfile( ...
-            {"*.cu8;*.uc8;*.cf32;*.fc32;*.cfile", "IQ recordings"; ...
+            {"*.cu8;*.uc8;*.cf32;*.fc32;*.cfile;*.pcm", "IQ recordings"; ...
             "*.*", "All files"});
         if ~isequal(name, 0)
             fileField.Value = fullfile(folder, name);
