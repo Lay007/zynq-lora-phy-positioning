@@ -108,7 +108,8 @@ begin
     --
     stim_proc: process
     begin		
-		file_open(fout, "D:\signal\sim\output_hdl.pcm", WRITE_MODE);
+		-- Имя HDL IQ-записи обязано содержать SF, BW и Fs.
+		file_open(fout, "D:\signal\sim\hdl_sf7_bw125k_fs2000k_package.pcm", WRITE_MODE);
 		-- hold reset state for 100 ns.
         rst <= '1';
         wait for 10000 ns;
