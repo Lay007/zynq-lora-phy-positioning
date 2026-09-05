@@ -2,7 +2,7 @@
 
 Этот каталог содержит VHDL-реализацию формирования LoRa/CSS chirp и пакетного потока, Xilinx IP, тесты и вспомогательные средства для сравнения HDL с эталонной MATLAB-моделью.
 
-На текущем этапе полностью верифицирован генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`). Блок `formiration_package` пока следует считать экспериментальным: его преамбула, FIFO-handshake и полный пакет ещё не покрыты такой же end-to-end golden-регрессией.
+Для текущей конфигурации SF7/BW125/L16 верифицированы как генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`), так и текущий контракт `formiration_package`: шесть автоматически вставляемых `h=0` upchirp, затем очередь пользовательских символов. Это **не означает**, что уже реализован и проверен полный стандартный LoRa packet с SFD/header/coding/payload framing.
 
 ## Структура
 
@@ -17,13 +17,16 @@ hdl/
 │   └── formiration_package.vhd   # очередь символов и формирование преамбулы
 ├── tb/
 │   ├── dds_sin_cos_only_stub.vhd
+│   ├── fifo_1024_32_stub.vhd
+│   ├── ci16_file_io_pkg.vhd
 │   ├── test_formiration_chirp_golden.vhd
+│   ├── test_formiration_package_golden.vhd
 │   └── test_formiration_package.vhd
 └── signal/
     └── open_in_inspector.m       # загрузка CI16 HDL-записи в MATLAB Inspector
 ```
 
-HDL IQ-записи генерируются локально testbench и не обязаны храниться в Git. Расширение `*.pcm` игнорируется `.gitignore`.
+HDL IQ-записи генерируются testbench и не обязаны храниться в Git. Расширение `*.pcm` игнорируется `.gitignore`. В GitHub Actions актуальная запись публикуется как artifact вместе с CSV-отчётом Inspector.
 
 ## Текущая проверенная конфигурация
 
@@ -126,7 +129,7 @@ hdl_sf7_bw125k_fs2000k_chirp-h64-down.pcm
 
 Не следует использовать имена `output.pcm`, `signal.pcm` или `test.pcm`: raw CI16 не содержит метаданных, и без имени невозможно надёжно восстановить SF/BW/Fs.
 
-`test_formiration_package.vhd` формирует:
+`test_formiration_package.vhd` и self-checking `test_formiration_package_golden.vhd` используют имя:
 
 ```text
 hdl_sf7_bw125k_fs2000k_package.pcm
@@ -243,10 +246,11 @@ HDL реализует тот же закон через начальную фа
 .github/workflows/hdl-signal-ci.yml
 ```
 
-Для CI используется GHDL. Закрытая simulation-модель Xilinx DDS в GitHub runner недоступна, поэтому в симуляции только IP DDS заменяется на поведенческую модель:
+Для CI используется GHDL. Закрытая simulation-модель Xilinx DDS в GitHub runner недоступна, поэтому в симуляции Xilinx DDS и FIFO заменяются совместимыми поведенческими моделями:
 
 ```text
 hdl/tb/dds_sin_cos_only_stub.vhd
+hdl/tb/fifo_1024_32_stub.vhd
 ```
 
 При этом проверяются production-файлы:
@@ -254,23 +258,14 @@ hdl/tb/dds_sin_cos_only_stub.vhd
 ```text
 hdl/srcs/phase_to_sample.vhd
 hdl/srcs/formiration_chirp.vhd
+hdl/srcs/formiration_package.vhd
 ```
 
 Дополнительно CI разбирает `dds_sin_cos_only.xci` и проверяет критичные параметры интерфейса DDS: внешний phase input, ширину фазы 16 бит, ширину sin/cos 16 бит и 32-битный комплексный выход.
 
-### Проверяемые символы
+### Все символы SF7
 
-Upchirp:
-
-```text
-h = 0, 1, 17, 63, 127
-```
-
-Downchirp:
-
-```text
-h = 0, 64
-```
+`test_formiration_chirp_golden.vhd` автоматически проверяет **все 128 значений `h=0...127`** как upchirp и как downchirp. Итого — 256 вариантов символа.
 
 Для каждого случая testbench:
 
@@ -283,10 +278,75 @@ h = 0, 64
 Успешная проверка заканчивается сообщением:
 
 ```text
-HDL LoRa chirp golden regression PASS
+HDL LoRa SF7 all-symbol golden regression PASS
 ```
 
-Таким образом, для **SF7 / BW125 / L16** корректность формирования отдельного CSS/LoRa-символа подтверждается автоматической HDL-регрессией.
+### Full-package waveform
+
+`test_formiration_package_golden.vhd` проверяет текущий контракт `formiration_package` на последовательности:
+
+```text
+6 × h=0 up
+h=5   up
+h=17  up
+h=64  down
+h=127 up
+```
+
+Это 10 символов и **20 480 комплексных отсчётов**. Каждый I/Q sample сверяется с той же MATLAB/C++ golden-конвенцией. Одновременно именно эти уже проверенные samples записываются в CI16-файл:
+
+```text
+build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+```
+
+Таким образом, CI не использует отдельный «демо-writer»: файл для Inspector является побочным продуктом того же self-checking HDL testbench.
+
+### End-to-end GHDL → CI16 → MATLAB Inspector
+
+После успешной GHDL-симуляции workflow запускает:
+
+```text
+model/matlab/run_hdl_inspector_regression.m
+```
+
+Проверяется полный тракт:
+
+```text
+production VHDL
+    ↓
+GHDL + behavioral Xilinx IP models
+    ↓
+CI16 PCM, 20480 complex samples
+    ↓
+lora_phy.load_iq_capture
+    ↓
+lora_phy.inspect_iq_capture
+    ↓
+MATLAB golden comparison
+    ↓
+PHY/radio capability match
+```
+
+Контрольный запуск CI `33954313927` дал:
+
+| Метрика | Результат |
+|---|---:|
+| Формат | CI16 |
+| Samples | 20480 complex |
+| Inspector SF | SF7 |
+| Inspector BW | 125 kHz |
+| Measured occupied BW | 125.953 kHz |
+| Carrier offset | +0.000 Hz |
+| Residual CFO | +90.990 Hz |
+| Golden EVM | 0.003331 % |
+| Golden correlation | 0.999999999 |
+| RMS phase error | 0.001359° |
+| PHY profile | LoRa / SF7 / BW 125 kHz |
+| SX1262 capability match | yes |
+
+Результат сохраняется в CI artifact `hdl-inspector-end-to-end`, содержащий сам `.pcm` и `hdl_inspector_regression.csv`.
+
+Важно: `residual CFO` здесь является оценкой алгоритма Inspector на конечном цифровом CSS-фрагменте, а не физическим LO-offset. Для идеальной baseband HDL-записи основной carrier offset равен 0 Гц.
 
 ## Что было исправлено при верификации
 
@@ -319,53 +379,21 @@ Fs = 2 MHz.
 - SF7;
 - BW 125 кГц;
 - L=16;
-- upchirp/downchirp;
-- информационные CSS-символы через `h_in`;
+- все `h=0...127` для upchirp и downchirp;
 - длина символа 2048 отсчётов;
 - соответствие дискретной фазе MATLAB-модели;
 - корректный порядок I/Q;
-- компиляция production VHDL в GHDL;
+- текущий full-package контракт `6 × h=0 up + очередь пользовательских символов`;
+- production `formiration_package` через behavioral FIFO в GHDL;
+- end-to-end `GHDL → CI16 → MATLAB Inspector`;
 - параметры интерфейса Xilinx DDS из `.xci`;
 - стандартный файловый порядок CI16 для симуляционной записи.
 
 Пока **не подтверждено**:
 
 - другие SF/BW/L;
-- bit-exact симуляция самого Xilinx DDS Compiler в Vivado;
-- полный `formiration_package` против MATLAB packet waveform;
-- packet preamble/SFD/header/payload как единый LoRa TX waveform;
-- корректность FIFO-handshake под backpressure;
+- bit-exact симуляция самого Xilinx DDS Compiler в Vivado/XSim;
+- packet preamble/SFD/header/payload/coding как единый стандартный LoRa TX waveform;
+- корректность FIFO-handshake под сложным/длительным backpressure;
 - реальный аппаратный sample-rate contract 100 МГц → 2 Мвыб/с;
 - передача сформированного HDL-сигнала через AD936x и сравнение с эфирной записью.
-
-## Следующие шаги
-
-1. добавить self-checking regression для `formiration_package`;
-2. сравнить полную последовательность `preamble -> symbols` с MATLAB packet waveform;
-3. проверить FIFO backpressure и границы соседних символов;
-4. формально зафиксировать преобразование `100 MHz fabric clock -> 2 MS/s sample stream`;
-5. запустить Vivado/XSim regression с настоящим DDS Compiler IP;
-6. провести аппаратный loopback/SDR capture и сравнить IQ с MATLAB/C++/HDL эталонами;
-7. затем расширять матрицу параметров SF/BW/L.
-
-## Запуск HDL regression локально
-
-На Linux с установленным GHDL:
-
-```bash
-mkdir -p build/ghdl-lora
-
-ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/dds_sin_cos_only_stub.vhd
-ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/phase_to_sample.vhd
-ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_chirp.vhd
-ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
-ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
-ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
-  --assert-level=error --stop-time=5ms
-```
-
-При успехе:
-
-```text
-HDL LoRa chirp golden regression PASS
-```
