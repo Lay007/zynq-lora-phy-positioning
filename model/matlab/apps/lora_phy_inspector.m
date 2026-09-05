@@ -35,7 +35,7 @@ statusLabel.Layout.Row = 1;
 statusLabel.Layout.Column = [7 8];
 
 fileField = uieditfield(controls, "text", ...
-    "Placeholder", "capture.cu8, capture.cf32 or output_hdl.pcm");
+    "Placeholder", "capture.cu8, capture.cf32 or hdl_*.pcm");
 fileField.Layout.Row = 2;
 fileField.Layout.Column = 1;
 browseButton = uibutton(controls, "Text", "Browse…", ...
@@ -43,7 +43,7 @@ browseButton = uibutton(controls, "Text", "Browse…", ...
 browseButton.Layout.Row = 2;
 browseButton.Layout.Column = 2;
 formatDropDown = uidropdown(controls, ...
-    "Items", ["auto", "cu8", "cf32", "hdl32"], "Value", "auto");
+    "Items", ["auto", "cu8", "cf32", "ci16"], "Value", "auto");
 formatDropDown.Layout.Row = 2;
 formatDropDown.Layout.Column = 3;
 sampleRateField = uieditfield(controls, "numeric", "Value", 1e6, "Limits", [1 Inf]);
@@ -96,7 +96,7 @@ app.Analyze = @run_analysis;
 
     function browse_file(~, ~)
         [name, folder] = uigetfile( ...
-            {"*.cu8;*.uc8;*.cf32;*.fc32;*.cfile;*.pcm", "IQ recordings"; ...
+            {"*.cu8;*.uc8;*.cf32;*.fc32;*.cfile;*.pcm;*.ci16;*.sc16", "IQ recordings"; ...
             "*.*", "All files"});
         if ~isequal(name, 0)
             fileField.Value = fullfile(folder, name);
@@ -191,7 +191,7 @@ app.Analyze = @run_analysis;
             "Power", sprintf("%.1f dB rel. 1", result.signalPowerDbRelative), "Uncalibrated RSSI";
             "DC offset", sprintf("%.4g %+.4gj", real(result.dcOffset), imag(result.dcOffset)), "Mean complex value";
             "I/Q imbalance", sprintf("%+.2f dB", result.iqPowerImbalanceDb), "I-to-Q power ratio";
-            "Clipping", clippingText, "Normalized CU8 only";
+            "Clipping", clippingText, "Integer capture components at full scale";
             "Symbols in FFT", sprintf("%d", result.analyzedSymbolCount), "Does not imply successful decoding"};
         resultTable.Data = cellfun(@char, rows, "UniformOutput", false);
         symbolLines = compose("%3d: %4d", (1:numel(result.detectedSymbols)).', result.detectedSymbols);
