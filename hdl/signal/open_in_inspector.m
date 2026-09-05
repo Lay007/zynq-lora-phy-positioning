@@ -48,8 +48,7 @@ end
 
 [~, baseName, extension] = fileparts(filePath);
 fullName = string(baseName) + string(extension);
-expression = ["^hdl_sf(?<sf>[0-9]+)_bw(?<bw>[0-9]+)k_" ...
-    "fs(?<fs>[0-9]+)k_(?<tag>[a-z0-9-]+)\.pcm$"];
+expression = "^hdl_sf(?<sf>[0-9]+)_bw(?<bw>[0-9]+)k_fs(?<fs>[0-9]+)k_(?<tag>[a-z0-9-]+)\.pcm$";
 parsed = regexp(fullName, expression, "names", "once");
 
 metadata = struct;
