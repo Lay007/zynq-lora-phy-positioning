@@ -1,6 +1,7 @@
 library IEEE;
 use ieee.std_logic_1164.ALL;
-use ieee.std_logic_arith.all;
+
+use work.ci16_file_io_pkg.all;
 
 entity test_formiration_package is
 end test_formiration_package;
@@ -21,11 +22,6 @@ architecture Behavioral of test_formiration_package is
     signal ready_out    : std_logic := '0';
     --
     constant clk_period : time := 10 ns;
-
-    -- Raw complex-int16 file. Each valid sample is written explicitly as
-    -- little-endian I then little-endian Q:
-    --   I0_lo, I0_hi, Q0_lo, Q0_hi, I1_lo, ...
-    type byte_file is file of character;
     file fout : byte_file;
     --
     signal cnt_chirps : integer := 0;
@@ -41,18 +37,10 @@ begin
     end process;
     --
     process(clk)
-        variable dat: std_logic_vector(31 downto 0);
     begin
         if rising_edge(clk) then
             if rst = '0' and valid_out = '1' then
-                dat := data_out;
-
-                -- data_out[31:16] = signed I, data_out[15:0] = signed Q.
-                -- Emit conventional CI16 little-endian bytes: I then Q.
-                write(fout, character'val(conv_integer(unsigned(dat(23 downto 16)))));
-                write(fout, character'val(conv_integer(unsigned(dat(31 downto 24)))));
-                write(fout, character'val(conv_integer(unsigned(dat(7 downto 0)))));
-                write(fout, character'val(conv_integer(unsigned(dat(15 downto 8)))));
+                write_ci16_sample(fout, data_out);
             end if;
         end if;
     end process;
