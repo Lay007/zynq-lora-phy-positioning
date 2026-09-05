@@ -34,10 +34,10 @@ at a +40 kHz offset from the capture centre.
 ## Input fields
 
 - **IQ file** — a headerless interleaved complex recording.
-- **Format** — `auto`, `cu8`, `cf32`, or `hdl32`. Automatic selection uses the
-  filename extension; `.pcm` is treated as the project's HDL PCM format.
-- **Fs** — actual IQ sample rate in samples per second. The current
-  `hdl/signal/output_hdl.pcm` uses `2e6` samples/s.
+- **Format** — `auto`, `cu8`, `cf32`, or `ci16`. Automatic selection uses the
+  filename extension; `.pcm`, `.ci16`, and `.sc16` are treated as signed
+  complex int16.
+- **Fs** — actual IQ sample rate in samples per second.
 - **Centre** — SDR tuning frequency in hertz. It is used only to present the
   estimated absolute carrier frequency.
 - **Expected frequency** — nominal transmitter frequency. Set it to zero when
@@ -49,32 +49,52 @@ Supported file layouts are:
 |---|---|---|---|
 | RTL-SDR CU8 | `.cu8`, `.uc8` | unsigned 8-bit `I,Q,I,Q,...` | mapped approximately to `[-1,1]` |
 | Pluto/GNU Radio CF32 | `.cf32`, `.fc32`, `.cfile` | little-endian float32 `I,Q,I,Q,...` | preserved as stored |
-| HDL32 | `.pcm` | little-endian 32-bit words `{I int16, Q int16}` | Q14-like level divided by 16384 |
+| CI16/SC16 | `.pcm`, `.ci16`, `.sc16` | little-endian signed int16 `I,Q,I,Q,...` | divided by 32768 |
 
 ### HDL PCM
 
-`hdl/signal/output_hdl.pcm` semantically contains a stereo-like pair of signed
-`int16` values per complex sample: `I=cos` and `Q=sin`. The testbench, however,
-writes the complete `std_logic_vector(31 downto 0)` as a VHDL `integer`, so the
-file is not a conventional `int16 I,Q,I,Q,...` stream. Within each 32-bit word,
-the upper half contains `I` and the lower half contains `Q`; the file itself is
-little-endian. A naive `int16` reader therefore sees the halves as `Q,I`.
+The HDL testbench now writes a **conventional CI16** stream without a custom
+32-bit packed-file interpretation:
 
-The `hdl32` loader reads each little-endian 32-bit word, explicitly splits the
-signed `I` and `Q` halves, and normalizes the Q14-like level by 16384. The
-current HDL supports SF7/BW125 with `L=16`, i.e. `Fs=2 MHz`.
-
-The committed HDL capture can be loaded directly:
-
-```matlab
-[iq, info] = lora_phy.load_iq_capture( ...
-    "../../hdl/signal/output_hdl.pcm", "auto");
-result = lora_phy.inspect_iq_capture(iq, 2e6);
+```text
+I0, Q0, I1, Q1, ...
 ```
 
-Raw files carry no metadata. Keep sample rate, centre frequency, gain, radio
-configuration, and experiment identity beside every recording as described in
-the [capture guide](iq-capture-guide.md).
+Each component is signed little-endian `int16`. Inside the HDL,
+`data_out[31:16]` is `I` and `data_out[15:0]` is `Q`; the testbench explicitly
+emits bytes as `I_lo,I_hi,Q_lo,Q_hi`. A standard complex-int16 reader therefore
+sees the correct I/Q order directly.
+
+`phase_to_sample` currently produces roughly Q14 amplitude (`±16384`). That is
+a numerical property of the HDL signal, not a separate file format. Inspector
+normalizes CI16 by the full signed-int16 range, 32768, so a nominal HDL chirp
+appears with magnitude around `0.5`.
+
+HDL recording names must encode the key parameters:
+
+```text
+hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm
+```
+
+For example:
+
+```text
+hdl_sf7_bw125k_fs2000k_package.pcm
+```
+
+Use the helper beside the recordings:
+
+```matlab
+cd hdl/signal
+open_in_inspector("hdl_sf7_bw125k_fs2000k_package.pcm")
+```
+
+It parses SF/BW/Fs from the filename, selects `ci16`, and fills in the sample
+rate in Inspector. See `hdl/README.md` for the precise file and naming contract.
+
+Raw files carry no metadata. For other captures, keep sample rate, centre
+frequency, gain, radio configuration, and experiment identity beside every
+recording as described in the [capture guide](iq-capture-guide.md).
 
 ## What the four plots mean
 
@@ -108,7 +128,7 @@ The current estimator:
 4. refines the first upchirp boundary with dechirp and FFT concentration;
 5. estimates residual frequency error from repeated preamble upchirps;
 6. reports relative signal/noise power, SNR, DC offset, I/Q power imbalance,
-   and CU8 clipping fraction.
+   and integer-component clipping for CU8/CI16.
 
 All DSP is implemented without Communications Toolbox or Signal Processing
 Toolbox dependencies. The analyzer API can also be used without the UI:
