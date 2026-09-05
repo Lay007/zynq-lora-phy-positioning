@@ -146,7 +146,9 @@ hdl/signal/open_in_inspector.m
 2. извлекает SF, BW и Fs из имени;
 3. выбирает формат `ci16`;
 4. открывает LoRa PHY Inspector;
-5. выставляет частоту дискретизации из имени.
+5. выставляет частоту дискретизации из имени;
+6. выбирает MATLAB golden reference по тегу файла;
+7. после **Analyze** запускает EVM/correlation/phase-error проверку.
 
 Пример:
 
@@ -161,7 +163,9 @@ open_in_inspector("hdl_sf7_bw125k_fs2000k_package.pcm")
 open_in_inspector
 ```
 
-После открытия нажмите **Analyze** в окне Inspector.
+Для `package` в качестве golden reference используется первый preamble `h=0` upchirp. Для имён `chirp-h17-up` / `chirp-h64-down` номер символа и направление берутся из `<TAG>`.
+
+Inspector ищет лучший сдвиг границы в небольшом окне и выводит Golden EVM, normalized correlation, RMS/max phase error, peak sample error и итог `PASS/WARN`. Текущие цифровые regression-пороги: EVM `<= 1 %`, correlation `>= 0.999`, RMS phase error `<= 1°`.
 
 ## Соответствие MATLAB-модели
 
