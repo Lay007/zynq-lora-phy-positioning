@@ -21,9 +21,12 @@ architecture Behavioral of test_formiration_package is
     signal ready_out    : std_logic := '0';
     --
     constant clk_period : time := 10 ns;
-    type int_file is file of integer;
-    --
-    file fout : int_file;
+
+    -- Raw complex-int16 file. Each valid sample is written explicitly as
+    -- little-endian I then little-endian Q:
+    --   I0_lo, I0_hi, Q0_lo, Q0_hi, I1_lo, ...
+    type byte_file is file of character;
+    file fout : byte_file;
     --
     signal cnt_chirps : integer := 0;
     --
@@ -31,46 +34,46 @@ begin
     --
     clk_process :process
     begin
-	   clk <= '0';
-	   wait for clk_period/2;
-	   clk <= '1';
-	   wait for clk_period/2;
-    end process;    
+       clk <= '0';
+       wait for clk_period/2;
+       clk <= '1';
+       wait for clk_period/2;
+    end process;
     --
     process(clk)
-		variable dout: integer;
-		variable dat: std_logic_vector(31 downto 0);
-   begin
-		if (rising_edge(clk)) then
-		  if rst = '1' then
-		  else
-			if valid_out = '1' then
-				dat := data_out;
-				dout := conv_integer(signed(dat));
-				--
-				write(fout, dout);
-			end if;
-		  end if;    	
-		end if;
-	end process;   
+        variable dat: std_logic_vector(31 downto 0);
+    begin
+        if rising_edge(clk) then
+            if rst = '0' and valid_out = '1' then
+                dat := data_out;
+
+                -- data_out[31:16] = signed I, data_out[15:0] = signed Q.
+                -- Emit conventional CI16 little-endian bytes: I then Q.
+                write(fout, character'val(conv_integer(unsigned(dat(23 downto 16)))));
+                write(fout, character'val(conv_integer(unsigned(dat(31 downto 24)))));
+                write(fout, character'val(conv_integer(unsigned(dat(7 downto 0)))));
+                write(fout, character'val(conv_integer(unsigned(dat(15 downto 8)))));
+            end if;
+        end if;
+    end process;
     --
     process(clk)
     begin
         if rising_edge(clk) then
             if rst = '1' then
-                    valid_in        <= '1';
-                    begin_in        <= '1';
-                    h_in            <= (others => '0');
-                    sf_in           <= b"0010";
-                    bw_in           <= b"000";
-                    direction_in    <= '0';
+                valid_in        <= '1';
+                begin_in        <= '1';
+                h_in            <= (others => '0');
+                sf_in           <= b"0010";
+                bw_in           <= b"000";
+                direction_in    <= '0';
             else
                 if valid_in = '1' and ready_out = '1' then
                     cnt_chirps <= cnt_chirps + 1;
                     begin_in <= '0';
-                end if; 
-                
-                case cnt_chirps  is
+                end if;
+
+                case cnt_chirps is
                     when 0 =>
                         h_in <= x"0000";
                         direction_in <= '0';
@@ -90,7 +93,7 @@ begin
         end if;
     end process;
     --
-    formiration_packet_inst : entity work.formiration_package 
+    formiration_packet_inst : entity work.formiration_package
     port map (
         clk             => clk,
         rst             => rst,
@@ -104,20 +107,21 @@ begin
         valid_out       => valid_out,
         data_out        => data_out
     );
-    
+
     --
     stim_proc: process
-    begin		
-		-- Имя HDL IQ-записи обязано содержать SF, BW и Fs.
-		file_open(fout, "D:\signal\sim\hdl_sf7_bw125k_fs2000k_package.pcm", WRITE_MODE);
-		-- hold reset state for 100 ns.
+    begin
+        -- Имя HDL IQ-записи обязано содержать SF, BW и Fs.
+        -- Формат файла: CI16 little-endian, I,Q,I,Q,...
+        file_open(fout, "D:\signal\sim\hdl_sf7_bw125k_fs2000k_package.pcm", WRITE_MODE);
+        -- hold reset state for 100 ns.
         rst <= '1';
         wait for 10000 ns;
-        rst <= '0';	
-        wait for clk_period*10;	
+        rst <= '0';
+        wait for clk_period*10;
         -- insert stimulus here
-	    wait for 15000000 us;		
-		file_close(fout);
+        wait for 15000000 us;
+        file_close(fout);
         assert false report "time is out, simulation ended" severity failure;
     end process;
 
