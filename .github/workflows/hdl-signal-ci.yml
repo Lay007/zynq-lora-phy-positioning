@@ -78,6 +78,11 @@ jobs:
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
           ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
 
+      - name: Analyze CI16 package testbench
+        run: |
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
+          ghdl -a --std=08 -fsynopsys --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
+
       - name: Compare HDL waveform with MATLAB golden convention
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
