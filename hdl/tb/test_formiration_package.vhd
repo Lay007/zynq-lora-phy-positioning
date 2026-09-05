@@ -1,5 +1,7 @@
 library IEEE;
-use ieee.std_logic_1164.ALL;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use std.env.all;
 
 use work.ci16_file_io_pkg.all;
 
@@ -7,111 +9,114 @@ entity test_formiration_package is
 end test_formiration_package;
 
 architecture Behavioral of test_formiration_package is
-    --
-    signal clk                  : std_logic := '0';
-    signal valid_in             : std_logic := '0';
-    signal rst                  : std_logic := '0';
-    signal begin_in             : std_logic := '0';
-    signal h_in                 : std_logic_vector(15 downto 0) := (others => '0');
-    signal sf_in                : std_logic_vector(3 downto 0) := (others => '0');
-    signal bw_in                : std_logic_vector(2 downto 0) := (others => '0');
-    signal direction_in         : std_logic := '0';
-    --
-    signal valid_out    : std_logic := '0';
-    signal data_out     : std_logic_vector(31 downto 0) := (others => '0');
-    signal ready_out    : std_logic := '0';
-    --
-    constant clk_period : time := 10 ns;
+    constant CLK_PERIOD     : time := 10 ns;
+    constant SYMBOL_SAMPLES : integer := 2048;
+    constant SYMBOL_COUNT   : integer := 10;
+    constant TOTAL_SAMPLES  : integer := SYMBOL_COUNT * SYMBOL_SAMPLES;
+
+    signal clk          : std_logic := '0';
+    signal valid_in     : std_logic := '0';
+    signal rst          : std_logic := '1';
+    signal begin_in     : std_logic := '0';
+    signal h_in         : std_logic_vector(15 downto 0) := (others => '0');
+    signal sf_in        : std_logic_vector(3 downto 0) := b"0010";
+    signal bw_in        : std_logic_vector(2 downto 0) := b"000";
+    signal direction_in : std_logic := '0';
+
+    signal valid_out    : std_logic;
+    signal data_out     : std_logic_vector(31 downto 0);
+    signal ready_out    : std_logic;
+    signal sample_count : integer range 0 to TOTAL_SAMPLES := 0;
+    signal done         : std_logic := '0';
+
     file fout : byte_file;
-    --
-    signal cnt_chirps : integer := 0;
-    --
 begin
-    --
-    clk_process :process
-    begin
-       clk <= '0';
-       wait for clk_period/2;
-       clk <= '1';
-       wait for clk_period/2;
-    end process;
-    --
-    process(clk)
-    begin
-        if rising_edge(clk) then
-            if rst = '0' and valid_out = '1' then
-                write_ci16_sample(fout, data_out);
-            end if;
-        end if;
-    end process;
-    --
-    process(clk)
+    clk <= not clk after CLK_PERIOD / 2;
+
+    writer : process(clk)
     begin
         if rising_edge(clk) then
             if rst = '1' then
-                valid_in        <= '1';
-                begin_in        <= '1';
-                h_in            <= (others => '0');
-                sf_in           <= b"0010";
-                bw_in           <= b"000";
-                direction_in    <= '0';
-            else
-                if valid_in = '1' and ready_out = '1' then
-                    cnt_chirps <= cnt_chirps + 1;
-                    begin_in <= '0';
+                sample_count <= 0;
+                done <= '0';
+            elsif valid_out = '1' then
+                write_ci16_sample(fout, data_out);
+                if sample_count = TOTAL_SAMPLES-1 then
+                    sample_count <= TOTAL_SAMPLES;
+                    done <= '1';
+                else
+                    sample_count <= sample_count + 1;
                 end if;
-
-                case cnt_chirps is
-                    when 0 =>
-                        h_in <= x"0000";
-                        direction_in <= '0';
-                    when 1 =>
-                        h_in <= x"0010";
-                        direction_in <= '0';
-                    when 2 =>
-                        h_in <= x"0040";
-                        direction_in <= '1';
-                    when 3 =>
-                        h_in <= x"0010";
-                        direction_in <= '1';
-                    when others =>
-                        valid_in <= '0';
-                end case;
             end if;
         end if;
     end process;
-    --
+
     formiration_packet_inst : entity work.formiration_package
     port map (
-        clk             => clk,
-        rst             => rst,
-        valid_in        => valid_in,
-        begin_in        => begin_in,
-        h_in            => h_in,
-        sf_in           => sf_in,
-        bw_in           => bw_in,
-        direction_in    => direction_in,
-        ready_out       => ready_out,
-        valid_out       => valid_out,
-        data_out        => data_out
+        clk          => clk,
+        rst          => rst,
+        valid_in     => valid_in,
+        begin_in     => begin_in,
+        h_in         => h_in,
+        sf_in        => sf_in,
+        bw_in        => bw_in,
+        direction_in => direction_in,
+        ready_out    => ready_out,
+        valid_out    => valid_out,
+        data_out     => data_out
     );
 
-    --
-    stim_proc: process
-    begin
-        -- Имя HDL IQ-записи обязано содержать SF, BW и Fs.
-        -- Формат файла: CI16 little-endian, I,Q,I,Q,...
-        file_open(fout, "D:\signal\sim\hdl_sf7_bw125k_fs2000k_package.pcm", WRITE_MODE);
-        -- hold reset state for 100 ns.
-        rst <= '1';
-        wait for 10000 ns;
-        rst <= '0';
-        wait for clk_period*10;
-        -- insert stimulus here
-        wait for 15000000 us;
-        file_close(fout);
-        assert false report "time is out, simulation ended" severity failure;
-    end process;
+    stimulus : process
+        procedure wait_clock is
+        begin
+            wait until rising_edge(clk);
+            wait for 1 ns;
+        end procedure;
 
-    --
+        procedure enqueue_symbol(
+            constant symbol_value : integer;
+            constant direction    : std_logic;
+            constant begin_packet : std_logic
+        ) is
+        begin
+            while ready_out /= '1' loop
+                wait_clock;
+            end loop;
+            h_in         <= std_logic_vector(to_unsigned(symbol_value, 16));
+            direction_in <= direction;
+            begin_in     <= begin_packet;
+            valid_in     <= '1';
+            wait_clock;
+            valid_in     <= '0';
+            begin_in     <= '0';
+        end procedure;
+    begin
+        -- Manual simulator capture. The filename follows the same convention
+        -- used by the GHDL/Inspector end-to-end regression. The simulator
+        -- writes it into its current working directory.
+        file_open(fout, "hdl_sf7_bw125k_fs2000k_package.pcm", WRITE_MODE);
+
+        for i in 1 to 6 loop
+            wait_clock;
+        end loop;
+        rst <= '0';
+        wait_clock;
+        wait_clock;
+
+        -- Keep this stimulus identical to test_formiration_package_golden:
+        -- six automatic h=0 upchirps, then 5 up, 17 up, 64 down, 127 up.
+        enqueue_symbol(5,   '0', '1');
+        enqueue_symbol(17,  '0', '0');
+        enqueue_symbol(64,  '1', '0');
+        enqueue_symbol(127, '0', '0');
+
+        while done /= '1' loop
+            wait_clock;
+        end loop;
+
+        file_close(fout);
+        report "HDL CI16 package capture written" severity note;
+        finish;
+        wait;
+    end process;
 end Behavioral;
