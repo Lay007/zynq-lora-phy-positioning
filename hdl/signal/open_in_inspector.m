@@ -1,14 +1,14 @@
 function [app, metadata] = open_in_inspector(fileName)
 %OPEN_IN_INSPECTOR Open an HDL IQ recording in LoRa PHY Inspector.
 %
-% New recordings must follow:
+% HDL recordings must follow:
 %   hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm
+%
+% File format is conventional complex int16 little-endian:
+%   I0, Q0, I1, Q1, ...
 %
 % Example:
 %   open_in_inspector("hdl_sf7_bw125k_fs2000k_package.pcm")
-%
-% The historical output_hdl.pcm is supported as a legacy exception and is
-% interpreted as SF7 / BW125 kHz / Fs=2 MHz.
 
 signalDir = fileparts(mfilename("fullpath"));
 repoRoot = fileparts(fileparts(signalDir));
@@ -26,12 +26,9 @@ if nargin < 1 || strlength(string(fileName)) == 0
             "Several HDL recordings are present. Pass one explicitly:\n%s", ...
             strjoin(names, newline));
     else
-        legacyPath = fullfile(signalDir, "output_hdl.pcm");
-        if ~isfile(legacyPath)
-            error("lora_phy:HdlRecordingNotFound", ...
-                "No HDL PCM recording was found in %s", signalDir);
-        end
-        filePath = legacyPath;
+        error("lora_phy:HdlRecordingNotFound", ...
+            ["No HDL PCM recording matching the required naming convention " ...
+             "was found in %s"], signalDir);
     end
 else
     fileName = string(fileName);
@@ -51,52 +48,39 @@ fullName = string(baseName) + string(extension);
 expression = "^hdl_sf(?<sf>[0-9]+)_bw(?<bw>[0-9]+)k_fs(?<fs>[0-9]+)k_(?<tag>[a-z0-9-]+)\.pcm$";
 parsed = regexp(fullName, expression, "names", "once");
 
+if isempty(parsed)
+    error("lora_phy:InvalidHdlRecordingName", ...
+        ["HDL PCM filename must match " ...
+         "hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm"]);
+end
+
 metadata = struct;
 metadata.filePath = string(filePath);
-metadata.format = "hdl32";
-metadata.legacyName = false;
+metadata.format = "ci16";
+metadata.spreadingFactor = str2double(parsed.sf);
+metadata.bandwidthHz = 1e3 * str2double(parsed.bw);
+metadata.sampleRateHz = 1e3 * str2double(parsed.fs);
+metadata.tag = string(parsed.tag);
 
-if isempty(parsed)
-    if fullName ~= "output_hdl.pcm"
-        error("lora_phy:InvalidHdlRecordingName", ...
-            ["HDL PCM filename must match " ...
-             "hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm"]);
-    end
-
-    metadata.spreadingFactor = 7;
-    metadata.bandwidthHz = 125e3;
-    metadata.sampleRateHz = 2e6;
-    metadata.tag = "legacy-output";
-    metadata.legacyName = true;
-    warning("lora_phy:LegacyHdlRecordingName", ...
-        ["output_hdl.pcm predates the HDL naming convention. " ...
-         "Assuming SF7 / BW125 kHz / Fs=2 MHz."]);
-else
-    metadata.spreadingFactor = str2double(parsed.sf);
-    metadata.bandwidthHz = 1e3 * str2double(parsed.bw);
-    metadata.sampleRateHz = 1e3 * str2double(parsed.fs);
-    metadata.tag = string(parsed.tag);
-
-    if metadata.spreadingFactor < 5 || metadata.spreadingFactor > 12
-        error("lora_phy:InvalidHdlRecordingName", ...
-            "SF encoded in filename must be in the range 5..12");
-    end
-    if metadata.bandwidthHz <= 0 || metadata.sampleRateHz <= 0
-        error("lora_phy:InvalidHdlRecordingName", ...
-            "BW and Fs encoded in filename must be positive");
-    end
+if metadata.spreadingFactor < 5 || metadata.spreadingFactor > 12
+    error("lora_phy:InvalidHdlRecordingName", ...
+        "SF encoded in filename must be in the range 5..12");
+end
+if metadata.bandwidthHz <= 0 || metadata.sampleRateHz <= 0
+    error("lora_phy:InvalidHdlRecordingName", ...
+        "BW and Fs encoded in filename must be positive");
 end
 
 app = lora_phy_inspector;
 app.FileField.Value = char(metadata.filePath);
-app.FormatDropDown.Value = "hdl32";
+app.FormatDropDown.Value = "ci16";
 app.SampleRateField.Value = metadata.sampleRateHz;
 app.CentreFrequencyField.Value = 0;
 app.ExpectedFrequencyField.Value = 0;
 
 fprintf("Loaded HDL recording into LoRa PHY Inspector:\n");
 fprintf("  file: %s\n", metadata.filePath);
-fprintf("  format: hdl32 (packed signed int16 I/Q)\n");
+fprintf("  format: ci16 (little-endian I,Q interleaved)\n");
 fprintf("  SF: %d\n", metadata.spreadingFactor);
 fprintf("  BW: %.0f kHz\n", metadata.bandwidthHz/1e3);
 fprintf("  Fs: %.3f MHz\n", metadata.sampleRateHz/1e6);
