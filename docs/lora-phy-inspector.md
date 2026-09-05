@@ -34,9 +34,10 @@ at a +40 kHz offset from the capture centre.
 ## Input fields
 
 - **IQ file** — a headerless interleaved complex recording.
-- **Format** — `auto`, `cu8`, or `cf32`. Automatic selection uses the filename
-  extension.
-- **Fs** — actual IQ sample rate in samples per second.
+- **Format** — `auto`, `cu8`, `cf32`, or `hdl32`. Automatic selection uses the
+  filename extension; `.pcm` is treated as the project's HDL PCM format.
+- **Fs** — actual IQ sample rate in samples per second. The current
+  `hdl/signal/output_hdl.pcm` uses `2e6` samples/s.
 - **Centre** — SDR tuning frequency in hertz. It is used only to present the
   estimated absolute carrier frequency.
 - **Expected frequency** — nominal transmitter frequency. Set it to zero when
@@ -48,6 +49,28 @@ Supported file layouts are:
 |---|---|---|---|
 | RTL-SDR CU8 | `.cu8`, `.uc8` | unsigned 8-bit `I,Q,I,Q,...` | mapped approximately to `[-1,1]` |
 | Pluto/GNU Radio CF32 | `.cf32`, `.fc32`, `.cfile` | little-endian float32 `I,Q,I,Q,...` | preserved as stored |
+| HDL32 | `.pcm` | little-endian 32-bit words `{I int16, Q int16}` | Q14-like level divided by 16384 |
+
+### HDL PCM
+
+`hdl/signal/output_hdl.pcm` semantically contains a stereo-like pair of signed
+`int16` values per complex sample: `I=cos` and `Q=sin`. The testbench, however,
+writes the complete `std_logic_vector(31 downto 0)` as a VHDL `integer`, so the
+file is not a conventional `int16 I,Q,I,Q,...` stream. Within each 32-bit word,
+the upper half contains `I` and the lower half contains `Q`; the file itself is
+little-endian. A naive `int16` reader therefore sees the halves as `Q,I`.
+
+The `hdl32` loader reads each little-endian 32-bit word, explicitly splits the
+signed `I` and `Q` halves, and normalizes the Q14-like level by 16384. The
+current HDL supports SF7/BW125 with `L=16`, i.e. `Fs=2 MHz`.
+
+The committed HDL capture can be loaded directly:
+
+```matlab
+[iq, info] = lora_phy.load_iq_capture( ...
+    "../../hdl/signal/output_hdl.pcm", "auto");
+result = lora_phy.inspect_iq_capture(iq, 2e6);
+```
 
 Raw files carry no metadata. Keep sample rate, centre frequency, gain, radio
 configuration, and experiment identity beside every recording as described in
