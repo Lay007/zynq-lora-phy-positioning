@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   golden-regression:
-    name: SF7/L16 HDL chirp golden regression
+    name: SF7/L16 HDL signal golden regression
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -69,19 +69,22 @@ jobs:
                   raise SystemExit(f"{key}: expected {wanted}, got {got}")
           print("DDS IP interface configuration PASS")
 
-      - name: Compile production VHDL with behavioral DDS model
+      - name: Compile production VHDL with behavioral IP models
         run: |
           mkdir -p build/ghdl-lora
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/dds_sin_cos_only_stub.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/fifo_1024_32_stub.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/phase_to_sample.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_chirp.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package_golden.vhd
           ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_package_golden
 
       - name: Verify CI16 file writer and package testbench
         run: |
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/ci16_file_io_pkg.vhd
-          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_ci16_file_io.vhd
           ghdl -e --std=08 --workdir=build/ghdl-lora test_ci16_file_io
@@ -100,7 +103,12 @@ jobs:
           print("CI16 byte layout PASS:", actual.hex(" "))
           PY
 
-      - name: Compare HDL waveform with MATLAB golden convention
+      - name: Verify all SF7 symbols against MATLAB golden convention
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
-            --assert-level=error --stop-time=5ms
+            --assert-level=error --stop-time=10ms
+
+      - name: Verify full package waveform against MATLAB golden convention
+        run: |
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_package_golden \
+            --assert-level=error --stop-time=2ms
