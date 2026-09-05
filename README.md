@@ -84,19 +84,22 @@ Generate the acquisition, uncoded CSS, and coded packet BER/PER figures:
 outputs = run_visualizations;
 ```
 
-Inspect an RTL-SDR CU8 or Pluto/GNU Radio CF32 recording visually and estimate
-its strongest packet's BW, SF, carrier offset, symbol duration, SNR, and
-dechirped FFT bins:
+Inspect RTL-SDR CU8, Pluto/GNU Radio CF32, or CI16/HDL recordings visually.
+The Inspector estimates BW, SF, carrier offset, symbol duration, SNR, and
+dechirped FFT bins, identifies compatible Semtech LoRa radio profiles, and for
+properly named HDL CI16 captures compares the waveform against the MATLAB
+golden reference using EVM, correlation, and phase-error metrics:
 
 ```matlab
 addpath apps
 app = lora_phy_inspector;
 ```
 
-![LoRa PHY Inspector](docs/images/lora-phy-inspector.png)
+![LoRa PHY Inspector](docs/images/lora-phy-inspector-verification.svg)
 
 See the **[LoRa PHY Inspector guide](docs/lora-phy-inspector.md)** for input
-formats, interpretation, methodology, and current limits.
+formats, golden-verification thresholds, radio-profile matching, interpretation,
+methodology, and current limits.
 
 With a serial-controlled transmitter and PlutoSDR or RTL-SDR connected to the
 same computer, the complete transmit → record → analyze sequence can be run by

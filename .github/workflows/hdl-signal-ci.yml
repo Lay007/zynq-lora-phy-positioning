@@ -1,0 +1,135 @@
+name: HDL LoRa Signal CI
+
+on:
+  push:
+    branches: [lora_cpp]
+    paths:
+      - "hdl/**"
+      - "model/matlab/+lora_phy/**"
+      - "model/matlab/run_hdl_inspector_regression.m"
+      - ".github/workflows/hdl-signal-ci.yml"
+  pull_request:
+    paths:
+      - "hdl/**"
+      - "model/matlab/+lora_phy/**"
+      - "model/matlab/run_hdl_inspector_regression.m"
+      - ".github/workflows/hdl-signal-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lora-hdl-signal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golden-regression:
+    name: SF7/L16 HDL signal golden regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghdl
+
+      - name: Check DDS IP interface configuration
+        shell: python
+        run: |
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          path = Path("hdl/ip/dds_sin_cos_only.xci")
+          root = ET.parse(path).getroot()
+          values = {}
+          for node in root.iter():
+              ref = next(
+                  (value for key, value in node.attrib.items()
+                   if key.endswith("referenceId")),
+                  None,
+              )
+              if ref:
+                  values[ref] = (node.text or "").strip()
+
+          expected = {
+              "MODELPARAM_VALUE.C_HAS_PHASEGEN": "0",
+              "MODELPARAM_VALUE.C_HAS_SINCOS": "1",
+              "MODELPARAM_VALUE.C_HAS_S_PHASE": "1",
+              "MODELPARAM_VALUE.C_PHASE_ANGLE_WIDTH": "16",
+              "MODELPARAM_VALUE.C_S_PHASE_TDATA_WIDTH": "16",
+              "MODELPARAM_VALUE.C_OUTPUT_WIDTH": "16",
+              "MODELPARAM_VALUE.C_M_DATA_TDATA_WIDTH": "32",
+          }
+          for key, wanted in expected.items():
+              got = values.get(key)
+              if got != wanted:
+                  raise SystemExit(f"{key}: expected {wanted}, got {got}")
+          print("DDS IP interface configuration PASS")
+
+      - name: Compile production VHDL with behavioral IP models
+        run: |
+          mkdir -p build/ghdl-lora
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/dds_sin_cos_only_stub.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/fifo_1024_32_stub.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/ci16_file_io_pkg.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/phase_to_sample.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_chirp.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_chirp_golden.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package_golden.vhd
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_formiration_package_golden
+
+      - name: Verify CI16 file writer and package testbench
+        run: |
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_ci16_file_io.vhd
+          ghdl -e --std=08 --workdir=build/ghdl-lora test_ci16_file_io
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_ci16_file_io
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("build/ghdl-lora/ci16_writer_test.pcm")
+          actual = path.read_bytes()
+          expected = bytes.fromhex("00 40 00 E0 00 C0 00 20")
+          if actual != expected:
+              raise SystemExit(
+                  f"CI16 byte order mismatch: expected {expected.hex()}, got {actual.hex()}"
+              )
+          print("CI16 byte layout PASS:", actual.hex(" "))
+          PY
+
+      - name: Verify all SF7 symbols against MATLAB golden convention
+        run: |
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
+            --assert-level=error --stop-time=10ms
+
+      - name: Verify full package waveform and generate CI16 capture
+        run: |
+          ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_package_golden \
+            --assert-level=error --stop-time=2ms
+          test -s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+          test "$(stat -c%s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm)" -eq 81920
+
+      - name: Set up MATLAB for Inspector end-to-end regression
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2025a
+
+      - name: Inspect generated HDL CI16 capture
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('model/matlab'); report = run_hdl_inspector_regression("build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm", ReportPath="build/ghdl-lora/hdl_inspector_regression.csv"); assert(report.goldenPassed);
+
+      - name: Upload HDL Inspector evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hdl-inspector-end-to-end
+          path: |
+            build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_inspector_regression.csv
+          if-no-files-found: error
