@@ -55,7 +55,7 @@ profile.symbolDurationSeconds = 2^spreadingFactor / bandwidthHz;
 profile.symbolRateBaud = bandwidthHz / 2^spreadingFactor;
 profile.compatibleRadios = compatible;
 profile.projectReferenceRadio = "SX1262";
-profile.projectReferenceCompatible = any(compatible == profile.projectReferenceRadio) || ~centreKnown;
+profile.projectReferenceCompatible = any(compatible == profile.projectReferenceRadio);
 profile.modeSummary = sprintf("LoRa / SF%d / BW %.0f kHz", ...
     spreadingFactor, bandwidthHz/1e3);
 
