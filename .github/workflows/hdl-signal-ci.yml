@@ -5,14 +5,14 @@ on:
     branches: [lora_cpp]
     paths:
       - "hdl/**"
-      - "model/matlab/+lora_phy/reference_chirp.m"
-      - "model/matlab/+lora_phy/modulate_symbol.m"
+      - "model/matlab/+lora_phy/**"
+      - "model/matlab/run_hdl_inspector_regression.m"
       - ".github/workflows/hdl-signal-ci.yml"
   pull_request:
     paths:
       - "hdl/**"
-      - "model/matlab/+lora_phy/reference_chirp.m"
-      - "model/matlab/+lora_phy/modulate_symbol.m"
+      - "model/matlab/+lora_phy/**"
+      - "model/matlab/run_hdl_inspector_regression.m"
       - ".github/workflows/hdl-signal-ci.yml"
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
   golden-regression:
     name: SF7/L16 HDL signal golden regression
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v7
@@ -74,6 +74,7 @@ jobs:
           mkdir -p build/ghdl-lora
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/dds_sin_cos_only_stub.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/fifo_1024_32_stub.vhd
+          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/ci16_file_io_pkg.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/phase_to_sample.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_chirp.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/srcs/formiration_package.vhd
@@ -84,7 +85,6 @@ jobs:
 
       - name: Verify CI16 file writer and package testbench
         run: |
-          ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/ci16_file_io_pkg.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_formiration_package.vhd
           ghdl -a --std=08 --workdir=build/ghdl-lora hdl/tb/test_ci16_file_io.vhd
           ghdl -e --std=08 --workdir=build/ghdl-lora test_ci16_file_io
@@ -108,7 +108,28 @@ jobs:
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
             --assert-level=error --stop-time=10ms
 
-      - name: Verify full package waveform against MATLAB golden convention
+      - name: Verify full package waveform and generate CI16 capture
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_package_golden \
             --assert-level=error --stop-time=2ms
+          test -s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+          test "$(stat -c%s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm)" -eq 81920
+
+      - name: Set up MATLAB for Inspector end-to-end regression
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2025a
+
+      - name: Inspect generated HDL CI16 capture
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('model/matlab'); report = run_hdl_inspector_regression("build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm", ReportPath="build/ghdl-lora/hdl_inspector_regression.csv"); assert(report.goldenPassed);
+
+      - name: Upload HDL Inspector evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: hdl-inspector-end-to-end
+          path: |
+            build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_inspector_regression.csv
+          if-no-files-found: error
