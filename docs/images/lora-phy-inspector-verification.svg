@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <defs>
+    <linearGradient id="spec" x1="0" x2="1" y1="1" y2="0">
+      <stop offset="0" stop-color="#20204a"/><stop offset="0.45" stop-color="#1b6c8a"/><stop offset="0.75" stop-color="#4fb36f"/><stop offset="1" stop-color="#f4d35e"/>
+    </linearGradient>
+    <linearGradient id="heat" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#1d1237"/><stop offset="0.55" stop-color="#8d2f7c"/><stop offset="1" stop-color="#f4c95d"/>
+    </linearGradient>
+    <style>
+      .t{font-family:Arial,Helvetica,sans-serif;fill:#1f2937}.h{font-size:18px;font-weight:700}.l{font-size:12px;font-weight:700}.s{font-size:11px}.m{font-family:Consolas,monospace;font-size:11px;fill:#111827}.box{fill:#fff;stroke:#cbd5e1;stroke-width:1}.field{fill:#f8fafc;stroke:#cbd5e1}.grid{stroke:#dbe4ee;stroke-width:.8}.axis{stroke:#64748b;stroke-width:1}.pass{fill:#166534;font-weight:700}.warn{fill:#92400e;font-weight:700}
+    </style>
+  </defs>
+  <rect width="1200" height="760" fill="#eef2f6"/>
+  <text x="28" y="30" class="t h">LoRa PHY Inspector</text>
+
+  <rect x="20" y="45" width="1160" height="82" rx="7" class="box"/>
+  <text x="34" y="66" class="t l">IQ recording</text>
+  <rect x="34" y="74" width="365" height="34" rx="3" class="field"/>
+  <text x="44" y="96" class="t s">hdl_sf7_bw125k_fs2000k_package.pcm</text>
+  <text x="414" y="66" class="t l">Format</text><rect x="414" y="74" width="80" height="34" rx="3" class="field"/><text x="435" y="96" class="t s">ci16</text>
+  <text x="510" y="66" class="t l">Sample rate, Hz</text><rect x="510" y="74" width="120" height="34" rx="3" class="field"/><text x="531" y="96" class="t s">2000000</text>
+  <text x="646" y="66" class="t l">Center frequency, Hz</text><rect x="646" y="74" width="125" height="34" rx="3" class="field"/><text x="702" y="96" class="t s">0</text>
+  <text x="787" y="66" class="t l">Expected carrier, Hz</text><rect x="787" y="74" width="125" height="34" rx="3" class="field"/><text x="843" y="96" class="t s">0</text>
+  <rect x="930" y="74" width="92" height="34" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="954" y="96" class="t l">Analyze</text>
+  <rect x="1032" y="74" width="104" height="34" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="1053" y="96" class="t l">Save PNG</text>
+  <text x="930" y="65" class="t s pass">Done: CI16, golden PASS</text>
+
+  <!-- plot panels -->
+  <rect x="20" y="142" width="570" height="220" rx="6" class="box"/><text x="170" y="164" class="t l">Full recording: spectrogram</text>
+  <rect x="62" y="178" width="500" height="150" fill="url(#spec)" opacity=".82"/>
+  <g opacity=".85" stroke="#f8fafc" stroke-width="3">
+    <path d="M140 304 L163 192 M168 304 L191 192 M196 304 L219 192 M224 304 L247 192 M252 304 L275 192 M280 304 L303 192 M308 304 L331 192 M336 304 L359 192"/>
+  </g>
+  <line x1="132" y1="178" x2="132" y2="328" stroke="#fff" stroke-dasharray="5 4"/><line x1="388" y1="178" x2="388" y2="328" stroke="#fff" stroke-dasharray="5 4"/>
+  <text x="242" y="350" class="t s">Time, ms</text><text x="25" y="260" class="t s" transform="rotate(-90 25 260)">Frequency offset, kHz</text>
+
+  <rect x="610" y="142" width="570" height="220" rx="6" class="box"/><text x="790" y="164" class="t l">Detected CSS/LoRa burst</text>
+  <line x1="652" y1="328" x2="1152" y2="328" class="axis"/><line x1="652" y1="178" x2="652" y2="328" class="axis"/>
+  <path d="M652 255 C700 248 742 257 790 251 S882 252 930 250 S1020 254 1152 251" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <path d="M652 314 L681 188 L682 314 L711 188 L712 314 L741 188 L742 314 L771 188 L772 314 L801 188 L802 314 L831 188 L832 314 L861 188 L862 314 L891 188 L892 314 L921 188 L922 314 L951 188 L952 314 L981 188 L982 314 L1011 188 L1012 314 L1041 188 L1042 314 L1071 188 L1072 314 L1101 188 L1102 314 L1131 188" fill="none" stroke="#ea580c" stroke-width="1.4"/>
+  <text x="842" y="350" class="t s">Time from burst start, ms</text>
+
+  <rect x="20" y="377" width="570" height="210" rx="6" class="box"/><text x="220" y="399" class="t l">Average spectrum</text>
+  <line x1="62" y1="555" x2="562" y2="555" class="axis"/><line x1="62" y1="413" x2="62" y2="555" class="axis"/>
+  <path d="M62 542 C120 540 145 528 170 482 C196 431 225 420 280 420 C335 420 365 431 390 482 C417 530 455 540 562 542" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <line x1="312" y1="413" x2="312" y2="555" stroke="#dc2626"/><line x1="220" y1="413" x2="220" y2="555" stroke="#334155" stroke-dasharray="5 4"/><line x1="404" y1="413" x2="404" y2="555" stroke="#334155" stroke-dasharray="5 4"/>
+  <text x="236" y="577" class="t s">Frequency offset, kHz</text>
+
+  <rect x="610" y="377" width="570" height="210" rx="6" class="box"/><text x="800" y="399" class="t l">Per-symbol dechirped FFT</text>
+  <rect x="652" y="413" width="500" height="142" fill="#211431"/>
+  <g fill="url(#heat)">
+    <rect x="654" y="416" width="14" height="9"/><rect x="654" y="428" width="14" height="9"/><rect x="654" y="440" width="14" height="9"/><rect x="654" y="452" width="14" height="9"/><rect x="654" y="464" width="14" height="9"/><rect x="654" y="476" width="14" height="9"/><rect x="654" y="488" width="14" height="9"/><rect x="654" y="500" width="14" height="9"/>
+    <rect x="900" y="512" width="14" height="9"/><rect x="900" y="524" width="14" height="9"/><rect x="716" y="536" width="14" height="9"/>
+  </g>
+  <text x="820" y="577" class="t s">FFT bin / symbol index</text>
+
+  <!-- verification table -->
+  <rect x="20" y="602" width="830" height="140" rx="6" class="box"/>
+  <text x="34" y="623" class="t l">Parameter</text><text x="270" y="623" class="t l">Estimate</text><text x="505" y="623" class="t l">Verification / notes</text>
+  <line x1="30" y1="630" x2="840" y2="630" class="grid"/>
+  <text x="34" y="648" class="t s">PHY mode</text><text x="270" y="648" class="t s">LoRa / SF7 / BW 125 kHz</text><text x="505" y="648" class="t s">PACKET_TYPE_LORA</text>
+  <text x="34" y="668" class="t s">Compatible radios</text><text x="270" y="668" class="t s">SX1261, SX1262, LLCC68, SX1272, SX1276</text><text x="505" y="668" class="t s">PHY capability match</text>
+  <text x="34" y="688" class="t s">Project reference radio</text><text x="270" y="688" class="t s">SX1262</text><text x="505" y="688" class="t s">Heltec V4.3</text>
+  <text x="34" y="708" class="t s">Golden EVM</text><text x="270" y="708" class="t s">0.018 %</text><text x="505" y="708" class="t s pass">PASS; threshold &lt;= 1.0 %</text>
+  <text x="34" y="728" class="t s">Golden correlation / RMS phase</text><text x="270" y="728" class="t s">0.99999998 / 0.009 deg</text><text x="505" y="728" class="t s">MATLAB h=0 upchirp reference</text>
+
+  <rect x="865" y="602" width="315" height="140" rx="6" class="box"/>
+  <text x="882" y="625" class="m pass">Golden: PASS</text><text x="882" y="645" class="m">EVM: 0.018 %</text><text x="882" y="665" class="m">Correlation: 0.99999998</text><text x="882" y="685" class="m">RMS phase: 0.009 deg</text><text x="882" y="712" class="m">Detected FFT bins: 0 0 0 0 ... 64 16</text>
+</svg>
