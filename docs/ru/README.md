@@ -15,6 +15,7 @@
 
 ## PHY и измерения
 
+- [LoRa PHY: структура сигнала и формат кадра](lora-phy-protocol.md)
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
 - [Методика дробного ToA и будущей аппаратной калибровки](toa-methodology.md)
