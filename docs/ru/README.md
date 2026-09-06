@@ -16,6 +16,7 @@
 ## PHY и измерения
 
 - [LoRa PHY: структура сигнала и формат кадра](lora-phy-protocol.md)
+- [Golden source of truth: эталоны MATLAB, HDL и RF evidence](golden-source-of-truth.md)
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
 - [Методика дробного ToA и будущей аппаратной калибровки](toa-methodology.md)
