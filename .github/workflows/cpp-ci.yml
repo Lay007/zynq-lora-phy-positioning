@@ -1,0 +1,40 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [main, lora_cpp]
+    paths:
+      - "cpp/**"
+      - "fpga/rom/lora_sf7_l8_reference_q10.mem"
+      - ".github/workflows/cpp-ci.yml"
+  pull_request:
+    paths:
+      - "cpp/**"
+      - "fpga/rom/lora_sf7_l8_reference_q10.mem"
+      - ".github/workflows/cpp-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lora-cpp-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpp:
+    name: C++20 chirp regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure
+        run: cmake -S cpp -B build/cpp -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build/cpp --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build/cpp -C Release --output-on-failure

@@ -1,0 +1,61 @@
+name: Inspector Reference Capture CI
+
+on:
+  push:
+    branches: [lora_cpp]
+    paths:
+      - "model/matlab/+lora_phy/inspect_iq_capture.m"
+      - "model/matlab/+lora_phy/load_iq_capture.m"
+      - "model/matlab/+lora_phy/match_lora_profile.m"
+      - "model/matlab/apps/lora_phy_inspector.m"
+      - "model/matlab/examples/validate_inspector_reference_captures.m"
+      - ".github/workflows/inspector-reference-ci.yml"
+  pull_request:
+    paths:
+      - "model/matlab/+lora_phy/inspect_iq_capture.m"
+      - "model/matlab/+lora_phy/load_iq_capture.m"
+      - "model/matlab/+lora_phy/match_lora_profile.m"
+      - "model/matlab/apps/lora_phy_inspector.m"
+      - "model/matlab/examples/validate_inspector_reference_captures.m"
+      - ".github/workflows/inspector-reference-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lora-inspector-reference-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference-captures:
+    name: Real OTA IQ Inspector regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch selected Git LFS reference captures
+        run: |
+          git lfs pull --include="captures/reference/2026-08-02-lr1121-zynqsdr-sf7-bw125/iq.cf32,captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf7-bw125.cf32,captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf10-bw125.cf32,captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf7-bw250.cf32" --exclude=""
+          test "$(stat -c%s captures/reference/2026-08-02-lr1121-zynqsdr-sf7-bw125/iq.cf32)" -gt 1000000
+          test "$(stat -c%s captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf7-bw125.cf32)" -gt 1000000
+          test "$(stat -c%s captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf10-bw125.cf32)" -gt 1000000
+          test "$(stat -c%s captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/sf7-bw250.cf32)" -gt 1000000
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2025a
+
+      - name: Run Inspector on curated OTA captures
+        uses: matlab-actions/run-command@v3
+        with:
+          command: cd('model/matlab'); addpath examples; report = validate_inspector_reference_captures; assert(all(report.pass));
+
+      - name: Upload Inspector reference-capture evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: inspector-reference-captures
+          path: docs/data/inspector-reference-captures.csv
+          if-no-files-found: error
