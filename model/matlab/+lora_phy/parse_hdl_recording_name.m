@@ -4,6 +4,11 @@ function metadata = parse_hdl_recording_name(filePath)
 % Required naming convention:
 %   hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm
 %
+% Supported tags:
+%   package
+%   chirp-h<SYMBOL>-up
+%   chirp-h<SYMBOL>-down
+%
 % Examples:
 %   hdl_sf7_bw125k_fs2000k_package.pcm
 %   hdl_sf7_bw125k_fs2000k_chirp-h17-up.pcm
@@ -43,16 +48,21 @@ metadata.samplesPerChip = samplesPerChip;
 metadata.integerSamplesPerChip = abs(samplesPerChip-round(samplesPerChip)) < 1e-9;
 metadata.symbolSamples = 2^metadata.spreadingFactor * samplesPerChip;
 
-% A package capture starts with the LoRa/CSS preamble, so the first golden
-% comparison uses the reference h=0 upchirp. A single-chirp filename can
-% encode a different symbol and direction explicitly.
 metadata.referenceSymbol = 0;
 metadata.referenceDirection = "up";
 metadata.referenceDescription = "first preamble h=0 upchirp";
-chirpTag = regexp(metadata.tag, ...
-    "^chirp-h(?<symbol>[0-9]+)-(?<direction>up|down)$", ...
-    "names", "once");
-if ~isempty(chirpTag)
+
+if metadata.tag == "package"
+    % Package captures start with the reference h=0 upchirp.
+else
+    chirpTag = regexp(metadata.tag, ...
+        "^chirp-h(?<symbol>[0-9]+)-(?<direction>up|down)$", ...
+        "names", "once");
+    if isempty(chirpTag)
+        error("lora_phy:InvalidHdlRecordingTag", ...
+            ["HDL PCM tag must be 'package' or " ...
+             "'chirp-h<SYMBOL>-up/down'; ambiguous tags such as 'chirp' are not allowed"]);
+    end
     metadata.referenceSymbol = str2double(chirpTag.symbol);
     metadata.referenceDirection = string(chirpTag.direction);
     metadata.referenceDescription = sprintf("h=%d %schirp", ...
