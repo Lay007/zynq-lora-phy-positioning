@@ -60,8 +60,7 @@ else
         "names", "once");
     if isempty(chirpTag)
         error("lora_phy:InvalidHdlRecordingTag", ...
-            ["HDL PCM tag must be 'package' or " ...
-             "'chirp-h<SYMBOL>-up/down'; ambiguous tags such as 'chirp' are not allowed"]);
+            "HDL PCM tag must be 'package' or 'chirp-h<SYMBOL>-up/down'; ambiguous tags such as 'chirp' are not allowed");
     end
     metadata.referenceSymbol = str2double(chirpTag.symbol);
     metadata.referenceDirection = string(chirpTag.direction);
