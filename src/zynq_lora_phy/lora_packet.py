@@ -45,6 +45,21 @@ class LoRaTraceDecode:
     normalized_symbols: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class LoRaEncodeResult:
+    """CSS symbols and every packet-coding intermediate that produced them."""
+
+    symbols: tuple[int, ...]
+    whitened_payload: bytes
+    header_nibbles: tuple[int, ...]
+    payload_nibbles: tuple[int, ...]
+    crc_nibbles: tuple[int, ...]
+    header_codewords: tuple[tuple[bool, ...], ...]
+    payload_codewords: tuple[tuple[bool, ...], ...]
+    header_interleaved_labels: tuple[int, ...]
+    payload_interleaved_labels: tuple[int, ...]
+
+
 def _integer_bits(value: int, width: int) -> list[bool]:
     return [bool((value >> shift) & 1) for shift in range(width - 1, -1, -1)]
 
@@ -102,6 +117,36 @@ def _unmap_symbols(
     return labels
 
 
+def _gray_to_binary(value: int, width: int) -> int:
+    binary = 0
+    for shift in range(width - 1, -1, -1):
+        bit = ((value >> shift) & 1) ^ ((binary >> (shift + 1)) & 1)
+        binary |= bit << shift
+    return binary
+
+
+def _map_labels_to_symbols(
+    labels: Sequence[int], spreading_factor: int, reduced_rate: bool
+) -> list[int]:
+    """Inverse of :func:`_unmap_symbols`.
+
+    The reduced-rate inverse resolves the two bits ``_unmap_symbols`` divides
+    away by choosing the multiple-of-four representative, which is what a
+    reduced-rate transmitter actually sends.  Gray decoding therefore runs at
+    ``sf_app`` width *before* the shift, not at full width after it.
+    """
+
+    symbol_count = 1 << spreading_factor
+    sf_app = spreading_factor - 2 * int(reduced_rate)
+    symbols: list[int] = []
+    for label in labels:
+        if not 0 <= label < (1 << sf_app):
+            raise ValueError("interleaver label is outside the sf_app range")
+        binary = _gray_to_binary(label, sf_app) << (2 * int(reduced_rate))
+        symbols.append((binary + 1) % symbol_count)
+    return symbols
+
+
 def _diagonal_deinterleave(
     labels: Sequence[int],
     spreading_factor: int,
@@ -118,6 +163,27 @@ def _diagonal_deinterleave(
             destination_row = (bit_index - symbol_bit - 1) % sf_app
             codewords[destination_row][bit_index] = interleaved[bit_index][symbol_bit]
     return codewords
+
+
+def _diagonal_interleave(
+    codewords: Sequence[Sequence[bool]],
+    spreading_factor: int,
+    coding_rate: int,
+    reduced_rate: bool,
+) -> list[int]:
+    """Inverse of :func:`_diagonal_deinterleave`, sharing its one index rule."""
+
+    sf_app = spreading_factor - 2 * int(reduced_rate)
+    if len(codewords) != sf_app:
+        raise ValueError("expected sf_app codewords")
+    labels: list[int] = []
+    for bit_index in range(4 + coding_rate):
+        bits = [False] * sf_app
+        for symbol_bit in range(sf_app):
+            source_row = (bit_index - symbol_bit - 1) % sf_app
+            bits[symbol_bit] = codewords[source_row][bit_index]
+        labels.append(_bits_integer(bits))
+    return labels
 
 
 def _explicit_header_encode(
@@ -201,6 +267,111 @@ def _nibbles_to_crc(nibbles: Sequence[int]) -> int:
     if len(nibbles) != 4:
         raise ValueError("CRC requires four nibbles")
     return sum(value << (4 * index) for index, value in enumerate(nibbles))
+
+
+def _bytes_to_nibbles(data: bytes) -> list[int]:
+    """Inverse of :func:`_nibbles_to_bytes`: the low nibble of each byte first."""
+
+    return [value for byte in data for value in (byte & 0xF, byte >> 4)]
+
+
+def _crc_to_nibbles(crc: int) -> list[int]:
+    """Inverse of :func:`_nibbles_to_crc`."""
+
+    if not 0 <= crc <= 0xFFFF:
+        raise ValueError("CRC must be a 16-bit value")
+    return [(crc >> (4 * index)) & 0xF for index in range(4)]
+
+
+def encode_lora_packet(
+    payload: bytes | bytearray | Iterable[int],
+    *,
+    spreading_factor: int = 7,
+    coding_rate: int = 1,
+    explicit_header: bool = True,
+    low_data_rate_optimization: bool = False,
+    payload_crc_present: bool = True,
+) -> LoRaEncodeResult:
+    """Build the CSS symbols a LoRa transmitter sends for ``payload``.
+
+    This is the exact inverse of :func:`decode_lora_packet` and an independent
+    implementation of the authoritative MATLAB packet-coding layer.  Every
+    intermediate is returned so a differential regression can name the stage at
+    which an implementation first disagrees, instead of only the final bytes.
+    """
+
+    data = bytes(payload)
+    if not 5 <= spreading_factor <= 12:
+        raise ValueError("spreading_factor must be between 5 and 12")
+    if not 1 <= coding_rate <= 4:
+        raise ValueError("coding_rate must be in [1, 4]")
+
+    whitening = whitening_sequence(len(data))
+    whitened = bytes(value ^ mask for value, mask in zip(data, whitening, strict=True))
+    payload_nibbles = _bytes_to_nibbles(whitened)
+    crc_nibbles = _crc_to_nibbles(payload_crc(data)) if payload_crc_present else []
+    data_nibbles = payload_nibbles + crc_nibbles
+
+    header_reduced_rate = spreading_factor >= 7
+    symbols: list[int] = []
+    header_nibbles: list[int] = []
+    header_codewords: list[list[bool]] = []
+    header_labels: list[int] = []
+
+    if explicit_header:
+        header_nibbles = _explicit_header_encode(
+            len(data), coding_rate, payload_crc_present
+        )
+        # The first block is always sent at CR 4/8 and at reduced rate.  For
+        # SF7 it holds exactly the five header nibbles; wider first blocks
+        # carry data nibbles after them, which is what the decoder expects.
+        first_count = spreading_factor - 2 * int(header_reduced_rate)
+        carried = max(0, first_count - len(header_nibbles))
+        first_block = header_nibbles[:first_count] + data_nibbles[:carried]
+        first_block += [0] * (first_count - len(first_block))
+        header_codewords = [_hamming_encode(value, 4) for value in first_block]
+        header_labels = _diagonal_interleave(
+            header_codewords, spreading_factor, 4, header_reduced_rate
+        )
+        symbols.extend(
+            _map_labels_to_symbols(
+                header_labels, spreading_factor, header_reduced_rate
+            )
+        )
+        remaining = data_nibbles[carried:]
+    else:
+        remaining = data_nibbles
+
+    payload_sf = spreading_factor - 2 * int(low_data_rate_optimization)
+    block_count = (len(remaining) + payload_sf - 1) // payload_sf
+    padded = list(remaining) + [0] * (block_count * payload_sf - len(remaining))
+    payload_codewords: list[list[bool]] = []
+    payload_labels: list[int] = []
+    for block in range(block_count):
+        nibbles = padded[block * payload_sf : (block + 1) * payload_sf]
+        codewords = [_hamming_encode(value, coding_rate) for value in nibbles]
+        labels = _diagonal_interleave(
+            codewords, spreading_factor, coding_rate, low_data_rate_optimization
+        )
+        payload_codewords.extend(codewords)
+        payload_labels.extend(labels)
+        symbols.extend(
+            _map_labels_to_symbols(
+                labels, spreading_factor, low_data_rate_optimization
+            )
+        )
+
+    return LoRaEncodeResult(
+        symbols=tuple(symbols),
+        whitened_payload=whitened,
+        header_nibbles=tuple(header_nibbles),
+        payload_nibbles=tuple(payload_nibbles),
+        crc_nibbles=tuple(crc_nibbles),
+        header_codewords=tuple(tuple(word) for word in header_codewords),
+        payload_codewords=tuple(tuple(word) for word in payload_codewords),
+        header_interleaved_labels=tuple(header_labels),
+        payload_interleaved_labels=tuple(payload_labels),
+    )
 
 
 def decode_lora_packet(

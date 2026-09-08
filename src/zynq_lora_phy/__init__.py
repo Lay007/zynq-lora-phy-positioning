@@ -19,10 +19,12 @@ from .tdoa import (
 )
 from .lora_packet import (
     LoRaDecodeResult,
+    LoRaEncodeResult,
     LoRaHeader,
     LoRaTraceDecode,
     decode_lora_packet,
     decode_lora_symbol_trace,
+    encode_lora_packet,
     payload_crc,
     quarter_symbol_bin_adjustments,
     whitening_sequence,
@@ -38,6 +40,7 @@ __all__ = [
     "CssConfig",
     "JointChirpTimingEstimate",
     "LoRaDecodeResult",
+    "LoRaEncodeResult",
     "LoRaHeader",
     "LoRaTraceDecode",
     "PositionEstimate",
@@ -50,6 +53,7 @@ __all__ = [
     "demodulate_symbol",
     "decode_lora_packet",
     "decode_lora_symbol_trace",
+    "encode_lora_packet",
     "estimate_frequency_offset",
     "estimate_joint_chirp_timing",
     "estimate_toa",
