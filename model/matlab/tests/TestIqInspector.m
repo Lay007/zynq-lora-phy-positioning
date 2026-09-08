@@ -97,6 +97,33 @@ classdef TestIqInspector < matlab.unittest.TestCase
             testCase.verifyTrue(metrics.passed);
         end
 
+        function goldenComparisonAcceptsDefaultSearchRadius(testCase)
+            % The Inspector omits SearchRadiusSamples, so the NaN default
+            % must survive argument validation and widen to one chip.
+            config = lora_phy.css_config(7, 16);
+            reference = lora_phy.modulate_symbol(17, config);
+            capture = [zeros(12,1); 0.5*reference; zeros(8,1)];
+
+            metrics = lora_phy.compare_iq_to_golden( ...
+                capture, 2e6, 7, 125e3, ...
+                StartIndex=10, Symbol=17, Direction="up");
+
+            testCase.verifyEqual(metrics.bestStartIndex, 13);
+            testCase.verifyTrue(metrics.passed);
+        end
+
+        function goldenComparisonRejectsNegativeSearchRadius(testCase)
+            config = lora_phy.css_config(7, 16);
+            reference = lora_phy.modulate_symbol(17, config);
+            capture = [zeros(12,1); 0.5*reference; zeros(8,1)];
+
+            testCase.verifyError(@() lora_phy.compare_iq_to_golden( ...
+                capture, 2e6, 7, 125e3, ...
+                StartIndex=10, Symbol=17, Direction="up", ...
+                SearchRadiusSamples=-1), ...
+                "lora_phy:InvalidGoldenSearchRadius");
+        end
+
         function sfBandwidthAndCarrierAreEstimated(testCase)
             config = lora_phy.css_config(7, 4);
             payload = [3; 17; 64];
