@@ -8,6 +8,9 @@ spent.
 
 import pytest
 
+import inspect
+
+from tools import capture_clg400_iq_trace_pair as tool
 from tools.capture_clg400_iq_trace_pair import (
     DEFAULT_IQ_SAMPLES,
     REMOTE_IQ,
@@ -39,7 +42,10 @@ def test_the_recording_command_detaches_and_records_its_status() -> None:
     assert f"echo $? > {REMOTE_IQ}.done" in command
     # A stale recording or sentinel from a previous attempt must not be
     # mistaken for this one.
-    assert command.startswith(f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done;")
+    assert command.startswith(f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done")
+    # The script reaches the board on `sh -s` stdin. A plain background job
+    # dies when that shell exits, and the recording then comes back empty.
+    assert "nohup " in command and "</dev/null" in command
 
 
 def test_the_recording_command_writes_where_the_caller_asked() -> None:
@@ -54,8 +60,26 @@ def test_a_nonpositive_sample_count_is_rejected(samples: int) -> None:
         iio_capture_command(samples, REMOTE_IQ)
 
 
+def test_a_quoted_remote_path_is_rejected() -> None:
+    # The path is embedded in a single-quoted `sh -c` argument.
+    with pytest.raises(ValueError, match="single quote"):
+        iio_capture_command(64, "/tmp/we'ird.bin")
+
+
 def test_the_stamp_is_a_sortable_utc_basename() -> None:
     stamp = utc_stamp()
     assert stamp.endswith("Z") and "T" in stamp
     assert len(stamp) == len("20260908T065448Z")
     assert stamp.replace("T", "").replace("Z", "").isdigit()
+
+
+def test_the_size_probe_avoids_stat() -> None:
+    """The board image is busybox without `stat`.
+
+    A missing `stat` behind a `|| echo 0` fallback reports every recording as
+    empty, which reads as a failed capture on a link that is actually fine.
+    """
+
+    source = inspect.getsource(tool.wait_for_capture)
+    assert "wc -c" in source
+    assert "stat " not in source

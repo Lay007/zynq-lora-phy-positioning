@@ -81,11 +81,20 @@ def iio_capture_command(samples: int, remote_path: str) -> str:
 
     if samples <= 0:
         raise ValueError("samples must be positive")
+    if "'" in remote_path:
+        raise ValueError("remote_path must not contain a single quote")
+    # The remote script is fed to `sh -s` on stdin, so a plain `... &` job is
+    # killed when that shell exits and the recording silently comes back empty.
+    # nohup with stdin detached from the closing channel is what keeps it
+    # alive long enough to span the transmission.
+    inner = (
+        f"iio_readdev -u local: -b 32768 -s {samples} cf-ad9361-lpc "
+        f"voltage0 voltage1 > {remote_path} 2>{remote_path}.err; "
+        f"echo $? > {remote_path}.done"
+    )
     return (
-        f"rm -f {remote_path} {remote_path}.done; "
-        f"( iio_readdev -u local: -b 32768 -s {samples} cf-ad9361-lpc "
-        f"voltage0 voltage1 > {remote_path} 2>/tmp/lora_rx1.err; "
-        f"echo $? > {remote_path}.done ) >/dev/null 2>&1 &"
+        f"rm -f {remote_path} {remote_path}.done {remote_path}.err; "
+        f"nohup sh -c '{inner}' </dev/null >/dev/null 2>&1 &"
     )
 
 
@@ -96,11 +105,14 @@ def wait_for_capture(
 
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
+        # The board image is busybox without `stat`, and a missing `stat`
+        # plus a `|| echo 0` fallback reports every recording as empty. `wc -c`
+        # is present and portable.
         fields = _run_remote(
             args,
             f"if [ -f {remote_path}.done ]; then cat {remote_path}.done; "
             f"else echo pending; fi; "
-            f"stat -c %s {remote_path} 2>/dev/null || echo 0",
+            f"wc -c < {remote_path} 2>/dev/null || echo 0",
         ).split()
         if fields and fields[0] != "pending":
             return int(fields[0]), int(fields[1])
@@ -201,7 +213,7 @@ def capture_once(args: argparse.Namespace) -> dict[str, object]:
     time.sleep(args.settle_s)
     report = build_report(read_trace(args))
     downloaded = fetch_binary(args, REMOTE_IQ, local_iq)
-    _run_remote(args, f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done")
+    _run_remote(args, f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done {REMOTE_IQ}.err")
 
     report["serial"] = {
         "port": args.port,
