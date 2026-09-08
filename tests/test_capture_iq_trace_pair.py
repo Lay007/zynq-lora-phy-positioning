@@ -10,6 +10,8 @@ import pytest
 
 import inspect
 
+import numpy as np
+
 from tools import capture_clg400_iq_trace_pair as tool
 from tools.capture_clg400_iq_trace_pair import (
     DEFAULT_IQ_SAMPLES,
@@ -83,3 +85,37 @@ def test_the_size_probe_avoids_stat() -> None:
     source = inspect.getsource(tool.wait_for_capture)
     assert "wc -c" in source
     assert "stat " not in source
+
+
+def test_burst_ratio_separates_a_packet_from_noise(tmp_path) -> None:
+    """A full-length recording with no packet must not pass as a capture."""
+
+    from tools.capture_clg400_iq_trace_pair import burst_ratio
+
+    rng = np.random.default_rng(3)
+    size = 200_000
+    noise = rng.normal(0, 2, size * 2)
+
+    quiet = tmp_path / "quiet.bin"
+    np.round(noise).astype("<i2").tofile(quiet)
+    assert burst_ratio(quiet) < 10
+
+    withburst = noise.copy()
+    withburst[40_000:120_000] += rng.normal(0, 60, 80_000)
+    loud = tmp_path / "loud.bin"
+    np.round(withburst).astype("<i2").tofile(loud)
+    assert burst_ratio(loud) > 100
+
+
+def test_the_transmitter_is_prepared_before_the_recording_starts() -> None:
+    """Profile verification costs seconds of serial round trips.
+
+    Doing it inside the recording window pushes the send past the end of a
+    1.5 s capture, which yields a correctly sized file containing only noise.
+    """
+
+    source = inspect.getsource(tool.capture_once)
+    prepare = source.index('transmitter.command("stop"')
+    start = source.index("iio_capture_command")
+    send = source.index('"send"')
+    assert prepare < start < send

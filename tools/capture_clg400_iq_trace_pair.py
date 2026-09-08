@@ -41,8 +41,11 @@ from tools.read_clg400_symbol_trace import (  # noqa: E402
 )
 from tools.run_clg400_payload_capture import (  # noqa: E402
     EXPECTED_PROFILE,
-    transmit_once,
+    _read_profile,
+    parse_profile,
+    parse_transmit_line,
 )
+from tools.run_phy_experiment import SerialTransmitter  # noqa: E402
 
 
 # 1.5 s at 1 MS/s. The packet is ~83 ms, so this brackets it with room for the
@@ -187,19 +190,77 @@ def fetch_binary(args: argparse.Namespace, remote_path: str, local: Path) -> int
     return len(completed.stdout)
 
 
+def burst_ratio(path: Path) -> float:
+    """Peak-to-median smoothed power of a recording.
+
+    A full-length file is not the same as a file with a packet in it. When the
+    send lands outside the recording window the result is exactly the right
+    size and contains only noise, which every size check passes. One packet in
+    1.5 s lifts this ratio by three orders of magnitude; noise alone leaves it
+    near one.
+    """
+
+    import numpy as np
+
+    raw = np.fromfile(path, dtype="<i2")
+    if raw.size < 4:
+        return 0.0
+    power = raw[0::2].astype(np.float64) ** 2 + raw[1::2].astype(np.float64) ** 2
+    if power.size < 1024:
+        return 0.0
+    smooth = np.convolve(power, np.ones(1024) / 1024, mode="valid")
+    median = float(np.median(smooth))
+    if median <= 0.0:
+        return 0.0
+    return float(smooth.max() / median)
+
+
 def capture_once(args: argparse.Namespace) -> dict[str, object]:
     stamp = utc_stamp()
     args.run_dir.mkdir(parents=True, exist_ok=True)
     serial_log = args.run_dir / f"heltec-{stamp}.log"
     local_iq = args.run_dir / f"rx1-iq-{stamp}.bin"
 
-    print(f"[{stamp}] {arm_receive_stream(args)}")
-    _run_remote(args, iio_capture_command(args.iq_samples, REMOTE_IQ))
-    time.sleep(args.settle_s)
+    # The transmitter is prepared *before* the recording starts. Verifying the
+    # profile takes seconds of serial round trips; doing it inside the
+    # recording window pushes the send past the end of a 1.5 s capture and
+    # yields a full-length file with no packet in it.
+    transmitter = SerialTransmitter(args.port, args.baud, serial_log)
+    try:
+        transmitter.command("stop", quiet_s=0.4)
+        version = next(
+            (l for l in transmitter.command("version", quiet_s=0.4)
+             if l.startswith("zynq-lora")), "")
+        profile = _read_profile(transmitter)
+        fields = parse_profile(profile)
+        if fields.get("power_dbm") != EXPECTED_PROFILE["power_dbm"]:
+            transmitter.command(
+                f"set power {EXPECTED_PROFILE['power_dbm']}", quiet_s=0.4)
+            profile = _read_profile(transmitter)
+            fields = parse_profile(profile)
+        mismatch = {
+            key: {"expected": value, "actual": fields.get(key)}
+            for key, value in EXPECTED_PROFILE.items()
+            if fields.get(key) != value
+        }
+        if mismatch:
+            raise RuntimeError(f"transmitter profile mismatch: {mismatch}")
 
-    identity, record = transmit_once(
-        args.port, args.baud, serial_log, EXPECTED_PROFILE
-    )
+        print(f"[{stamp}] {arm_receive_stream(args)}")
+        _run_remote(args, iio_capture_command(args.iq_samples, REMOTE_IQ))
+        time.sleep(args.settle_s)
+
+        send_lines = transmitter.command(
+            "send", quiet_s=0.4, required_prefix="TX seq=", response_timeout_s=15
+        )
+        transmitter.command("stop", quiet_s=0.4)
+    finally:
+        transmitter.close()
+
+    record = parse_transmit_line(send_lines)
+    if record["state"] != 0:
+        raise RuntimeError(f"transmitter reported state={record['state']}")
+    identity = {"version": version, "profile": profile}
 
     status, remote_size = wait_for_capture(args, REMOTE_IQ, args.capture_timeout_s)
     if status != 0:
@@ -228,8 +289,17 @@ def capture_once(args: argparse.Namespace) -> dict[str, object]:
         "tx_start_ms": record["start_ms"],
         "tx_duration_ms": record["duration_ms"],
     }
+    ratio = burst_ratio(local_iq)
+    if ratio < args.min_burst_ratio:
+        raise RuntimeError(
+            f"recording holds no packet: peak-to-median power {ratio:.1f} "
+            f"below {args.min_burst_ratio:.1f}; the send probably fell outside "
+            f"the recording window"
+        )
+
     report["iq_bytes"] = downloaded
     report["iq_samples"] = downloaded // 4
+    report["iq_burst_ratio"] = round(ratio, 1)
 
     trace_path = args.run_dir / f"clg400-trace-{stamp}.json"
     trace_path.write_text(
@@ -242,7 +312,7 @@ def capture_once(args: argparse.Namespace) -> dict[str, object]:
         f"count={report['captured_count']} realigned={report['grid_realigned']} "
         f"preamble_bin={report['preamble_bin']} "
         f"header={decode['header_valid']} crc={decode['crc_valid']} "
-        f"iq={downloaded} bytes"
+        f"iq={downloaded} bytes burst={ratio:.0f}x"
     )
     return report
 
@@ -268,6 +338,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--settle-s", type=float, default=0.25)
     parser.add_argument("--gap-s", type=float, default=1.5)
     parser.add_argument("--capture-timeout-s", type=float, default=60)
+    parser.add_argument(
+        "--min-burst-ratio",
+        type=float,
+        default=50.0,
+        help="reject a recording whose peak-to-median power is below this; "
+        "a real packet gives several hundred, noise alone gives about one",
+    )
     return parser.parse_args()
 
 
