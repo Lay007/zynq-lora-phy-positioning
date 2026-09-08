@@ -170,3 +170,98 @@ def estimate_frequency_offset(
     centered_n = n - np.mean(n)
     slope_rad_per_sample = np.dot(centered_n, phase) / np.dot(centered_n, centered_n)
     return float(slope_rad_per_sample / (2.0 * np.pi))
+
+
+@dataclass(frozen=True)
+class CorrelatorStages:
+    """Every intermediate of the HDL-oriented CSS FFT correlator.
+
+    This mirrors the authoritative MATLAB ``lora_phy.fft_correlator_stages``,
+    including its ``1/M`` normalization, so a stage-by-stage differential can
+    compare a Python, Simulink, or RTL implementation against the same
+    numerical definition rather than against a re-derived one.
+
+    Arrays are indexed ``[window, ...]``: ``windows`` and ``product`` are
+    ``M``-wide, ``partition`` through ``magnitude_squared`` are ``N``-wide.
+    """
+
+    windows: ComplexArray
+    reference: ComplexArray
+    reference_spectrum: ComplexArray
+    fft_m: ComplexArray
+    product: ComplexArray
+    partition: ComplexArray
+    fft_n: ComplexArray
+    magnitude_squared: NDArray[np.float64]
+    peak_power: NDArray[np.float64]
+    second_power: NDArray[np.float64]
+    symbols: NDArray[np.int64]
+    second_symbols: NDArray[np.int64]
+    confidence: NDArray[np.float64]
+
+
+def fft_correlator_stages(
+    windows: ArrayLike,
+    config: CssConfig,
+    *,
+    reference: ArrayLike | None = None,
+) -> CorrelatorStages:
+    """Run the two-FFT correlator identity and expose every intermediate.
+
+    ``windows`` is either one symbol window or a ``(count, M)`` stack of them.
+    For ``M = N*L`` the ``M``-point inverse transform needed for lags ``-k*L``
+    reduces to an ``N``-point forward transform after aliasing the frequency
+    bins ``q = m + r*N``, which is what the generated DUT computes.
+    """
+
+    stack = np.atleast_2d(np.asarray(windows, dtype=np.complex128))
+    if stack.ndim != 2:
+        raise ValueError("windows must be one or two dimensional")
+    size = config.samples_per_symbol
+    if stack.shape[1] != size:
+        raise ValueError(f"each window must hold {size} samples")
+
+    if reference is None:
+        reference_array = reference_chirp(config)
+    else:
+        reference_array = np.asarray(reference, dtype=np.complex128)
+        if reference_array.shape != (size,):
+            raise ValueError(f"reference must hold exactly {size} samples")
+        if not np.any(reference_array):
+            raise ValueError("reference must contain non-zero energy")
+
+    reference_spectrum = np.fft.fft(reference_array)
+    fft_m = np.fft.fft(stack, axis=1)
+    product = fft_m * np.conjugate(reference_spectrum)
+    # MATLAB reshapes each M-vector as N x L in column-major order.  Express
+    # the same q=r+m*N partition explicitly rather than relying on a
+    # language-specific reshape convention.
+    partition = product.reshape(
+        stack.shape[0], config.samples_per_chip, config.symbol_count
+    ).sum(axis=1)
+    fft_n = np.fft.fft(partition, axis=1) / size
+    magnitude_squared = np.abs(fft_n) ** 2
+
+    order = np.argsort(magnitude_squared, axis=1)
+    symbols = order[:, -1].astype(np.int64)
+    second_symbols = order[:, -2].astype(np.int64)
+    rows = np.arange(stack.shape[0])
+    peak_power = magnitude_squared[rows, symbols]
+    second_power = magnitude_squared[rows, second_symbols]
+    total = np.maximum(magnitude_squared.sum(axis=1), np.finfo(np.float64).eps)
+
+    return CorrelatorStages(
+        windows=stack,
+        reference=reference_array,
+        reference_spectrum=reference_spectrum,
+        fft_m=fft_m,
+        product=product,
+        partition=partition,
+        fft_n=fft_n,
+        magnitude_squared=magnitude_squared,
+        peak_power=peak_power,
+        second_power=second_power,
+        symbols=symbols,
+        second_symbols=second_symbols,
+        confidence=peak_power / total,
+    )

@@ -29,7 +29,7 @@ from zynq_lora_phy import (
     CssConfig,
     decode_lora_packet,
     estimate_joint_chirp_timing,
-    reference_chirp,
+    fft_correlator_stages,
 )
 
 
@@ -74,18 +74,7 @@ def fft_correlator_bins(
         raise ValueError("a requested correlation window falls outside the IQ capture")
 
     windows = np.stack([iq[start : start + size] for start in starts_array])
-    reference_spectrum = np.conjugate(np.fft.fft(reference_chirp(config)))
-    product = np.fft.fft(windows, axis=1) * reference_spectrum
-    # MATLAB reshapes each M-vector as N x L in column-major order.  Express
-    # the same q=r+m*N frequency partition explicitly to avoid relying on a
-    # language-specific reshape convention.
-    partition = product.reshape(
-        starts_array.size,
-        config.samples_per_chip,
-        config.symbol_count,
-    ).sum(axis=1)
-    magnitude = np.abs(np.fft.fft(partition, axis=1)) ** 2
-    return np.argmax(magnitude, axis=1).astype(np.int64)
+    return fft_correlator_stages(windows, config).symbols
 
 
 def burst_bounds(iq: ComplexArray, window: int = 1024) -> tuple[int, int]:

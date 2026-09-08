@@ -2,10 +2,12 @@
 
 from .channel import add_awgn, apply_frequency_offset, delay_signal
 from .css import (
+    CorrelatorStages,
     CssConfig,
     demodulate,
     demodulate_symbol,
     estimate_frequency_offset,
+    fft_correlator_stages,
     modulate,
     modulate_symbol,
     reference_chirp,
@@ -37,6 +39,7 @@ from .toa import (
 )
 
 __all__ = [
+    "CorrelatorStages",
     "CssConfig",
     "JointChirpTimingEstimate",
     "LoRaDecodeResult",
@@ -57,6 +60,7 @@ __all__ = [
     "estimate_frequency_offset",
     "estimate_joint_chirp_timing",
     "estimate_toa",
+    "fft_correlator_stages",
     "modulate",
     "modulate_symbol",
     "payload_crc",
