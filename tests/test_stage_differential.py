@@ -7,6 +7,8 @@ a defect rather than fitting a correction to it.
 """
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -33,9 +35,6 @@ SIZE = CONFIG.samples_per_symbol
 PREAMBLE_SYMBOLS = 12
 SYNC_SYMBOLS = 2
 SFD_SYMBOLS = 2
-# The header sits 2.25 downchirps past the sync word, matching the geometry
-# the tool assumes when it places its up/down search windows.
-HEADER_OFFSET = (PREAMBLE_SYMBOLS + SYNC_SYMBOLS + SFD_SYMBOLS) * SIZE + SIZE // 4
 
 SEQUENCE = 30
 START_MS = 11849939
@@ -49,6 +48,8 @@ def build_frame(payload: bytes) -> tuple[np.ndarray, int]:
     upchirp = reference_chirp(CONFIG)
     downchirp = reference_chirp(CONFIG, up=False)
 
+    # The header sits 2.25 downchirps past the sync word, which is the
+    # geometry the tool assumes when it places its up/down search windows.
     parts = [upchirp] * PREAMBLE_SYMBOLS
     parts.extend(modulate_symbol(value, CONFIG) for value in (24, 32))
     parts.extend([downchirp] * SFD_SYMBOLS)
@@ -316,6 +317,50 @@ def test_the_summary_names_the_first_divergent_stage(fixture_paths) -> None:
     trace_path, iq_path = fixture_paths(phase_offset=4)
     summary = render_summary(analyze(trace_path, iq_path))
     assert "FIRST DIVERGENCE: symbol" in summary
+
+
+def test_the_command_line_runs_from_a_checkout_and_writes_its_outputs(
+    fixture_paths, tmp_path: Path
+) -> None:
+    """Run the tool the way the documentation tells a reader to run it.
+
+    Invoking it as a script exercises the import bootstrap and the argument
+    handling, neither of which the library-level tests touch.  The IQ path is
+    omitted on purpose: the trace names its own capture.
+    """
+
+    trace_path, iq_path = fixture_paths(phase_offset=4)
+    # The tool resolves serial.iq_capture beside the trace.
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    trace["serial"]["iq_capture"] = iq_path.name
+    trace_path.write_text(json.dumps(trace), encoding="utf-8")
+
+    csv_path = tmp_path / "out" / "stages.csv"
+    json_path = tmp_path / "out" / "stages.json"
+    repository_root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(repository_root / "tools" / "export_stage_differential.py"),
+            str(trace_path),
+            "--csv",
+            str(csv_path),
+            "--json",
+            str(json_path),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=repository_root,
+    )
+
+    # A divergent capture is a successful run that found something, and the
+    # documented exit code for that is 1.
+    assert completed.returncode == 1, completed.stderr
+    assert "FIRST DIVERGENCE: symbol" in completed.stdout
+    assert csv_path.is_file() and json_path.is_file()
+    report = json.loads(json_path.read_text(encoding="utf-8"))
+    assert report["schema"] == "zynq-lora-stage-differential-v1"
+    assert report["first_divergent_stage"] == "symbol"
 
 
 def test_a_short_trace_is_rejected(tmp_path: Path) -> None:
