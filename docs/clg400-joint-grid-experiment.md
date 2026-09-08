@@ -229,6 +229,69 @@ This is the part worth reading before the bench is packed up.
   previous one had right. The ladder names it directly; that is what it is
   for.
 
+## Result — 2026-09-08: refuted for this build
+
+The experiment was executed. The joint-grid board design was routed
+(post-route WNS +0.062 ns, WHS +0.011 ns, TNS/THS 0, 100 % of nets routed,
+zero errors), the routed netlist was confirmed to contain `u_joint_grid_timing`,
+`u_grid_resync`, `u_toa_search`, `u_iq_history` and `u_receiver`, the bitstream
+was installed on the SD card against a checksum with the previous image backed
+up, and the board rebooted onto it. Eleven paired captures were taken under the
+documented profile. Full data in
+[`data/clg400-joint-grid-result-2026-09-08.json`](data/clg400-joint-grid-result-2026-09-08.json).
+
+**The prediction failed.** `raw_decision_bin_spread` stayed at 2 on ten of the
+eleven captures. It did not collapse to 1.
+
+The reason is specific, and it is the "wrong guard" branch of the failure list
+below rather than a defect in the root cause:
+
+| Quantity | Baseline arm | Joint-grid arm |
+|---|---:|---:|
+| Resync skips per capture | 1 | 1 |
+| `skip` − `mod(chipsToBoundary + 2**(SF−2), 2**SF)·L` | **0** on 12/12 | **−16** on 11/11 |
+| Offline joint correction still needed, mean | +0.83 samples | **+19.8 samples** |
+| `raw_decision_bin_spread` | 2 on 7/12 | 2 on 10/11 |
+
+The coarse resync withholds the 16-sample `FINE_GUARD_SAMPLES` on every
+capture, exactly as designed. **The late fine request that must return that
+guard together with the signed joint correction never arrives**: every trace
+still shows exactly one resync skip, and the correction the offline estimator
+then needs moves from a mean of +0.83 samples to +19.8. This build is therefore
+strictly worse than the one it replaces — it removes sixteen samples and never
+gives them back.
+
+### What is not refuted
+
+The root cause itself. Applying the joint up/down correction offline to these
+same eleven captures takes ten of them to a fully agreeing symbol stage and a
+valid packet decode, exactly as it did on the baseline arm. What failed is this
+build's ability to apply that correction, not the correction.
+
+### Where to look next
+
+`lora_joint_chirp_grid_controller` has three paths that reach `STATE_IDLE`
+without asserting `fine_resync_valid`:
+
+1. `search_failed` during the upchirp search;
+2. `search_failed` during the downchirp search;
+3. a rounded timing estimate outside `±FINE_GUARD_SAMPLES`, which sets
+   `timing_range_error` and a zero `fine_skip`.
+
+The first two emit no status at all, and `timing_valid` is left unconnected in
+`lora_packet_toa_receiver_top`, so a frozen trace cannot tell them apart. That
+observability gap is why this took a full bench run to find, and it is the same
+gap `DEBUG` bit 8 was added to close for the coarse aligner.
+
+**The prerequisite for the next attempt is an observable "fine correction
+applied" flag beside `DEBUG` bit 8, plus a sticky bit per abort reason.**
+Without it the next build cannot distinguish "the estimator never ran" from
+"it ran and was rejected" any better than this one could.
+
+Until that build exists, the previous integer-chip image is the better one to
+run: it is the arm whose skip matches the formula exactly. It is preserved on
+the card as `system_top.bit.pre_jointgrid_20260908T173805Z`.
+
 ## Evidence boundary
 
 A successful result closes the symbol-decision defect and unblocks a PER

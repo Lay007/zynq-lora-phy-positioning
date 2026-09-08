@@ -235,11 +235,20 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   Vivado 2021.1 reports 19,255 LUTs, 17,636 registers, 72 BRAM tiles and 56
   DSPs; the 10 ns probe has WNS -4.032 ns, a derived 71.266 MHz that exceeds
   the required 62.5 MHz. This is not full-board timing closure.
-- [ ] Route the complete joint-grid board design, package a new SD image,
-  cold-boot it, and repeat the simultaneous IQ/PL capture before a PER run.
-  The procedure, settings, and pass/fail criteria are written out in
-  [clg400-joint-grid-experiment.md](clg400-joint-grid-experiment.md); the
-  decisive number is `raw_decision_bin_spread` collapsing from 2 to 1.
+- [x] Route the complete joint-grid board design, package a new SD image,
+  cold-boot it, and repeat the simultaneous IQ/PL capture. Done and the
+  experiment is **refuted for this build**: post-route closes at +0.062 ns WNS
+  and +0.011 ns WHS, the routed netlist carries the joint-grid cells, and the
+  board runs the image, but `raw_decision_bin_spread` stayed at 2 on ten of
+  eleven captures instead of collapsing to 1. The coarse resync withholds the
+  16-sample guard on 11 of 11 captures against 0 of 12 on the baseline, and the
+  fine request that must return it never arrives, so the delivered grid is
+  sixteen samples short. See
+  [`data/clg400-joint-grid-result-2026-09-08.json`](data/clg400-joint-grid-result-2026-09-08.json).
+- [ ] Make the fine grid correction observable — a "fine correction applied"
+  flag beside `DEBUG` bit 8 and a sticky bit per abort reason — then rebuild
+  and repeat. `lora_joint_chirp_grid_controller` has three silent paths to
+  `STATE_IDLE`, and a frozen trace cannot currently tell them apart.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
