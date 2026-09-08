@@ -283,6 +283,28 @@ The first two emit no status at all, and `timing_valid` is left unconnected in
 observability gap is why this took a full bench run to find, and it is the same
 gap `DEBUG` bit 8 was added to close for the coarse aligner.
 
+The 15-bit diagnostic sticky word does separate them, and it names path 1 or 2:
+
+| Diagnostic sticky | Baseline build | Joint-grid build |
+|---|---|---|
+| value | `0x0058` | `0x0218` |
+| `toa_mac_read_miss_error` | clear | **set** |
+| `toa_peak_boundary_error` | set | clear |
+
+`toa_peak_boundary_error` carries `joint_grid_timing_range_error`, and it is
+**not** set on the joint-grid build, so path 3 — a rejected out-of-range
+estimate — did not fire. `toa_mac_read_miss_error` is set only when the joint
+controller is active. **The abort is a `search_failed` caused by an IQ history
+read miss:** the joint up/down search asks the history buffer for samples it
+will not serve, the search fails, the controller returns to `STATE_IDLE`
+without asserting `fine_resync_valid`, and the guard is never returned.
+
+That makes the next step concrete: the history the joint search reaches back
+to, not the timing budget, is what the packet-rate RTL regression did not
+model. `HISTORY_DEPTH` is 65536 samples; the search's coarse start and the
+guard-shifted grid together need to be checked against what the buffer
+actually still holds at the moment the down search launches.
+
 **The prerequisite for the next attempt is an observable "fine correction
 applied" flag beside `DEBUG` bit 8, plus a sticky bit per abort reason.**
 Without it the next build cannot distinguish "the estimator never ran" from

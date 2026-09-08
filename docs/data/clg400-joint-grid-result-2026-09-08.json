@@ -1241,5 +1241,25 @@
         }
       ]
     }
-  ]
+  ],
+  "abort_path_attribution": {
+    "method": "The 15-bit diagnostic sticky word (DEBUG bits 31:17) was read after a capture run on each build, from the same bench and profile.",
+    "joint_grid_build": {
+      "diagnostic_sticky": "0x0218",
+      "set": [
+        "correlation_magnitude_valid",
+        "toa_search_busy",
+        "toa_mac_read_miss_error"
+      ]
+    },
+    "baseline_build": {
+      "diagnostic_sticky": "0x0058",
+      "set": [
+        "correlation_magnitude_valid",
+        "toa_search_busy",
+        "toa_peak_boundary_error"
+      ]
+    },
+    "conclusion": "toa_mac_read_miss_error is set only when the joint controller is active, and toa_peak_boundary_error - which carries joint_grid_timing_range_error - is not set on the joint-grid build at all. The rejected-estimate path is therefore ruled out and the abort is a search_failed caused by an IQ history read miss: the joint up/down search asks the history buffer for samples it will not serve, the search fails, the controller returns to STATE_IDLE without asserting fine_resync_valid, and the withheld guard is never returned."
+  }
 }
