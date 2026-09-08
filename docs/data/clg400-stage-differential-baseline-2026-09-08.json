@@ -1,0 +1,1478 @@
+{
+  "schema": "zynq-lora-stage-differential-baseline-v1",
+  "recorded_utc": "2026-09-08",
+  "arm": "before: integer-chip resync build, joint sample-phase correction NOT applied in PL",
+  "purpose": "The reference arm of the joint-grid experiment. Twelve individually commanded Heltec transmissions, each captured as a 1.5-million-sample RX1 DMA recording and the PL decision trace frozen from the same packet. Expected symbols are rebuilt from the transmitter's serial log and never look at the received IQ.",
+  "link": {
+    "transmitter": "Heltec WiFi LoRa 32 V4.3 (ESP32-S3 + SX1262), firmware 0.2.0",
+    "receiver": "CLG400 ZynqSDR board B (Zynq-7020 + AD9361), RX1",
+    "path": "over the air, both antennas fitted",
+    "profile": "freq 868.100 MHz, BW 125 kHz, SF7, CR 4/5, sync 0x12, TX power -9 dBm, preamble 12, CRC on, IQ normal, payload ZLP1/32",
+    "rx_sample_rate_hz": 1000000,
+    "rx_lo_hz": 868099998,
+    "rx_rf_bandwidth_hz": 200000,
+    "rx_gain_control_mode": "manual",
+    "rx_hardwaregain_db": 50,
+    "rx_path_rates": "BBPLL:1024000000 ADC:32000000 R2:16000000 R1:8000000 RF:4000000 RXSAMP:1000000"
+  },
+  "finding": "Across twelve captures the surviving symbol errors are one-sided: 182 of exactly +1 and 17 of +2 against zero of -1 and zero of -2. The two captures with the widest spread are exactly the two whose joint estimate is -4 samples, half a chip, which is where a residual splits the packet across bins. The CFO-equivalent displacement is stable from -3.33 to -3.49 samples across all twelve, independently of decoding.",
+  "summary": {
+    "captures": 12,
+    "first_divergence_symbol": 9,
+    "raw_decision_bin_spread": {
+      "1": 3,
+      "2": 7,
+      "3": 2
+    },
+    "symbol_timing_corrected_all_agree": 10,
+    "packet_decode_agreed": 9,
+    "pooled_bin_error_histogram": {
+      "-16": 1,
+      "-11": 1,
+      "0": 432,
+      "1": 182,
+      "2": 17,
+      "16": 1,
+      "19": 1,
+      "22": 1
+    },
+    "pooled_errors_positive_one": 182,
+    "pooled_errors_negative_one": 0,
+    "cfo_displacement_samples_range": [
+      -3.493,
+      -3.334
+    ]
+  },
+  "captures": [
+    {
+      "tx_sequence": 0,
+      "trace_file": "clg400-trace-20260908T065448Z.json",
+      "trace_sha256": "47dde31c4263b1c2879ec458d3dd0f35f0c439fde4558d460bbc558644244bdc",
+      "iq_file": "rx1-iq-20260908T065448Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "82f3f13e7637c0109e1b42136f33d98cacb4a0b2392f85d1e3a9448b6219ae41",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "-1": 42,
+        "0": 11
+      },
+      "bin_error_histogram": {
+        "0": 42,
+        "1": 11
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 209148.6307934505,
+        "down_sample_index": 217347.30687255767,
+        "up_offset_samples": 3.6307934504875448,
+        "down_offset_samples": 10.306872557674069,
+        "timing_offset_samples": 6.968833004080807,
+        "cfo_displacement_samples": -3.338039553593262,
+        "correction_samples": 7
+      },
+      "alignment": {
+        "burst_first_sample": 202147,
+        "burst_last_sample": 278855,
+        "entry0_dma_sample": 217385,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 42,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 1,
+      "trace_file": "clg400-trace-20260908T065701Z.json",
+      "trace_sha256": "e66fee78b7596ae024f8a20b909eec7847afe152b633e2633a4c360bea884c31",
+      "iq_file": "rx1-iq-20260908T065701Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "66972369acf3fd3742148c16721afae2c827844c82bc235bf6e6cbd19534d4e8",
+      "first_divergent_stage": "dechirp",
+      "raw_decision_bin_spread": 1,
+      "raw_bin_error_histogram": {
+        "0": 52,
+        "-16": 1
+      },
+      "bin_error_histogram": {
+        "0": 52,
+        "-16": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 209257.9484396104,
+        "down_sample_index": 217456.61623795924,
+        "up_offset_samples": -3.0515603896055836,
+        "down_offset_samples": 3.616237959242426,
+        "timing_offset_samples": 0.2823387848184211,
+        "cfo_displacement_samples": -3.3338991744240047,
+        "correction_samples": 0
+      },
+      "alignment": {
+        "burst_first_sample": 202253,
+        "burst_last_sample": 278970,
+        "entry0_dma_sample": 217733,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 1,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 52,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 2,
+      "trace_file": "clg400-trace-20260908T065716Z.json",
+      "trace_sha256": "2660d35521d7e9a0155e3a5edf6e1c5c384f8386407d18c13121420bd95023a1",
+      "iq_file": "rx1-iq-20260908T065716Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "c81bc6a0f4217677227fa1a409303b8332bf823e50437e97e19dd5b7f7a434c3",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "0": 36,
+        "1": 16,
+        "19": 1
+      },
+      "bin_error_histogram": {
+        "0": 36,
+        "1": 16,
+        "19": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 208486.66305094818,
+        "down_sample_index": 216685.49027365338,
+        "up_offset_samples": -5.336949051823467,
+        "down_offset_samples": 1.4902736533840653,
+        "timing_offset_samples": -1.9233376992197009,
+        "cfo_displacement_samples": -3.413611352603766,
+        "correction_samples": -2
+      },
+      "alignment": {
+        "burst_first_sample": 201484,
+        "burst_last_sample": 278189,
+        "entry0_dma_sample": 217100,
+        "raw_bin_matches": 23,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 1,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 36,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 3,
+      "trace_file": "clg400-trace-20260908T065731Z.json",
+      "trace_sha256": "ff181586deff0079eaad11fa48e1308ea03874ebd978df18e3d9e445cb8e66bc",
+      "iq_file": "rx1-iq-20260908T065731Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "80d02922fc860b60cb786e2644d227d53931d7dd58b136af2ab7da1b935eec76",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "-1": 35,
+        "0": 18
+      },
+      "bin_error_histogram": {
+        "0": 35,
+        "1": 18
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 301073.78886420873,
+        "down_sample_index": 309272.6557827341,
+        "up_offset_samples": 2.7888642087345943,
+        "down_offset_samples": 9.655782734102104,
+        "timing_offset_samples": 6.222323471418349,
+        "cfo_displacement_samples": -3.433459262683755,
+        "correction_samples": 6
+      },
+      "alignment": {
+        "burst_first_sample": 294071,
+        "burst_last_sample": 370785,
+        "entry0_dma_sample": 309303,
+        "raw_bin_matches": 22,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 35,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 4,
+      "trace_file": "clg400-trace-20260908T065747Z.json",
+      "trace_sha256": "252885885a5356881c1f1628c855b44fdbec719679bdfa57cad531b48c1bd374",
+      "iq_file": "rx1-iq-20260908T065747Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "1288d90cc97650bd4aeea92c6346ddf80de5374c035175b827d6e18bd62bb0cd",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "-1": 32,
+        "0": 20,
+        "21": 1
+      },
+      "bin_error_histogram": {
+        "0": 32,
+        "1": 20,
+        "22": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 208702.06835049088,
+        "down_sample_index": 216900.94335729873,
+        "up_offset_samples": 7.06835049088113,
+        "down_offset_samples": 13.943357298732735,
+        "timing_offset_samples": 10.505853894806933,
+        "cfo_displacement_samples": -3.4375034039258026,
+        "correction_samples": 11
+      },
+      "alignment": {
+        "burst_first_sample": 201711,
+        "burst_last_sample": 278411,
+        "entry0_dma_sample": 217287,
+        "raw_bin_matches": 22,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 1,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 32,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 52,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "diverged",
+          "compared": 1,
+          "agreed": 0,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 5,
+      "trace_file": "clg400-trace-20260908T065802Z.json",
+      "trace_sha256": "f60d1ca5d96549efac627a12c3b3989e983d592021fac933da0f7bd0619a0ce9",
+      "iq_file": "rx1-iq-20260908T065802Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "92db90fb94c2259317e8bb5e8539e2d1893c344fe2c9cd5b7bf7286f184e8246",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 3,
+      "raw_bin_error_histogram": {
+        "1": 28,
+        "0": 21,
+        "2": 4
+      },
+      "bin_error_histogram": {
+        "1": 28,
+        "0": 21,
+        "2": 4
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 208008.15659537786,
+        "down_sample_index": 216207.0871534177,
+        "up_offset_samples": -7.843404622137314,
+        "down_offset_samples": -0.9128465823014267,
+        "timing_offset_samples": -4.37812560221937,
+        "cfo_displacement_samples": -3.4652790199179435,
+        "correction_samples": -4
+      },
+      "alignment": {
+        "burst_first_sample": 200999,
+        "burst_last_sample": 277718,
+        "entry0_dma_sample": 215824,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 52,
+          "ambiguous": 5
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 54,
+          "ambiguous": 3
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 21,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 6,
+      "trace_file": "clg400-trace-20260908T065818Z.json",
+      "trace_sha256": "32012687a23abb10b3b3cdd5f5b3bd54b0a7fdfcfa7049ba2b4a5da5c34ff3d7",
+      "iq_file": "rx1-iq-20260908T065818Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "c7f23fa2ef69b6b8b13dd7be4651742eb7b44f31832b69a8ea29aa600232692e",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 1,
+      "raw_bin_error_histogram": {
+        "0": 52,
+        "1": 1
+      },
+      "bin_error_histogram": {
+        "0": 52,
+        "1": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 206954.16271577313,
+        "down_sample_index": 215153.09586580217,
+        "up_offset_samples": -2.8372842268727254,
+        "down_offset_samples": 4.09586580217001,
+        "timing_offset_samples": 0.6292907876486424,
+        "cfo_displacement_samples": -3.466575014521368,
+        "correction_samples": 1
+      },
+      "alignment": {
+        "burst_first_sample": 199950,
+        "burst_last_sample": 276663,
+        "entry0_dma_sample": 215373,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 52,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 7,
+      "trace_file": "clg400-trace-20260908T065833Z.json",
+      "trace_sha256": "d02ea40057a3efcb805b60d0834d4c55bf57de3b3f5137b0b964f7a5332b85ae",
+      "iq_file": "rx1-iq-20260908T065833Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "8e817d2adcdd6bf4d902e378568ff967a132a3133e1e16faf1c88948d1137c46",
+      "first_divergent_stage": "correlator_power",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "0": 42,
+        "1": 10,
+        "16": 1
+      },
+      "bin_error_histogram": {
+        "0": 42,
+        "1": 10,
+        "16": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 211312.50837683093,
+        "down_sample_index": 219511.46639893195,
+        "up_offset_samples": -2.4916231690731365,
+        "down_offset_samples": 4.466398931952426,
+        "timing_offset_samples": 0.9873878814396448,
+        "cfo_displacement_samples": -3.4790110505127814,
+        "correction_samples": 1
+      },
+      "alignment": {
+        "burst_first_sample": 204302,
+        "burst_last_sample": 281024,
+        "entry0_dma_sample": 219907,
+        "raw_bin_matches": 20,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 1,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 55,
+          "ambiguous": 1
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 42,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 8,
+      "trace_file": "clg400-trace-20260908T065849Z.json",
+      "trace_sha256": "518a2125ca59c262c848b6c73e98861d0c7d0366bceca1ecffd0f6a02ed47873",
+      "iq_file": "rx1-iq-20260908T065849Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "44256fb55da1415c3419998c2fc809988520e45608510b11153fa4c0af9effa8",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 1,
+      "raw_bin_error_histogram": {
+        "0": 52,
+        "1": 1
+      },
+      "bin_error_histogram": {
+        "0": 52,
+        "1": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 208801.05416304604,
+        "down_sample_index": 217000.0410950949,
+        "up_offset_samples": -2.945836953964317,
+        "down_offset_samples": 4.041095094900811,
+        "timing_offset_samples": 0.5476290704682469,
+        "cfo_displacement_samples": -3.493466024432564,
+        "correction_samples": 1
+      },
+      "alignment": {
+        "burst_first_sample": 201795,
+        "burst_last_sample": 278514,
+        "entry0_dma_sample": 216908,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 52,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 51,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "diverged",
+          "compared": 1,
+          "agreed": 0,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 9,
+      "trace_file": "clg400-trace-20260908T065905Z.json",
+      "trace_sha256": "ac6cf32bb10d5071185b540688192ea48993e77491cfdad8f9e6b569e28ebc3c",
+      "iq_file": "rx1-iq-20260908T065905Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "bf36912bd8870cdb09c426b9c6ecf9224305c790e42de58429ff3cbf89a6f13c",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "1": 28,
+        "0": 24,
+        "2": 1
+      },
+      "bin_error_histogram": {
+        "1": 28,
+        "0": 24,
+        "2": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 206933.27442151066,
+        "down_sample_index": 215132.16177603704,
+        "up_offset_samples": -7.725578489335021,
+        "down_offset_samples": -0.8382239629572723,
+        "timing_offset_samples": -4.281901226146147,
+        "cfo_displacement_samples": -3.4436772631888743,
+        "correction_samples": -4
+      },
+      "alignment": {
+        "burst_first_sample": 199927,
+        "burst_last_sample": 276647,
+        "entry0_dma_sample": 214837,
+        "raw_bin_matches": 22,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 24,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 10,
+      "trace_file": "clg400-trace-20260908T065920Z.json",
+      "trace_sha256": "0bc365fb0e5fa0b8a90aee6bc89b0718523d43e9e438a6c59fa783f070f04a02",
+      "iq_file": "rx1-iq-20260908T065920Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "fadefbb6445efc07e13f18d3c2ad96807be0f02b18f7065b16fd4bb19f06b1f6",
+      "first_divergent_stage": "correlator_power",
+      "raw_decision_bin_spread": 2,
+      "raw_bin_error_histogram": {
+        "0": 29,
+        "1": 23,
+        "-11": 1
+      },
+      "bin_error_histogram": {
+        "0": 29,
+        "1": 23,
+        "-11": 1
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 221589.18507853744,
+        "down_sample_index": 229788.1406609372,
+        "up_offset_samples": -6.814921462559141,
+        "down_offset_samples": 0.14066093720612116,
+        "timing_offset_samples": -3.33713026267651,
+        "cfo_displacement_samples": -3.477791199882631,
+        "correction_samples": -3
+      },
+      "alignment": {
+        "burst_first_sample": 214583,
+        "burst_last_sample": 291297,
+        "entry0_dma_sample": 230084,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 1,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 1
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "diverged",
+          "compared": 57,
+          "agreed": 56,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 29,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ]
+    },
+    {
+      "tx_sequence": 11,
+      "trace_file": "clg400-trace-20260908T065936Z.json",
+      "trace_sha256": "faef09f562b25431975aed750e63543ae10851d3d33a56e99b610c7f25f4edcb",
+      "iq_file": "rx1-iq-20260908T065936Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "e90cd3347c40ca7bc87b67d70f4e7a2c0c10a8d94ccbfb0af1538cb521011f88",
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 3,
+      "raw_bin_error_histogram": {
+        "1": 26,
+        "0": 15,
+        "2": 12
+      },
+      "bin_error_histogram": {
+        "1": 26,
+        "0": 15,
+        "2": 12
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 206845.08878214637,
+        "down_sample_index": 215044.01092078286,
+        "up_offset_samples": -7.91121785363066,
+        "down_offset_samples": -0.9890792171354406,
+        "timing_offset_samples": -4.45014853538305,
+        "cfo_displacement_samples": -3.4610693182476098,
+        "correction_samples": -4
+      },
+      "alignment": {
+        "burst_first_sample": 199838,
+        "burst_last_sample": 276519,
+        "entry0_dma_sample": 214757,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "pre_header_entries_excluded": 2,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 50,
+          "ambiguous": 7
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 55,
+          "ambiguous": 2
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 15,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "diverged",
+          "compared": 1,
+          "agreed": 0,
+          "ambiguous": 0
+        }
+      ]
+    }
+  ]
+}

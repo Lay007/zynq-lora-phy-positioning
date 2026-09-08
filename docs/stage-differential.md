@@ -165,6 +165,66 @@ the decision one way only. Applying the joint up/down sample correction to the
 same windows takes all three captures to 53/53 with a valid packet decode and
 zero bin adjustment.
 
+## The twelve-capture baseline — 2026-09-08
+
+The three 2026-09-03 captures were the first simultaneous pair ever recorded.
+On 2026-09-08 the same bench was rebuilt and twelve individually commanded
+transmissions were captured under the identical profile, all on the
+**integer-chip resync build** — the arm where the PL does *not* apply the joint
+sample-phase correction. Full data in
+[`data/clg400-stage-differential-baseline-2026-09-08.json`](data/clg400-stage-differential-baseline-2026-09-08.json).
+
+| seq | first divergence | spread | `peak_bin` | `symbol` | corrected | decode | joint | CFO |
+|---:|---|---:|---:|---:|---:|---|---:|---:|
+| 0 | `symbol` | 2 | 57/57 | 42/53 | 53/53 | pass | +7 | −3.34 |
+| 1 | `dechirp` | 1 | 56/57 | 52/53 | 53/53 | pass | +0 | −3.33 |
+| 2 | `symbol` | 2 | 56/57 | 36/53 | 53/53 | pass | −2 | −3.41 |
+| 3 | `symbol` | 2 | 57/57 | 35/53 | 53/53 | pass | +6 | −3.43 |
+| 4 | `symbol` | 2 | 57/57 | 32/53 | 52/53 | fail | +11 | −3.44 |
+| 5 | `symbol` | 3 | 54/57 | 21/53 | 53/53 | pass | −4 | −3.47 |
+| 6 | `symbol` | 1 | 57/57 | 52/53 | 53/53 | pass | +1 | −3.47 |
+| 7 | `correlator_power` | 2 | 55/57 | 42/53 | 53/53 | pass | +1 | −3.48 |
+| 8 | `symbol` | 1 | 57/57 | 52/53 | 51/53 | fail | +1 | −3.49 |
+| 9 | `symbol` | 2 | 56/57 | 24/53 | 53/53 | pass | −4 | −3.44 |
+| 10 | `correlator_power` | 2 | 56/57 | 29/53 | 53/53 | pass | −3 | −3.48 |
+| 11 | `symbol` | 3 | 55/57 | 15/53 | 53/53 | fail | −4 | −3.46 |
+
+Pooled over all twelve captures, 631 compared symbols:
+
+| Bin error | −2 | −1 | 0 | +1 | +2 | isolated outliers |
+|---|---:|---:|---:|---:|---:|---:|
+| Count | **0** | **0** | 432 | **182** | 17 | 4 |
+
+**182 errors of exactly `+1`, 17 of `+2`, and not one negative.** The four
+outliers (−16, −11, +16, +19, +22 as single symbols) are one-off decisions, not
+a population.
+
+Three things this larger set adds over the first three captures.
+
+**The one-sidedness is not a small-sample effect.** 199 signed errors with zero
+on the negative side is not something a symmetric mechanism produces.
+
+**The spread predicts the damage, and the joint estimate predicts the spread.**
+The two captures with the widest spread — seq 5 and seq 11, at 3 bins and only
+21/53 and 15/53 correct — are exactly the two whose joint estimate is **−4
+samples**, half a chip. That is the value at which the synthetic sweep splits a
+packet across bins, and it is the worst case by construction: a residual there
+is maximally ambiguous. Captures whose estimate is near zero (seq 1 at +0, seq
+6 and seq 8 at +1) have a spread of 1 and at most one wrong symbol. The defect
+scales with the residual exactly as the model says it should.
+
+**The CFO estimate is stable and independent of decoding.** The
+CFO-equivalent displacement lands between −3.334 and −3.493 samples on every
+one of the twelve, a spread of 0.16 samples, without using a single decoded
+bit. The 2026-09-03 captures gave −3.09 to −3.20 on a different power cycle.
+That is a physical property of the link, and it is what lets the half-sum
+separate timing from carrier offset in the first place.
+
+Applying the joint correction offline takes ten of the twelve to a fully
+agreeing symbol stage and nine to a valid packet decode. The three failures
+(seq 4, 8, 11) keep one or two wrong symbols in the final block, which is the
+block whose padding nibbles the payload does not determine.
+
 ### Why the bias can only be one-sided
 
 The measurement above says the errors are all `+1` and never `-1`. That looked
