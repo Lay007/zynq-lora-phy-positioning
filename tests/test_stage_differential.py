@@ -242,6 +242,35 @@ def test_a_conjugated_stream_is_blamed_on_the_iq_format_stage(fixture_paths) -> 
     assert "INVERTED" in report.first_divergent_detail
 
 
+def test_without_a_transmitter_log_the_ladder_stops_at_the_peak_bin(
+    tmp_path: Path,
+) -> None:
+    """A capture with no serial log still localises what it can.
+
+    The expected-symbol rungs need the transmitter's own record.  Without it
+    they must report "not compared" rather than silently passing, while the
+    PL-against-reference rungs still run.
+    """
+
+    payload = zlp1_payload(SEQUENCE, START_MS, LENGTH)
+    iq, header_start = build_frame(payload)
+    trace = build_trace(iq, header_start)
+    del trace["serial"]
+
+    iq_path = tmp_path / "capture.bin"
+    trace_path = tmp_path / "trace.json"
+    write_iq(iq_path, iq)
+    trace_path.write_text(json.dumps(trace), encoding="utf-8")
+
+    report = analyze(trace_path, iq_path)
+    assert not report.expected_symbols_available
+    verdicts = {stage["stage"]: stage["verdict"] for stage in report.stages}
+    assert verdicts["peak_bin"] == "agreed"
+    for stage in ("symbol", "symbol_timing_corrected", "packet_decode"):
+        assert verdicts[stage] == "not compared", stage
+    assert all(row["expected_symbol"] == "" for row in report.rows)
+
+
 def test_rows_expose_every_documented_pipeline_column(fixture_paths) -> None:
     trace_path, iq_path = fixture_paths()
     report = analyze(trace_path, iq_path)

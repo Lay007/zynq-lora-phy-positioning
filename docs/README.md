@@ -23,6 +23,7 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 - [CLG400 cold boot and first OTA acquisition — 2026-09-02](clg400-hardware-session-2026-09-02.md)
 - [CLG400 frozen symbol trace and hard packet decoder](clg400-symbol-trace.md)
 - [CLG400 symbol trace and first decoded payload — 2026-09-03](clg400-payload-session-2026-09-03.md)
+- [Next hardware experiment: joint-grid receiver on the board](clg400-joint-grid-experiment.md)
 - [CLG400 accepted over-the-air payload evidence](data/clg400-symbol-trace-2026-09-03.json)
 - [CLG400 realigned-grid evidence](data/clg400-grid-resync-2026-09-04.json)
 - [CLG400 simultaneous IQ/PL comparison evidence](data/clg400-iq-trace-comparison-2026-09-04.json)
