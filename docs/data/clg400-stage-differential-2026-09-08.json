@@ -2,6 +2,7 @@
   "schema": "zynq-lora-stage-differential-evidence-v1",
   "recorded_utc": "2026-09-03",
   "analysis_utc": "2026-09-08",
+  "finding": "The first divergence is the symbol decision. Every stage above it agrees, and the raw decisions of each packet land on exactly two adjacent bins, so the single integer bin adjustment available is correct for one group and wrong for the other by exactly one bin. The surviving errors are one-sided by construction, not because of a signed arithmetic defect. Applying the joint up/down sample correction removes all of them.",
   "tool": "tools/export_stage_differential.py",
   "command": "python tools/export_stage_differential.py experiments/runs/20260904-clg400-iq-compare/clg400-trace-<stamp>.json --csv <out>.csv --json <out>.json",
   "link": {
@@ -31,6 +32,11 @@
         "0": 32,
         "1": 21
       },
+      "raw_bin_error_histogram": {
+        "-1": 32,
+        "0": 21
+      },
+      "raw_decision_bin_spread": 2,
       "alignment": {
         "burst_first_sample": 242241,
         "burst_last_sample": 318956,
@@ -157,6 +163,11 @@
         "0": 37,
         "1": 16
       },
+      "raw_bin_error_histogram": {
+        "0": 37,
+        "1": 16
+      },
+      "raw_decision_bin_spread": 2,
       "alignment": {
         "burst_first_sample": 241670,
         "burst_last_sample": 318391,
@@ -283,6 +294,11 @@
         "0": 42,
         "1": 11
       },
+      "raw_bin_error_histogram": {
+        "0": 42,
+        "1": 11
+      },
+      "raw_decision_bin_spread": 2,
       "alignment": {
         "burst_first_sample": 977254,
         "burst_last_sample": 1053971,

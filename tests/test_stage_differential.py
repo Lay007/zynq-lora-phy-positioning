@@ -195,6 +195,11 @@ def test_a_sample_phase_offset_is_blamed_on_the_symbol_stage(fixture_paths) -> N
     errors = {int(key): value for key, value in report.bin_error_histogram.items()}
     assert set(errors) == {0, 1}, errors
     assert errors[1] > 0
+    # And the reason it can only be one-sided: a residual near the half-chip
+    # decision boundary splits the packet across two adjacent bins, so the one
+    # integer adjustment available is right for one group and wrong for the
+    # other by exactly one bin.
+    assert report.raw_decision_bin_spread == 2
 
 
 def test_the_joint_correction_recovers_a_sample_phase_offset(fixture_paths) -> None:
@@ -207,6 +212,26 @@ def test_the_joint_correction_recovers_a_sample_phase_offset(fixture_paths) -> N
     assert corrected["agreed"] == corrected["compared"] > 0
     assert by_stage["packet_decode"]["verdict"] == "agreed"
     assert report.joint_chirp_timing["correction_samples"] == -4
+
+
+@pytest.mark.parametrize(
+    "phase_offset, expected_sign", [(-6, -1), (-5, -1), (5, 1), (6, 1)]
+)
+def test_the_bias_direction_follows_the_sign_of_the_residual(
+    fixture_paths, phase_offset: int, expected_sign: int
+) -> None:
+    """A sub-chip residual is not one-signed on its own.
+
+    Beyond the half-chip boundary every symbol tips the same way, and the
+    direction is the sign of the grid error.  The one-sidedness seen on
+    hardware therefore comes from the integer adjustment absorbing one of two
+    split groups, not from a signed defect inside the correlator.
+    """
+
+    trace_path, iq_path = fixture_paths(phase_offset=phase_offset)
+    report = analyze(trace_path, iq_path)
+    errors = {int(key): value for key, value in report.bin_error_histogram.items()}
+    assert set(errors) == {expected_sign}, errors
 
 
 def test_a_conjugated_stream_is_blamed_on_the_iq_format_stage(fixture_paths) -> None:

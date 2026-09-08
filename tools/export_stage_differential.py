@@ -123,6 +123,8 @@ class DifferentialReport:
     alignment: dict[str, object] = field(default_factory=dict)
     joint_chirp_timing: dict[str, object] = field(default_factory=dict)
     bin_error_histogram: dict[str, int] = field(default_factory=dict)
+    raw_bin_error_histogram: dict[str, int] = field(default_factory=dict)
+    raw_decision_bin_spread: int = 0
     rows: list[dict[str, object]] = field(default_factory=list)
 
 
@@ -453,6 +455,7 @@ def analyze(
     symbol_compared = symbol_agreed = 0
     corrected_compared = corrected_agreed = 0
     bias_histogram: dict[int, int] = {}
+    raw_histogram: dict[int, int] = {}
     for index in range(packet_end):
         want = expected_by_entry.get(index)
         if want is None or index not in determined_entries:
@@ -461,9 +464,27 @@ def analyze(
         symbol_agreed += int(pl_final[index] == want)
         error = int((int(pl_final[index]) - want + count // 2) % count - count // 2)
         bias_histogram[error] = bias_histogram.get(error, 0) + 1
+        raw_error = int((int(pl_raw[index]) - want + count // 2) % count - count // 2)
+        raw_histogram[raw_error] = raw_histogram.get(raw_error, 0) + 1
         if corrected_final[index] >= 0:
             corrected_compared += 1
             corrected_agreed += int(corrected_final[index] == want)
+
+    # How many distinct bins the raw decisions land on, counting only errors
+    # that occur more than once.  A residual sitting near the half-chip
+    # decision boundary splits the packet across two adjacent bins; no single
+    # integer bin adjustment can then be right for both groups, so whichever
+    # one the decoder absorbs leaves the other wrong by exactly one bin, in
+    # one direction.  That, not a signed arithmetic defect, is why the
+    # surviving errors are one-sided.
+    populated = sorted(key for key, value in raw_histogram.items() if value > 1)
+    report.raw_bin_error_histogram = {
+        str(key): value
+        for key, value in sorted(raw_histogram.items(), key=lambda i: (-i[1], i[0]))
+    }
+    report.raw_decision_bin_spread = (
+        populated[-1] - populated[0] + 1 if populated else 0
+    )
 
     ordered_bias = dict(
         sorted(bias_histogram.items(), key=lambda item: (-item[1], item[0]))

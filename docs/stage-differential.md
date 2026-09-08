@@ -159,6 +159,51 @@ the decision one way only. Applying the joint up/down sample correction to the
 same windows takes all three captures to 53/53 with a valid packet decode and
 zero bin adjustment.
 
+### Why the bias can only be one-sided
+
+The measurement above says the errors are all `+1` and never `-1`. That looked
+like a signed defect, and it is not one.
+
+The raw PL decisions of each packet — before any bin adjustment — land on
+**exactly two adjacent bins**:
+
+| Capture | raw errors, before adjustment | adjustment | surviving errors |
+|---|---|---:|---|
+| seq 30 | `{-1: 32, 0: 21}` | −1 | `{0: 32, +1: 21}` |
+| seq 31 | `{0: 37, +1: 16}` | 0 | `{0: 37, +1: 16}` |
+| seq 32 | `{0: 42, +1: 11}` | 0 | `{0: 42, +1: 11}` |
+
+`raw_decision_bin_spread` is 2 in all three.
+
+A residual sitting near the half-chip decision boundary puts each symbol's peak
+close to a bin edge, and which way it rounds depends on the symbol value. The
+packet therefore splits into two groups one bin apart. Only one integer bin
+adjustment is available, so whichever group it fixes, the other is left wrong
+by exactly one bin — always in the same direction, because the two groups sit
+on the same side of each other.
+
+The one-sidedness is a property of that split, not of the arithmetic. This is
+also why the earlier empirical `-1` correction and the parity-guided search
+could not work: shifting the adjustment does not remove the split, it only
+exchanges which group is wrong.
+
+The synthetic sweep confirms both halves. Beyond the half-chip boundary every
+symbol tips together and the direction is simply the sign of the grid error —
+a negative offset gives `-1`, a positive one gives `+1`, so a sub-chip residual
+is *not* one-signed by itself. At exactly half a chip the packet splits, which
+is the hardware condition:
+
+| Injected grid error | Bin errors |
+|---:|---|
+| −6, −5 samples | all `-1` |
+| −4 samples | split, `{-1: 26, 0: 27}` |
+| −3 … +3 samples | none |
+| +4 samples | split, `{0: 23, +1: 30}` |
+| +5, +6 samples | all `+1` |
+
+`tests/test_stage_differential.py` pins the split, the direction, and the
+recovery.
+
 ### The controlled reproduction
 
 `tests/test_stage_differential.py` builds a complete synthetic SF7 frame,
