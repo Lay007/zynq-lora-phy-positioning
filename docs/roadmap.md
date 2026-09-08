@@ -215,12 +215,31 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   the largest observed fine skip consume 137,144 of the 145,152 conservative
   SFD-deadline clocks, leaving 128.128 us at 62.5 MHz. Controller, history/MAC,
   resync, portable-top, and board-bridge RTL regressions pass.
+- [x] Localise the one-sided `+1 bin` bias to a single stage with a
+  reproducible per-stage differential (`tools/export_stage_differential.py`).
+  On all three simultaneous IQ/PL captures every stage through `peak_bin`
+  agrees and the first divergence is `symbol`; `correlator_power` is 59/59, so
+  both sides always computed the same spectrum. That rules out on evidence any
+  off-by-one, `0 ↔ 127` wrap, cyclic-shift sign, `+1` bin convention,
+  MATLAB/RTL indexing, I/Q polarity or conjugation, signed/unsigned, and
+  rounding defect, each of which would move the reported bin. The raw
+  decisions of every packet land on exactly two adjacent bins, so the single
+  integer bin adjustment is right for one group and wrong for the other by one
+  bin: the one-sidedness is a property of that split, not of the arithmetic.
+  48 of 48 surviving errors are `+1`. Applying the joint up/down correction to
+  the same windows gives 53/53 and a valid packet decode on all three.
+  Evidence: [`data/clg400-stage-differential-2026-09-08.json`](data/clg400-stage-differential-2026-09-08.json),
+  method in [stage-differential.md](stage-differential.md). This is
+  model-and-capture evidence, not a PER measurement.
 - [x] Synthesize the portable joint-grid receiver OOC for `xc7z020clg400-2`.
   Vivado 2021.1 reports 19,255 LUTs, 17,636 registers, 72 BRAM tiles and 56
   DSPs; the 10 ns probe has WNS -4.032 ns, a derived 71.266 MHz that exceeds
   the required 62.5 MHz. This is not full-board timing closure.
 - [ ] Route the complete joint-grid board design, package a new SD image,
   cold-boot it, and repeat the simultaneous IQ/PL capture before a PER run.
+  The procedure, settings, and pass/fail criteria are written out in
+  [clg400-joint-grid-experiment.md](clg400-joint-grid-experiment.md); the
+  decisive number is `raw_decision_bin_spread` collapsing from 2 to 1.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
