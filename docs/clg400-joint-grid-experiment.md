@@ -132,15 +132,29 @@ twelve is directly comparable and is enough to separate "every capture agrees"
 from "most do", which is the only distinction this experiment has to make. It
 is *not* enough for a PER figure and must not be reported as one.
 
-```bash
-python tools/run_clg400_payload_capture.py \
-    --host 192.168.40.1 --port COM10 \
+```powershell
+$env:CLG400_SSH_PASSWORD = [System.Net.NetworkCredential]::new(
+  '', (Read-Host -AsSecureString 'CLG400 SSH password')).Password
+python tools/capture_clg400_iq_trace_pair.py `
+    --password-env CLG400_SSH_PASSWORD `
+    --known-hosts fpga/build/clg400-board/known_hosts.current `
+    --connect-timeout 20 --port COM10 --attempts 12 `
     --run-dir experiments/runs/<date>-clg400-joint-grid
 ```
 
-Start the DMA recording so that it brackets the transmission, exactly as the
-2026-09-03 session did; the analysis locates the burst itself, so a little
-slack either side is fine and a truncated packet is not.
+`capture_clg400_iq_trace_pair.py` does both halves in one attempt: it arms the
+trace, starts the DMA recording so it brackets the transmission, sends once,
+reads the frozen trace and streams the recording back over the same SSH
+connection. It refuses an attempt whose recording is short, because a
+truncated packet is worse than a missing one - it still looks like data. The
+2026-09-03 session did this by hand.
+
+The board runs from a RAM disk, so its host key is regenerated on every boot.
+Re-pin it for the current power cycle before the run:
+
+```bash
+ssh-keyscan -T 8 192.168.40.1 > fpga/build/clg400-board/known_hosts.current
+```
 
 Also record, per attempt: the transmitter's reported `TX seq`, `len`,
 `start_ms` and `duration_ms`; the capture sequence; `preamble_bin`; and the
