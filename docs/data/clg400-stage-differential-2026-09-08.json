@@ -26,6 +26,7 @@
       "excluded_transition_entries": [
         2
       ],
+      "pre_header_entries_excluded": 2,
       "padding_dependent_symbol_count": 5,
       "first_divergent_stage": "symbol",
       "bin_error_histogram": {
@@ -92,15 +93,15 @@
         {
           "stage": "correlator_power",
           "verdict": "agreed",
-          "compared": 59,
-          "agreed": 59,
+          "compared": 57,
+          "agreed": 57,
           "ambiguous": 0
         },
         {
           "stage": "peak_bin",
           "verdict": "agreed",
-          "compared": 59,
-          "agreed": 59,
+          "compared": 57,
+          "agreed": 57,
           "ambiguous": 0
         },
         {
@@ -138,8 +139,8 @@
         "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1720, 'skip_samples': 696}]",
         "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 663..991",
         "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
-        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 1.13 dB",
-        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up on upchirp windows; median peak-to-runner-up margin 1.19 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own upchirp sample windows",
         "timing_cfo": "timing +10.796 samples -> +11; CFO displacement -3.094 samples",
         "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 32, 1: 21}",
         "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",
@@ -157,6 +158,7 @@
       "excluded_transition_entries": [
         2
       ],
+      "pre_header_entries_excluded": 2,
       "padding_dependent_symbol_count": 5,
       "first_divergent_stage": "symbol",
       "bin_error_histogram": {
@@ -223,16 +225,16 @@
         {
           "stage": "correlator_power",
           "verdict": "agreed",
-          "compared": 59,
-          "agreed": 59,
+          "compared": 57,
+          "agreed": 57,
           "ambiguous": 0
         },
         {
           "stage": "peak_bin",
-          "verdict": "tie-break",
-          "compared": 59,
+          "verdict": "agreed",
+          "compared": 57,
           "agreed": 57,
-          "ambiguous": 2
+          "ambiguous": 0
         },
         {
           "stage": "timing_cfo",
@@ -269,8 +271,8 @@
         "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1088, 'skip_samples': 64}]",
         "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 47..111",
         "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
-        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 3.52 dB",
-        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows; runner-up swaps at margins 0.24 dB, 0.19 dB",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up on upchirp windows; median peak-to-runner-up margin 3.94 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own upchirp sample windows",
         "timing_cfo": "timing -1.585 samples -> -2; CFO displacement -3.182 samples",
         "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 37, 1: 16}",
         "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",
@@ -288,6 +290,7 @@
       "excluded_transition_entries": [
         2
       ],
+      "pre_header_entries_excluded": 2,
       "padding_dependent_symbol_count": 5,
       "first_divergent_stage": "symbol",
       "bin_error_histogram": {
@@ -354,15 +357,15 @@
         {
           "stage": "correlator_power",
           "verdict": "agreed",
-          "compared": 59,
-          "agreed": 59,
+          "compared": 57,
+          "agreed": 57,
           "ambiguous": 0
         },
         {
           "stage": "peak_bin",
           "verdict": "agreed",
-          "compared": 59,
-          "agreed": 59,
+          "compared": 57,
+          "agreed": 57,
           "ambiguous": 0
         },
         {
@@ -400,8 +403,8 @@
         "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1128, 'skip_samples': 104}]",
         "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 350..454",
         "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
-        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 2.72 dB",
-        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up on upchirp windows; median peak-to-runner-up margin 2.76 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own upchirp sample windows",
         "timing_cfo": "timing +1.625 samples -> +2; CFO displacement -3.195 samples",
         "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 42, 1: 11}",
         "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",

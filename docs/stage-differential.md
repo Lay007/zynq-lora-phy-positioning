@@ -66,7 +66,7 @@ such swap observed on hardware sits below 0.35 dB of margin.
 
 ### What is excluded, and why
 
-Two comparison points are excluded from the strict verdict and reported
+Three comparison points are excluded from the strict verdict and reported
 explicitly rather than silently dropped:
 
 - **the resync transition entry.** At the entry the skip follows, the PL
@@ -78,8 +78,14 @@ explicitly rather than silently dropped:
   transmitter choice the payload does not fix, so those symbols are not a
   sound comparison point. `payload_determined_symbol_count` on the encoder
   result defines the boundary; `padding_dependent_symbol_count` reports it.
+- **the entries before the header.** Those are SFD downchirps read with the
+  upchirp reference. Both sides do the same thing there and neither gets a
+  coherent peak, so the argmax is decided by tenths of a decibel; comparing it
+  measures the noise floor, not the receiver. Every rung that compares
+  decisions — `dechirp`, `correlator_power`, `peak_bin` — is scoped to windows
+  that carry an upchirp symbol. `pre_header_entries_excluded` reports how many.
 
-Both exclusions are properties of the comparison, not of the receiver. Neither
+All three exclusions are properties of the comparison, not of the receiver. None
 removes a symbol that carries payload information.
 
 ## Running it
@@ -115,8 +121,8 @@ captured concurrently with its 128-entry PL trace. Full data in
 | `sample_grid` | agreed | agreed | agreed |
 | `reference_chirp` | agreed | agreed | agreed |
 | `dechirp` | 57/57 | 57/57 | 55/57 (+2 tie-break) |
-| `correlator_power` | 59/59 | 59/59 | 59/59 |
-| `peak_bin` | 59/59 | 57/59 (+2 tie-break) | 59/59 |
+| `correlator_power` | 57/57 | 57/57 | 57/57 |
+| `peak_bin` | 57/57 | 57/57 | 57/57 |
 | `timing_cfo` | agreed | agreed | agreed |
 | **`symbol`** | **32/53** | **37/53** | **42/53** |
 | `symbol_timing_corrected` | 53/53 | 53/53 | 53/53 |
@@ -134,10 +140,10 @@ Bin-error histograms of the delivered symbols:
 
 ### What this establishes
 
-Everything upstream of the symbol decision agrees. `correlator_power` is
-59/59 on all three captures, meaning the PL and the reference model always
-computed the same spectrum; where `peak_bin` differs, the PL picked that
-spectrum's own runner-up at a sub-0.35 dB margin.
+Everything upstream of the symbol decision agrees. `correlator_power` and
+`peak_bin` are 57/57 on all three captures, meaning the PL and the reference
+model always computed the same spectrum and always picked the same bin from
+it.
 
 That measurement rules out, on evidence rather than by argument, every
 candidate that would have to act at or before the peak decision:

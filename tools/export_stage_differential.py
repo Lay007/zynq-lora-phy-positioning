@@ -117,6 +117,7 @@ class DifferentialReport:
     packet_window_count: int = 0
     padding_dependent_symbol_count: int = 0
     excluded_transition_entries: list[int] = field(default_factory=list)
+    pre_header_entries_excluded: int = 0
     first_divergent_stage: str | None = None
     first_divergent_detail: str = ""
     stages: list[dict[str, object]] = field(default_factory=list)
@@ -302,6 +303,13 @@ def analyze(
     comparable = np.asarray(
         [index not in transition_entries for index in range(packet_end)], dtype=bool
     )
+    # The entries before the header are SFD downchirps read with the upchirp
+    # reference. Both sides do the same thing there and neither gets a
+    # coherent peak, so the argmax is decided by tenths of a decibel and
+    # comparing it measures nothing. Every rung that compares decisions is
+    # scoped to windows that actually carry an upchirp symbol.
+    upchirp_window = comparable & (np.arange(packet_end) >= symbol_offset)
+    report.pre_header_entries_excluded = int(min(symbol_offset, packet_end))
 
     # ---- stage: I/Q format ----------------------------------------------
     # A conjugated or swapped stream correlates against the downchirp instead
@@ -331,11 +339,6 @@ def analyze(
 
     # ---- stage: dechirp ---------------------------------------------------
     sample_wise = dechirp_bins(windows, config)
-    # This rung cross-checks the reference against itself, so it only means
-    # something where an upchirp symbol is actually present.  The entries
-    # before the header are SFD downchirps: both paths use the upchirp
-    # reference there by construction and neither produces a coherent peak.
-    upchirp_window = comparable & (np.arange(packet_end) >= symbol_offset)
     dechirp_agree = (sample_wise == two_fft) & upchirp_window
     dechirp_tie = (
         (sample_wise == upright.second_symbols) & upchirp_window & ~dechirp_agree
@@ -364,23 +367,24 @@ def analyze(
     # threshold-free form of "are both sides looking at the same spectrum".
     in_top_two = (pl_raw == two_fft) | (pl_raw == upright.second_symbols)
     verdicts["correlator_power"] = _verdict(
-        int(np.sum(in_top_two & comparable)),
-        int(np.sum(comparable)),
-        "PL decisions that are the reference peak or its runner-up; median "
-        f"peak-to-runner-up margin {float(np.median(margin_db)):.2f} dB",
+        int(np.sum(in_top_two & upchirp_window)),
+        int(np.sum(upchirp_window)),
+        "PL decisions that are the reference peak or its runner-up on upchirp "
+        "windows; median peak-to-runner-up margin "
+        f"{float(np.median(margin_db[upchirp_window])):.2f} dB",
     )
 
     # ---- stage: peak bin ---------------------------------------------------
-    peak_agree = (pl_raw == two_fft) & comparable
-    peak_tie = (pl_raw == upright.second_symbols) & comparable & ~peak_agree
+    peak_agree = (pl_raw == two_fft) & upchirp_window
+    peak_tie = (pl_raw == upright.second_symbols) & upchirp_window & ~peak_agree
     tie_margins = margin_db[peak_tie]
     verdicts["peak_bin"] = _verdict(
         int(np.sum(peak_agree)),
-        int(np.sum(comparable)),
+        int(np.sum(upchirp_window)),
         ambiguous=int(np.sum(peak_tie)),
         detail=(
             "PL frozen decisions against the reference correlator evaluated "
-            "on the PL's own sample windows"
+            "on the PL's own upchirp sample windows"
             + (
                 "; runner-up swaps at margins "
                 + ", ".join(f"{value:.2f} dB" for value in tie_margins)
