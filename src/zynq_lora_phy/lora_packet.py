@@ -58,6 +58,23 @@ class LoRaEncodeResult:
     payload_codewords: tuple[tuple[bool, ...], ...]
     header_interleaved_labels: tuple[int, ...]
     payload_interleaved_labels: tuple[int, ...]
+    coding_rate: int = 1
+    padding_nibble_count: int = 0
+
+    @property
+    def payload_determined_symbol_count(self) -> int:
+        """Symbols fully determined by the payload, excluding padding effects.
+
+        The final block is filled to ``sf_app`` nibbles when the data does not
+        divide evenly.  Interleaving spreads those padding nibbles across every
+        symbol of that block, and the padding value is a transmitter choice
+        that the payload does not fix, so those symbols are not a sound
+        comparison point against another implementation.
+        """
+
+        if not self.padding_nibble_count:
+            return len(self.symbols)
+        return len(self.symbols) - (4 + self.coding_rate)
 
 
 def _integer_bits(value: int, width: int) -> list[bool]:
@@ -371,6 +388,8 @@ def encode_lora_packet(
         payload_codewords=tuple(tuple(word) for word in payload_codewords),
         header_interleaved_labels=tuple(header_labels),
         payload_interleaved_labels=tuple(payload_labels),
+        coding_rate=coding_rate,
+        padding_nibble_count=block_count * payload_sf - len(remaining),
     )
 
 
