@@ -1,0 +1,396 @@
+{
+  "schema": "zynq-lora-stage-differential-evidence-v1",
+  "recorded_utc": "2026-09-03",
+  "analysis_utc": "2026-09-08",
+  "tool": "tools/export_stage_differential.py",
+  "command": "python tools/export_stage_differential.py experiments/runs/20260904-clg400-iq-compare/clg400-trace-<stamp>.json --csv <out>.csv --json <out>.json",
+  "link": {
+    "transmitter": "Heltec WiFi LoRa 32 V4.3 (ESP32-S3 + SX1262)",
+    "receiver": "CLG400 ZynqSDR board B (Zynq-7020 + AD9361), RX1",
+    "path": "over the air, both antennas fitted",
+    "profile": "freq 868.100 MHz, BW 125 kHz, SF7, CR 4/5, sync 0x12, TX power -9 dBm, preamble 12, CRC on, IQ normal, payload ZLP1/32",
+    "rx_sample_rate_hz": 1000000,
+    "bitstream_sha256": "65544c8b3c36a34feedc36943ab0c33ee0792b93cf228967ad8e4eb54b58b0c0"
+  },
+  "method": "Each capture pairs one RX1 DMA recording with the PL decision trace frozen from the same packet. The expected symbols are rebuilt from the transmitter's own serial log through encode_lora_packet and never look at the received IQ. A stage counts as diverged only when a decision falls outside the reference peak/runner-up pair.",
+  "captures": [
+    {
+      "tx_sequence": 30,
+      "trace_file": "clg400-trace-20260903T224859Z.json",
+      "trace_sha256": "b73958ba552e64688987a04c7194edb3ec05269d2a6ebfff83445969eb4a2749",
+      "iq_file": "rx1-iq-20260903T224859Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "ff73597c2905266f107254e9b5205f4c16b6c9fe3b83114409cb0986d529c6d2",
+      "packet_window_count": 60,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "first_divergent_stage": "symbol",
+      "bin_error_histogram": {
+        "0": 32,
+        "1": 21
+      },
+      "alignment": {
+        "burst_first_sample": 242241,
+        "burst_last_sample": 318956,
+        "entry0_dma_sample": 256991,
+        "raw_bin_matches": 23,
+        "raw_bins_compared": 24
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 249246.70185515838,
+        "down_sample_index": 257444.8906791126,
+        "up_offset_samples": 7.7018551583751105,
+        "down_offset_samples": 13.890679112606449,
+        "timing_offset_samples": 10.79626713549078,
+        "cfo_displacement_samples": -3.0944119771156693,
+        "correction_samples": 11
+      },
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 59,
+          "agreed": 59,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 59,
+          "agreed": 59,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 32,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ],
+      "stage_details": {
+        "raw_iq": "1500000 complex samples, peak |IQ| 176, 0 clipped components",
+        "iq_format": "median upchirp peak 1.036e+10 vs conjugated 7.093e+08 over 60 packet windows; polarity is normal",
+        "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1720, 'skip_samples': 696}]",
+        "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 663..991",
+        "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 1.13 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows",
+        "timing_cfo": "timing +10.796 samples -> +11; CFO displacement -3.094 samples",
+        "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 32, 1: 21}",
+        "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",
+        "packet_decode": "header_valid=True crc_valid=True payload_matches_transmitter=True payload=5a4c50311e000000d3d0b4001e1f202122232425262728292a2b2c2d2e2f3031"
+      }
+    },
+    {
+      "tx_sequence": 31,
+      "trace_file": "clg400-trace-20260903T224913Z.json",
+      "trace_sha256": "11f5bdf14bd04592d22a4a0880c81962aa96ec20e4e6cefd74fcfeae6390858a",
+      "iq_file": "rx1-iq-20260903T224913Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "3e0e2ea05d8c46f152b409a70754074804fe7782a6f8782a900fae049e1ecda7",
+      "packet_window_count": 60,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "first_divergent_stage": "symbol",
+      "bin_error_histogram": {
+        "0": 37,
+        "1": 16
+      },
+      "alignment": {
+        "burst_first_sample": 241670,
+        "burst_last_sample": 318391,
+        "entry0_dma_sample": 257071,
+        "raw_bin_matches": 21,
+        "raw_bins_compared": 24
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 248682.2320438152,
+        "down_sample_index": 256880.59701239874,
+        "up_offset_samples": -4.767956184805371,
+        "down_offset_samples": 1.5970123987353873,
+        "timing_offset_samples": -1.5854718930349918,
+        "cfo_displacement_samples": -3.182484291770379,
+        "correction_samples": -2
+      },
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "agreed",
+          "compared": 57,
+          "agreed": 57,
+          "ambiguous": 0
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 59,
+          "agreed": 59,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "tie-break",
+          "compared": 59,
+          "agreed": 57,
+          "ambiguous": 2
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 37,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ],
+      "stage_details": {
+        "raw_iq": "1500000 complex samples, peak |IQ| 176, 0 clipped components",
+        "iq_format": "median upchirp peak 1.531e+10 vs conjugated 6.48e+08 over 60 packet windows; polarity is normal",
+        "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1088, 'skip_samples': 64}]",
+        "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 47..111",
+        "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 3.52 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows; runner-up swaps at margins 0.24 dB, 0.19 dB",
+        "timing_cfo": "timing -1.585 samples -> -2; CFO displacement -3.182 samples",
+        "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 37, 1: 16}",
+        "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",
+        "packet_decode": "header_valid=True crc_valid=True payload_matches_transmitter=True payload=5a4c50311f0000008808b5001f202122232425262728292a2b2c2d2e2f303132"
+      }
+    },
+    {
+      "tx_sequence": 32,
+      "trace_file": "clg400-trace-20260903T224927Z.json",
+      "trace_sha256": "03b81d845c79ce2862ddf2ce69f2d2cd88c24ac3333e26657aed65d67ac7a4f3",
+      "iq_file": "rx1-iq-20260903T224927Z.bin",
+      "iq_bytes": 6000000,
+      "iq_sha256": "72b668ee59907aa2123c424acfef95e000f88fc359ed05e74378e289c3923de4",
+      "packet_window_count": 60,
+      "excluded_transition_entries": [
+        2
+      ],
+      "padding_dependent_symbol_count": 5,
+      "first_divergent_stage": "symbol",
+      "bin_error_histogram": {
+        "0": 42,
+        "1": 11
+      },
+      "alignment": {
+        "burst_first_sample": 977254,
+        "burst_last_sample": 1053971,
+        "entry0_dma_sample": 992606,
+        "raw_bin_matches": 23,
+        "raw_bins_compared": 24
+      },
+      "joint_chirp_timing": {
+        "up_sample_index": 984260.4300783644,
+        "down_sample_index": 992458.8208134519,
+        "up_offset_samples": -1.569921635556966,
+        "down_offset_samples": 4.820813451893628,
+        "timing_offset_samples": 1.6254459081683308,
+        "cfo_displacement_samples": -3.195367543725297,
+        "correction_samples": 2
+      },
+      "stages": [
+        {
+          "stage": "raw_iq",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "iq_format",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "sample_grid",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "reference_chirp",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "dechirp",
+          "verdict": "tie-break",
+          "compared": 57,
+          "agreed": 55,
+          "ambiguous": 2
+        },
+        {
+          "stage": "correlator_power",
+          "verdict": "agreed",
+          "compared": 59,
+          "agreed": 59,
+          "ambiguous": 0
+        },
+        {
+          "stage": "peak_bin",
+          "verdict": "agreed",
+          "compared": 59,
+          "agreed": 59,
+          "ambiguous": 0
+        },
+        {
+          "stage": "timing_cfo",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol",
+          "verdict": "diverged",
+          "compared": 53,
+          "agreed": 42,
+          "ambiguous": 0
+        },
+        {
+          "stage": "symbol_timing_corrected",
+          "verdict": "agreed",
+          "compared": 53,
+          "agreed": 53,
+          "ambiguous": 0
+        },
+        {
+          "stage": "packet_decode",
+          "verdict": "agreed",
+          "compared": 1,
+          "agreed": 1,
+          "ambiguous": 0
+        }
+      ],
+      "stage_details": {
+        "raw_iq": "1500000 complex samples, peak |IQ| 177, 0 clipped components",
+        "iq_format": "median upchirp peak 1.345e+10 vs conjugated 6.376e+08 over 60 packet windows; polarity is normal",
+        "sample_grid": "126/127 gaps equal one symbol; 1 resync skip(s): [{'after_entry': 2, 'gap_samples': 1128, 'skip_samples': 104}]",
+        "reference_chirp": "unit-amplitude reference holds 1024.0 of 1024 expected energy; window phases span 350..454",
+        "dechirp": "sample-wise dechirp against the two-FFT correlator identity on identical upchirp windows; decimation and the aliasing sum are different operations off the symbol grid, so a smeared window can swap two near-equal bins",
+        "correlator_power": "PL decisions that are the reference peak or its runner-up; median peak-to-runner-up margin 2.72 dB",
+        "peak_bin": "PL frozen decisions against the reference correlator evaluated on the PL's own sample windows",
+        "timing_cfo": "timing +1.625 samples -> +2; CFO displacement -3.195 samples",
+        "symbol": "PL symbols as delivered against the rebuilt transmitted symbols; bin-error histogram {0: 42, 1: 11}",
+        "symbol_timing_corrected": "the same comparison after applying the joint up/down sample correction to the reconstructed symbol grid",
+        "packet_decode": "header_valid=True crc_valid=True payload_matches_transmitter=True payload=5a4c5031200000000343b500202122232425262728292a2b2c2d2e2f30313233"
+      }
+    }
+  ]
+}

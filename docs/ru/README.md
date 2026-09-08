@@ -19,6 +19,7 @@
 - [Golden source of truth: эталоны MATLAB, HDL и RF evidence](golden-source-of-truth.md)
 - [Whitening, FEC, interleaving, CRC и отображение символов](lora-phy-coding.md)
 - [Методика BER/SER/PER](ber-methodology.md)
+- [Послойная differential regression приёмного тракта](stage-differential.md)
 - [Методика дробного ToA и будущей аппаратной калибровки](toa-methodology.md)
 - [End-to-end приёмка MATLAB M1: PHY, ToA и TDoA](matlab-m1-acceptance.md)
 - [Запись пакетов SX1262 с RTL-SDR и PlutoSDR](iq-capture-guide.md)

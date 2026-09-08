@@ -13,6 +13,7 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 ## Measurement and verification
 
 - [BER methodology](ber-methodology.md)
+- [Stage-by-stage receive-chain differential](stage-differential.md)
 - [IQ capture guide](iq-capture-guide.md)
 - [Automated PHY experiment](automated-phy-experiment.md)
 
@@ -25,6 +26,7 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 - [CLG400 accepted over-the-air payload evidence](data/clg400-symbol-trace-2026-09-03.json)
 - [CLG400 realigned-grid evidence](data/clg400-grid-resync-2026-09-04.json)
 - [CLG400 simultaneous IQ/PL comparison evidence](data/clg400-iq-trace-comparison-2026-09-04.json)
+- [CLG400 stage-differential evidence](data/clg400-stage-differential-2026-09-08.json)
 - [Joint up/down sample-grid RTL evidence](data/rtl-joint-chirp-grid-2026-09-04.json)
 - [CLG400 board-level synthesis evidence](data/rtl-m4-clg400-board-synthesis.csv)
 - [CLG400 board-level implementation evidence](data/rtl-m4-clg400-board-implementation.csv)
