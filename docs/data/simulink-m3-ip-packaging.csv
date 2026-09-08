@@ -1,0 +1,9 @@
+Target,Vlnv,Top,Part,PackagedSourceFiles,ComponentXml
+fft-correlator-fixed,zynq-lora-phy-positioning:lora:lora_fft_correlator:1.0,lora_fft_DUT,xc7z020clg400-2,77,1
+blind-detector,zynq-lora-phy-positioning:lora:lora_blind_detector:1.0,lora_blind_DUT,xc7z020clg400-2,2,1
+acquisition,zynq-lora-phy-positioning:lora:lora_acquisition:1.0,lora_acq_DUT,xc7z020clg400-2,2,1
+framing,zynq-lora-phy-positioning:lora:lora_framing:1.0,lora_frame_DUT,xc7z020clg400-2,2,1
+sfd,zynq-lora-phy-positioning:lora:lora_sfd_validation:1.0,lora_sfd_DUT,xc7z020clg400-2,2,1
+toa-interpolator,zynq-lora-phy-positioning:lora:lora_toa_interpolator:1.0,lora_toa_DUT,xc7z020clg400-2,2,1
+joint-timing-cfo,zynq-lora-phy-positioning:lora:lora_joint_sync:1.0,lora_sync_DUT,xc7z020clg400-2,2,1
+frequency-estimator,zynq-lora-phy-positioning:lora:lora_frequency_estimator:1.0,lora_freq_DUT,xc7z020clg400-2,2,1

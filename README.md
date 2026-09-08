@@ -27,7 +27,8 @@ defines why generated LoRa HDL is not duplicated there.
 > portable SF7/L=8 IQ-to-AXI timestamp receiver synthesized for
 > `xc7z020clg400-2`. A CLG400 overlay now connects that receiver to the vendor
 > AD9361 RX1 stream and exposes atomic metadata through a PS gpreg window.
-> Generated-IP packaging and hardware validation remain open. M4-M6 hardware
+> The eight generated cores are now packaged as catalog-verified Vivado IP;
+> hardware validation remains open. M4-M6 hardware
 > reception and synchronized positioning have not started, so the repository
 > does not yet claim a hardware LoRa receiver.
 
@@ -168,6 +169,18 @@ matlab -batch "cd model/simulink; run_simulink_regression"
 Measured results and selected fixed-point formats that establish M2 acceptance
 are in [M2 acceptance](docs/simulink-m2-acceptance.md).
 
+With Vivado available, the generated cores can be measured and packaged:
+
+```matlab
+report = run_synthesis;                     % out-of-context resources and Fmax
+report = run_ip_packaging;                  % self-contained Vivado IP per core
+```
+
+`run_ip_packaging` writes `fpga/build/ip/<target>`, then re-reads each result
+from a clean project and instantiates it from the rebuilt catalog, so an IP
+that cannot be used fails the target. See
+[M3 IP packaging evidence](docs/data/simulink-m3-ip-packaging.csv).
+
 ## Auxiliary Python checks
 
 Python 3.10 or newer is recommended.
@@ -211,6 +224,7 @@ frequency offset, compensates the known offset, and demodulates the symbols.
 - [RTL-SDR and PlutoSDR packet-capture guide](docs/iq-capture-guide.md)
 - [Experiment workflow](experiments/README.md)
 - [Heltec V4.3/SX1262 to ZynqSDR hardware sweep](docs/hardware-sweep-2026-08-03-heltec-v43.md)
+- **[Stage-by-stage receive-chain differential](docs/stage-differential.md)**
 - **[BER/SER methodology](docs/ber-methodology.md)**
 - **[Whitening, FEC, interleaving, and CRC](docs/lora-phy-coding.md)**
 - [Documentation index](docs/README.md)

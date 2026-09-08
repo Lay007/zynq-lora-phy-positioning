@@ -113,7 +113,16 @@ and has a successful recorded timestamp-metadata execution. Measurements are in
   now assigns a unique HDL Coder `ModulePrefix` to every target so all eight
   generated cores can coexist in one Vivado namespace. All eight committed HDL
   snapshots have been regenerated with those prefixes.
-- [ ] Add generated-IP packaging.
+- [x] Add generated-IP packaging. `run_ip_packaging` / `package_ip.tcl` turn
+  each HDL Coder output into a self-contained Vivado IP under
+  `fpga/build/ip/<target>`: a `component.xml` plus a copy of the Verilog, with
+  no absolute path back into the repository. All eight cores package and are
+  then re-read from a fresh project that knows only the output directory,
+  whose catalog is rebuilt and the IP instantiated from it, so an unusable
+  `component.xml` fails the target. Each core carries a `GENERATED_FROM` user
+  parameter naming its HDL Coder target directory. Evidence:
+  [`data/simulink-m3-ip-packaging.csv`](data/simulink-m3-ip-packaging.csv).
+  This is packaging evidence only: no synthesis, no timing, no hardware claim.
 - [x] Integrate the generated FFT detector and ToA interpolator with the
   hand-written IQ history, full 1024-sample matched-filter search, reference
   ROM, metadata join and AXI control/status in one portable single-clock top.
