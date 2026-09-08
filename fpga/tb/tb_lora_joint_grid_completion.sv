@@ -94,6 +94,11 @@ module tb_lora_joint_grid_completion;
     // depends on how much history has accumulated when a search launches, so
     // the gap is selectable: +sample_gap=63 reproduces the board's density.
     integer sample_gap = 0;
+    // On the board the packet lands at an arbitrary phase, so chips_to_boundary
+    // sweeps the whole symbol and the coarse resync withholds a large advance.
+    // A packet driven straight onto the grid gives chips_to_boundary = 0 and
+    // never exercises that against the joint search.
+    integer grid_phase = 0;
     integer joint_search_start_seen = 0;
     integer joint_search_failed_seen = 0;
     integer joint_timing_valid_seen = 0;
@@ -197,6 +202,34 @@ module tb_lora_joint_grid_completion;
         end
     endtask
 
+    task automatic drive_partial_symbol(input integer count);
+        integer n;
+        integer q_re;
+        integer q_im;
+        real phase_cycles;
+        real angle;
+        begin
+            for (n = 0; n < count; n = n + 1) begin
+                phase_cycles = (0.5 * n * n) /
+                               (SYMBOL_COUNT * SAMPLES_PER_CHIP *
+                                SAMPLES_PER_CHIP) -
+                               (0.5 * n) / SAMPLES_PER_CHIP;
+                angle = 2.0 * PI * phase_cycles;
+                q_re = quantize_q10($cos(angle));
+                q_im = quantize_q10($sin(angle));
+                @(negedge clk);
+                iq_in_re <= q_re;
+                iq_in_im <= q_im;
+                valid_in <= 1'b1;
+                if (sample_gap > 0) begin
+                    @(negedge clk);
+                    valid_in <= 1'b0;
+                    repeat (sample_gap - 1) @(negedge clk);
+                end
+            end
+        end
+    endtask
+
     task automatic axi_write(input [5:0] address, input [31:0] value);
         begin
             @(negedge clk);
@@ -250,10 +283,10 @@ module tb_lora_joint_grid_completion;
                 joint_range_error_seen = joint_range_error_seen + 1;
             if (packet_start_valid) begin
                 packet_start_seen = packet_start_seen + 1;
-                if (packet_start_count !== 64'd1024) begin
+                if (packet_start_count !== 64'd1024 + grid_phase) begin
                     errors = errors + 1;
-                    $display("FAIL packet start got=%0d expected=1024",
-                             packet_start_count);
+                    $display("FAIL packet start got=%0d expected=%0d",
+                             packet_start_count, 64'd1024 + grid_phase);
                 end
             end
             if (correlation_magnitude_valid)
@@ -298,7 +331,9 @@ module tb_lora_joint_grid_completion;
 
         if (!$value$plusargs("sample_gap=%d", sample_gap))
             sample_gap = 0;
-        $display("INFO sample_gap=%0d clocks between samples", sample_gap);
+        if (!$value$plusargs("grid_phase=%d", grid_phase))
+            grid_phase = 0;
+        $display("INFO sample_gap=%0d grid_phase=%0d", sample_gap, grid_phase);
         repeat (6) @(posedge clk);
         resetn <= 1'b1;
         repeat (3) @(posedge clk);
@@ -306,6 +341,7 @@ module tb_lora_joint_grid_completion;
 
         // The non-preamble prefix keeps the confirmed packet timestamp away
         // from count zero, leaving a complete +/-16-sample ToA search window.
+        if (grid_phase > 0) drive_partial_symbol(grid_phase);
         drive_css_symbol(37);
         drive_css_symbol(0); drive_css_symbol(0); drive_css_symbol(0);
         drive_css_symbol(0); drive_css_symbol(0); drive_css_symbol(0);
@@ -354,8 +390,9 @@ module tb_lora_joint_grid_completion;
         end
 
         if (errors == 0)
-            $display("PASS tb_lora_joint_grid_completion searches=%0d fine_skip=%0d",
-                     joint_search_start_seen, dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip);
+            $display("PASS tb_lora_joint_grid_completion grid_phase=%0d chips_to_boundary=%0d searches=%0d fine_skip=%0d",
+                     grid_phase, dut.chips_to_boundary, joint_search_start_seen,
+                     dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip);
         else begin
             $display("FAIL tb_lora_joint_grid_completion errors=%0d", errors);
             $fatal(1);
