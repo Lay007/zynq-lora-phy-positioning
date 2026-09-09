@@ -105,5 +105,48 @@
       "trace_sha256": "fbbc65909f16bbbc6bfba711c6eb820186bba1447d205277de28f64cb1035c59",
       "iq_sha256": "6dbf0b12c58ec2a3ff0f169721929d019f1e5b02b114dafb5687e0c983d0fd3e"
     }
-  ]
+  ],
+  "read_miss_root_cause": {
+    "recorded_utc": "2026-09-09",
+    "finding": "The abort is the search outliving the history retention of its own read region, reported at the exact cycle the write pointer reaches that region.",
+    "mechanism": "lora_iq_history_buffer raises read_miss for two different things: a sample outside [oldest, next), and read_write_collision, which is read_addr == write_addr on a cycle when a sample arrives. The joint search reads a fixed window 9.75 symbols behind the write pointer. While it runs, the write pointer advances; after a full 65536-sample wrap it reaches that window, the collision fires, read_miss feeds search_failed, and the joint estimate is abandoned.",
+    "quantitative_confirmation": {
+      "model": "samples from trace start to the fine skip = DEPTH - lookback + coarse_advance",
+      "measured": [
+        {
+          "tx_sequence": 80,
+          "preamble_bin": 86,
+          "coarse_advance": 336,
+          "fine_skip_at_sample": 55888
+        },
+        {
+          "tx_sequence": 78,
+          "preamble_bin": 74,
+          "coarse_advance": 432,
+          "fine_skip_at_sample": 55984
+        },
+        {
+          "tx_sequence": 76,
+          "preamble_bin": 41,
+          "coarse_advance": 696,
+          "fine_skip_at_sample": 56248
+        },
+        {
+          "tx_sequence": 81,
+          "preamble_bin": 29,
+          "coarse_advance": 792,
+          "fine_skip_at_sample": 56344
+        },
+        {
+          "tx_sequence": 77,
+          "preamble_bin": 21,
+          "coarse_advance": 856,
+          "fine_skip_at_sample": 56408
+        }
+      ],
+      "residual": "fine_skip_at_sample minus coarse_advance equals 55552 on all five captures with zero residual, so the slope against the advance is exactly 1. DEPTH minus that constant is 9984 samples, 9.75 symbols, which is the lookback from the write pointer to the read window at search start."
+    },
+    "supersedes": "This replaces the earlier future-read conclusion. That was reached by elimination - a too-old read is impossible so soon after the stream reset - but the elimination missed a third cause, the collision. The up-search data-ready wait added on the strength of it is correct and harmless, but it was not the fix.",
+    "open": "Why the search is still running after fifty-four symbols. The packet-rate RTL regression measures the pair at 135,443 clocks, about two symbols. Twenty-five times that on hardware is the next thing to explain, and it is what makes the read window age out at all."
+  }
 }

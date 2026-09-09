@@ -477,10 +477,54 @@ stream reset, where nothing can have been overwritten, still produces it. The
 failing read is still ahead of the stream and it is not the up search's first
 read.
 
-One new observation narrows the next step: the fine skip lands around trace
-entry 53, far past the header. Whatever the controller is waiting on, it is
-waiting roughly fifty symbols, not the dozen the geometry predicts. That
-duration is now the most informative unexplained number.
+### The read miss, explained to the sample
+
+The fine skip lands around trace entry 53 — roughly fifty symbols, not the
+dozen the geometry predicts. That number turned out to be the whole answer.
+
+`lora_iq_history_buffer` raises `read_miss` for **two different things**:
+
+```verilog
+wire read_write_collision = sample_valid && (read_addr == write_addr);
+...
+if (read_in_range && !read_write_collision) read_valid <= 1'b1;
+else                                        read_miss  <= 1'b1;
+```
+
+A sample outside `[oldest, next)` is one. A read address that equals the write
+address on a cycle when a sample arrives is the other, and it is reported
+identically. The joint search reads a **fixed** window 9.75 symbols behind the
+write pointer. While it runs the write pointer advances, and after a full
+65,536-sample wrap it reaches that window. The collision fires, `read_miss`
+feeds `search_failed`, and the estimate is abandoned.
+
+The model predicts the timing exactly:
+
+```text
+samples from trace start to the fine skip = DEPTH − lookback + coarse_advance
+```
+
+| seq | preamble bin | coarse advance | fine skip at sample | minus advance |
+|---:|---:|---:|---:|---:|
+| 80 | 86 | 336 | 55888 | 55552 |
+| 78 | 74 | 432 | 55984 | 55552 |
+| 76 | 41 | 696 | 56248 | 55552 |
+| 81 | 29 | 792 | 56344 | 55552 |
+| 77 | 21 | 856 | 56408 | 55552 |
+
+**55552 on all five, zero residual** — the slope against the advance is exactly
+1. `65536 − 55552 = 9984` samples, 9.75 symbols, which is precisely the
+lookback from the write pointer to the read window at search start.
+
+This supersedes the future-read conclusion above. That was reached by
+elimination — a too-old read is impossible so soon after a stream reset — and
+the elimination missed this third cause. The up-search data-ready wait added on
+the strength of it is correct and harmless, but it was not the fix.
+
+**What is now the open question:** why the search is still running after
+fifty-four symbols at all. The packet-rate RTL regression measures the pair at
+135,443 clocks, about two symbols. Twenty-five times that on hardware is what
+lets the read window age out, and it is the next thing to explain.
 
 ## Evidence boundary
 
