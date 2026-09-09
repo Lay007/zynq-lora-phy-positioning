@@ -647,14 +647,90 @@ The page is read eight times and the largest interval kept, because
 `util_wfifo` hands out samples in bursts of eight and a single reading can
 legitimately land inside a burst.
 
-### What this does and does not settle
+### Result on hardware, 2026-09-09
 
-A receiver clocked at 62.5 MHz makes the joint search *able* to finish inside
-the SFD. It does not by itself establish that the search then produces a
-correct estimate, that the `+1` bin bias disappears, or anything about link
-quality. Those need the twelve-capture experiment re-run and the differential
-ladder re-checked; the entry above records what was measured before the change,
-and the result of the re-run belongs beside it.
+Bitstream `dce57510e6aa77c69de907adbaa1183c`, routed at `WNS +0.052 ns`,
+`WHS +0.030 ns`, no failing endpoints. 37,747 receiver endpoints moved onto
+`clk_out1_system_lora_receiver_clk_0`; the old divider leg retains 1,735 at
++9.43 ns, and the inter-clock table is empty, so every crossing is covered by
+the clock groups.
+
+The clock, measured at both monitors:
+
+| | raw | frequency |
+|---|---:|---:|
+| monitor 1, fixed receiver clock | 40960 | 62.5000 MHz |
+| monitor 0, AD9361 divided clock | 656 | 1.0010 MHz |
+
+Monitor 1 read its known frequency exactly, calibration factor 1.0000, so
+monitor 0 is an absolute measurement. The receiver really did have one clock
+per sample. The AD9361 driver agrees independently: `rx_path_rates` reports
+`RF:4000000` at `RXSAMP:1000000`.
+
+| | before | after |
+|---|---:|---:|
+| clocks per sample | 1 | 63 |
+| SFD deadline | 2,304 clocks | 145,152 clocks |
+| joint search cost | never completed | **135,443 clocks** |
+| fine correction applied at trace entry | 53 | **1** |
+
+135,443 is the number simulation gives. The search does not merely fit now; it
+costs exactly what was predicted, and the correction lands before the header
+instead of fifty symbols after it. The search duration also turns out to be a
+usable status: 135,443 means both passes ran and a fine skip was applied,
+while 67,721 - almost exactly half - means the search stopped after the first
+pass and applied nothing.
+
+**The decision bias is not fixed.** `raw_decision_bin_spread` is still 2 and
+the histogram is still one-sided: across 318 compared symbols, 190 errors on
+one side against 34 on the other. The clock was the root cause of a real
+defect, but not of the one this investigation started on; it was masking it,
+because before the fix no joint estimate was ever applied at all.
+
+Ten paired captures localise what remains:
+
+- every rung through `peak_bin` agrees 58/58, so the PL computes the correct
+  answer for the window it chose;
+- the first divergence is still `symbol`;
+- applying the reference's joint correction to the reconstructed grid gives
+  **53/53 on eight of ten captures**.
+
+So the estimator as specified is sufficient to recover every symbol, and the
+open question is where the PL's grid ends up. One packet of ten passed CRC:
+the decode threshold is sharp, because coding rate 4/5 is parity only, and the
+one that passed had 52 of 53 decisions on a single bin.
+
+### A fourth wrong answer, caught before it was written down
+
+The applied fine skip does not match the reference's correction. Over the
+eight captures where a skip was applied, `pl + reference` has mean 1.4 and mean
+absolute value 2.6 while `pl - reference` has mean absolute value 17.4, and a
+least-squares fit over the captures inside the plus/minus 16 search radius
+gives a slope of **-0.885**. That reads as an inverted sign.
+
+It is not one. `tb_lora_joint_chirp_grid_path` drives an upchirp at sample 1008
+and a downchirp at 11254 against a declared `packet_start_count` of 1000 with
+`chips_to_boundary` zero. Those give true offsets of +8 and +14, hence a true
+timing of **+11** and a built-in CFO displacement of **-3**. The controller
+reports +11 and a fine skip of 27. The testbench's expected values follow from
+its stimulus rather than from the implementation, and the implementation
+matches them, so the RTL arithmetic and sign are right.
+
+The two numbers are therefore measured from different origins - the PL's from
+`packet_start_count` plus `chips_to_boundary`, the model's from an origin
+derived from the trace alignment - and a systematic difference between those
+origins that grows with the preamble bin would produce the same
+anti-correlation. Both quantities do correlate with the preamble bin. Closing
+this needs `up_coarse_start` and `timing_correction_samples` brought out so the
+two sides can be compared against one origin, which is another rebuild.
+
+The second candidate is uncompensated CFO. Its displacement is stable at -3.50,
+-3.50 and -3.53 samples here and -3.33 to -3.49 across the earlier twelve:
+about -427 Hz, -0.49 ppm at 868.1 MHz, -0.44 of a bin.
+`lora_joint_chirp_grid_controller` forms only the half-sum, which cancels CFO
+by construction; the half-difference is never formed and nothing in the RTL
+consumes it. Against that, the reference model reaches 53/53 without
+compensating it either, so it cannot be the whole story.
 
 ## Evidence boundary
 
