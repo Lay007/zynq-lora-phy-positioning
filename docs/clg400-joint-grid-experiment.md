@@ -316,17 +316,29 @@ controller, joint-path, receiver-top and CLG400 bridge regressions are
 unchanged by it, and the joint path still reports `fine_skip=27`.
 
 **Still open, and the next thing to settle:** why the board's search hits a
-history read miss. That remains unreproduced offline — the simulation reaches
-an abort by a different route. Two things are worth doing before another build:
+history read miss on every packet. It remains unreproduced offline — the
+simulation reaches an abort by a different route. What is now known is that it
+is deterministic and phase independent, so the next steps are:
 
 - Establish why the detector reports `preamble_bin = 0` for a packet delayed by
   a silence prefix. Either the testbench delay is not the same thing as a real
   arrival phase, or the reported bin does not carry it; both matter, because
   the coarse resync depends on that bin.
-- Correlate the read miss with `preamble_bin` on the board directly. Each
-  packet sweeps the arrival phase for free, so clearing the sticky word per
-  packet and recording the pair answers it in one bench run without another
-  Vivado build.
+- ~~Correlate the read miss with `preamble_bin` on the board.~~ **Done
+  2026-09-09, and it refutes the phase hypothesis.** Fourteen packets, the
+  sticky word cleared before each: `read_miss` on **14 of 14**, across
+  `preamble_bin` 5 to 118, with an identical sticky word every time and
+  `toa_peak_boundary_error` clear throughout. The miss does not depend on where
+  the packet lands — it is deterministic on every packet. That rules out a
+  marginal history-depth or timing effect and points at a systematic
+  addressing or counter-domain error in the joint search. It also confirms the
+  simulated boundary abort and the board's abort are different events.
+
+A third step is now clearly worth its cost: `history_next_sample_count`,
+`history_oldest_sample_count` and `history_samples_retained` are left
+unconnected in `lora_clg400_gpreg_bridge`, so the retained window cannot be
+read from the PS. Exposing them would say immediately whether the failing read
+is too old or in the future, which splits the remaining hypotheses in half.
 
 The guard fix makes an abort harmless rather than harmful. It does not deliver
 the correction, and the joint-grid build should not be re-deployed as an
