@@ -1,0 +1,59 @@
+{
+  "schema": "zynq-lora-fixed-receiver-clock-hardware-v1",
+  "recorded_utc": "2026-09-09",
+  "bitstream_sha256_prefix": "dce57510e6aa77c69de907adbaa1183c",
+  "previous_bitstream_sha256_prefix": "3265ed82843a7b36c2859e8a6726d9df",
+  "post_route": {
+    "wns_ns": 0.052,
+    "whs_ns": 0.030,
+    "failing_endpoints": 0,
+    "receiver_clock": "clk_out1_system_lora_receiver_clk_0",
+    "receiver_clock_mhz": 62.5,
+    "receiver_clock_endpoints": 37747,
+    "old_leg_endpoints": 1735,
+    "old_leg_wns_ns": 9.43,
+    "inter_clock_paths": 0
+  },
+  "claim_under_test": "Clocking the receiver from a fixed 62.5 MHz PL clock instead of the AD9361 divided data clock lets the joint up/down search finish inside the SFD.",
+  "result": "Confirmed. The search completes at exactly the cost simulation predicts and the correction is applied at trace entry 1 instead of entry 53.",
+  "clock_measurements": {
+    "monitor_1_fixed_clock_raw": 40960,
+    "monitor_1_fixed_clock_hz": 62500000,
+    "monitor_1_calibration_factor": 1.0,
+    "monitor_0_ad9361_divided_raw": 656,
+    "monitor_0_ad9361_divided_hz": 1000977,
+    "clocks_per_sample_before": 1,
+    "clocks_per_sample_after": 63,
+    "clocks_per_sample_after_readings": [62, 62, 63, 62, 63, 63, 63, 62],
+    "note": "Monitor 1 sits on a clock of known frequency and read it exactly, so monitor 0 is an absolute measurement rather than an inference from the divider setting. The AD9361 driver's own rx_path_rates reports RF:4000000 at RXSAMP:1000000, a third confirmation of the four-to-one ratio."
+  },
+  "search": {
+    "sfd_deadline_clocks_before": 2304,
+    "sfd_deadline_clocks_after": 145152,
+    "simulated_search_clocks": 135443,
+    "observed_search_clocks_full": 135443,
+    "observed_search_clocks_partial": 67721,
+    "interpretation": "135443 is both matched-filter passes and matches simulation exactly; 67721 is almost exactly half and corresponds to the search stopping after the first pass, in which case no fine skip is applied.",
+    "fine_correction_entry_before": 53,
+    "fine_correction_entry_after": 1
+  },
+  "still_open": {
+    "raw_decision_bin_spread": 2,
+    "combined_bin_error_histogram": {"-1": 34, "0": 94, "1": 137, "2": 53},
+    "symbols_compared": 318,
+    "errors_above": 190,
+    "errors_below": 34,
+    "statement": "The one-sided bias is NOT resolved by the clock fix. The clock defect was masking it: before the fix no joint estimate was ever applied at all, so the estimator could not be assessed.",
+    "localisation": "Every rung through peak_bin agrees 58/58 against the reference model evaluated on the PL's own window, so the PL computes the correct answer for the window it chose. The first divergence is still symbol. Applying the reference's joint correction to the reconstructed grid gives 53/53 on two of three paired captures, so the correction the reference derives is right and what the PL applies is not."
+  },
+  "paired_captures": [
+    {"tx_sequence": 91, "preamble_bin": 97, "search_clocks": 135443, "reference_correction_samples": -3, "applied_fine_skip": 16, "cfo_displacement_samples": -3.5048, "symbol_timing_corrected": "53/53", "bin_error_histogram": {"0": 32, "1": 21}},
+    {"tx_sequence": 92, "preamble_bin": 9, "search_clocks": 67721, "reference_correction_samples": 5, "applied_fine_skip": null, "cfo_displacement_samples": -3.5041, "symbol_timing_corrected": "48/53", "bin_error_histogram": {"0": 26, "1": 27}},
+    {"tx_sequence": 93, "preamble_bin": 1, "search_clocks": 135443, "reference_correction_samples": 9, "applied_fine_skip": 7, "cfo_displacement_samples": -3.5330, "symbol_timing_corrected": "53/53", "bin_error_histogram": {"0": 44, "1": 9}}
+  ],
+  "open_leads": [
+    "The applied fine skip does not equal FINE_GUARD_SAMPLES plus the correction the reference derives. On sequence 93 it equals 16 - 9 = 7, which would follow from an inverted sign; on sequence 91 it is the bare guard, which would follow from the estimate being zero or declined. Two captures are not enough to separate those.",
+    "cfo_displacement_samples is -3.50, -3.50, -3.53 here and -3.33 to -3.49 across the earlier twelve captures: about -427 Hz, or -0.49 ppm at 868.1 MHz, and -0.44 of a bin. lora_joint_chirp_grid_controller computes only the half-sum, which cancels CFO by design; the half-difference is never formed and nothing in the RTL consumes a CFO term. An uncompensated sub-bin displacement of that size would put every decision within half a bin of a boundary, which is what a spread of exactly two adjacent bins looks like."
+  ],
+  "evidence_boundary": "Nine captures at one power level with one transmitter. This measures the search-completion defect and the decision bias; it establishes nothing about packet error rate, sensitivity, acquisition probability, or calibrated time of arrival."
+}
