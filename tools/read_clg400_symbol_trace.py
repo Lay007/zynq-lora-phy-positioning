@@ -164,9 +164,13 @@ sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
 clocksel=$(((orig & 0x80fcffff) | 0x00020000))
 devmem {CONTROL} 32 "$clocksel" >/dev/null
-printf 'CLOCK %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
-  "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
-  "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)"
+c=0
+while [ "$c" -lt 8 ]; do
+  printf 'CLOCK %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+    "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
+    "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)"
+  c=$((c + 1))
+done
 i=0
 while [ "$i" -lt {depth} ]; do
   selector=$(((orig & 0x80fcffff) | 0x00010000 | (i << 24)))
@@ -204,12 +208,22 @@ def parse_trace(text: str) -> SymbolTrace:
                     "clock page marker is 0x%04x, not 0x434b; the bitstream "
                     "predates the fixed receiver clock" % (status >> 16)
                 )
+            # util_wfifo bursts eight samples at a time, so one reading
+            # can land inside a burst and report a one-clock gap that
+            # is real but not the steady-state ratio. Keep the largest.
             clock = ClockAccounting(
-                clocks_per_sample=values[1],
+                clocks_per_sample=max(
+                    values[1],
+                    clock.clocks_per_sample if clock else 0,
+                ),
                 clocks_per_sample_min=values[3],
-                search_clocks=values[2],
+                search_clocks=max(
+                    values[2],
+                    clock.search_clocks if clock else 0,
+                ),
                 search_count=values[4],
-                crossing_overflow=bool(status & 1),
+                crossing_overflow=bool(status & 1)
+                or bool(clock and clock.crossing_overflow),
             )
         elif fields[0] == "ENTRY" and len(fields) == 9:
             rows.append(tuple([int(fields[1], 10)] + [int(value, 0) for value in fields[2:]]))

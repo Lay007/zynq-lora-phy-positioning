@@ -12,6 +12,9 @@ from tools.run_clg400_payload_capture import (
 )
 
 
+NEWLINE = chr(10)
+
+
 def _trace_page(grid_realigned: bool) -> str:
     lines = ["SIGNATURE 0x4c4f5241"]
     for index in range(128):
@@ -193,3 +196,51 @@ def test_trace_without_a_clock_page_still_parses() -> None:
 
     assert trace.clock is None
     assert _clock_summary(trace.clock) is None
+
+
+def _clock_pages(intervals: list[int]) -> str:
+    return NEWLINE.join(
+        _clock_page(clocks_per_sample=value, minimum=min(intervals))
+        for value in intervals
+    )
+
+
+def test_burst_readings_do_not_look_like_the_ad9361_clock() -> None:
+    """util_wfifo hands out eight samples at a time.
+
+    A reading taken inside a burst reports a one-clock gap that is real but is
+    not the steady-state ratio, so the page is read several times and the
+    largest interval wins. Otherwise a healthy receiver would intermittently
+    look exactly like the defect this check exists to catch.
+    """
+
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\n" + _clock_pages([1, 63, 1, 62, 63, 63, 1, 63]),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.clock is not None
+    assert trace.clock.clocks_per_sample == 63
+    summary = _clock_summary(trace.clock)
+    assert summary is not None
+    assert summary["clocks_per_sample_ok"]
+
+
+def test_every_reading_one_clock_is_still_caught() -> None:
+    """On the AD9361-derived clock there are no spare clocks for a gap."""
+
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\n" + _clock_pages([1] * 8),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.clock is not None
+    assert trace.clock.clocks_per_sample == 1
+    summary = _clock_summary(trace.clock)
+    assert summary is not None
+    assert not summary["clocks_per_sample_ok"]
+    assert summary["sfd_deadline_clocks"] == 2304
