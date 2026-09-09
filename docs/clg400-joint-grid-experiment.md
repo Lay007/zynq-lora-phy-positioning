@@ -280,10 +280,18 @@ search_failed=1  fine_resync=0  state=IDLE
 peakboundary=1   macreadmiss=0  range_error=0
 ```
 
-The abort trigger differs from the board — a peak at the search boundary here,
-a history read miss there — but the outcome is identical and is exactly the
-board's signature: the search fails, no fine request is issued, and the coarse
-resync has already withheld the guard.
+**This is not the board's mechanism, and it should not be reported as one.**
+The abort trigger differs — a peak at the search boundary here, a history read
+miss there — and probing at detection shows why: with a silence prefix the
+detector still reports `preamble_bin = 0` and `chips_to_boundary = 0`, so the
+coarse resync removes nothing and the search faces the full injected offset
+against a ±16-sample radius. `FINE_GUARD_SAMPLES must cover SEARCH_RADIUS` is
+asserted in the controller, so a residual that large is outside what the design
+claims to handle. The simulated abort is a property of this stimulus.
+
+What it does establish is the *consequence* of any abort, whatever causes it:
+the search fails, no fine request is issued, and the coarse resync has already
+withheld the guard. That consequence is what the board showed.
 
 **That asymmetry is the defect.** Withholding the guard is unconditional;
 returning it was conditional on the estimate succeeding. Any search failure,
@@ -307,10 +315,22 @@ The regression now requires the guard back whatever the estimate does. The
 controller, joint-path, receiver-top and CLG400 bridge regressions are
 unchanged by it, and the joint path still reports `fine_skip=27`.
 
-**Still open:** why the search fails at a non-zero arrival phase at all. The
-fix makes that failure harmless rather than harmful; it does not yet deliver
-the correction. Note that `chips_to_boundary` reads 0 in this stimulus even at
-non-zero phase, which is worth understanding before the next build.
+**Still open, and the next thing to settle:** why the board's search hits a
+history read miss. That remains unreproduced offline — the simulation reaches
+an abort by a different route. Two things are worth doing before another build:
+
+- Establish why the detector reports `preamble_bin = 0` for a packet delayed by
+  a silence prefix. Either the testbench delay is not the same thing as a real
+  arrival phase, or the reported bin does not carry it; both matter, because
+  the coarse resync depends on that bin.
+- Correlate the read miss with `preamble_bin` on the board directly. Each
+  packet sweeps the arrival phase for free, so clearing the sticky word per
+  packet and recording the pair answers it in one bench run without another
+  Vivado build.
+
+The guard fix makes an abort harmless rather than harmful. It does not deliver
+the correction, and the joint-grid build should not be re-deployed as an
+improvement until the abort itself is understood.
 
 ### Where to look next
 

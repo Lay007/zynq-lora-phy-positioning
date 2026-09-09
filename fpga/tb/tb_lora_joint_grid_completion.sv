@@ -274,8 +274,12 @@ module tb_lora_joint_grid_completion;
                 packet_start_seen = packet_start_seen + 1;
                 // The detector reports the start on its own symbol grid, so
                 // this does not simply move with a sub-symbol arrival phase.
-                $display("INFO packet_start_count=%0d grid_phase=%0d",
-                         packet_start_count, grid_phase);
+                // chips_to_boundary is what the coarse resync uses to remove
+                // the arrival phase. Read it at detection, not at end of sim.
+                $display("INFO packet_start_count=%0d grid_phase=%0d chips_to_boundary=%0d preamble_bin=%0d up_coarse=%0d",
+                         packet_start_count, grid_phase, dut.chips_to_boundary,
+                         dut.preamble_bin,
+                         dut.g_joint_grid_timing.u_joint_grid_timing.up_coarse_start);
             end
             if (correlation_magnitude_valid)
                 correlation_seen = correlation_seen + 1;
