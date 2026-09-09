@@ -212,12 +212,15 @@
       "data": "Across the eight captures where a fine skip was applied, pl_correction + reference_correction has mean 1.4 and mean absolute value 2.6, while pl_correction - reference_correction has mean absolute value 17.4. A least-squares fit over the five captures whose reference correction is inside the plus or minus 16 search radius gives a slope of -0.885.",
       "not_a_conclusion_because": "The two numbers are measured against different origins. The PL offsets are relative to packet_start_count plus chips_to_boundary times the chip length; the model's are relative to an origin it derives from the trace alignment. A systematic difference between those two origins that scales with the preamble bin would produce the same apparent anti-correlation, and both quantities do correlate with the preamble bin.",
       "ruled_out": "A plain sign error in the RTL. tb_lora_joint_chirp_grid_path drives an upchirp at sample 1008 and a downchirp at 11254 against a declared packet_start_count of 1000 with chips_to_boundary zero, so the stimulus carries a true timing offset of +11 samples and a built-in CFO displacement of -3. The controller reports +11 and a fine skip of 27, which is the guard plus the correct signed correction. The arithmetic and the sign are right; the inputs on the board are the open question.",
-      "next_step": "Expose the controller's up_coarse_start and timing_correction_samples so the PL and the model can be compared against the same origin instead of inferring the PL's correction from the skip it applies. That needs a rebuild."
+      "next_step": "The joint estimator page added on 2026-09-10 reports the board's own up_coarse_start, up_offset_samples and timing_correction_samples, plus packet_start_count and chips_to_boundary. Three questions in order: does the controller's own origin equal packet_start_count plus chips_to_boundary times eight; does its up offset match the model's in that epoch; does its correction match. The first disagreement names the fault.",
+      "status": "open, instrumented"
     },
     {
       "lead": "carrier frequency offset is measured but never compensated",
       "data": "cfo_displacement_samples is -3.50, -3.50 and -3.53 on the three captures where it was computed here, and -3.33 to -3.49 across the earlier twelve: about -427 Hz, or -0.49 ppm at 868.1 MHz, and -0.44 of a bin.",
-      "not_a_conclusion_because": "lora_joint_chirp_grid_controller forms only the half-sum, which cancels CFO by design, and nothing in the RTL consumes a CFO term. Whether an uncompensated sub-bin displacement of that size is what spreads the decisions over two bins has not been tested; the reference model reaches 53 of 53 without compensating it either, which argues against it being the whole story."
+      "not_a_conclusion_because": "lora_joint_chirp_grid_controller forms only the half-sum, which cancels CFO by design, and nothing in the RTL consumes a CFO term. Whether an uncompensated sub-bin displacement of that size is what spreads the decisions over two bins has not been tested; the reference model reaches 53 of 53 without compensating it either, which argues against it being the whole story.",
+      "status": "closed",
+      "closed_because": "A single integer shift of the sample grid recovers every symbol on all fifteen captures. An uncompensated frequency offset could not be removed that way if it were smearing the spectrum; in CSS a frequency offset displaces the dechirped peak exactly as a timing offset does, so the grid absorbs it. CFO therefore does not explain the decision bias. It remains relevant to calibrated time of arrival, where a timing shift that absorbs CFO biases the timestamp, but that is a separate measurement."
     }
   ],
   "evidence_boundary": "Sixteen captures at one power level with one transmitter, ten of them paired with raw IQ. This measures the search-completion defect and the decision bias. It establishes nothing about packet error rate, sensitivity, acquisition probability, or calibrated time of arrival, and one decoded packet out of ten is not a link measurement.",
@@ -234,5 +237,73 @@
     "rtl_timing_correction_samples": 11,
     "rtl_fine_skip": 27,
     "verdict": "The testbench is a correctness check rather than a change detector: its expected values follow from the stimulus rather than from the implementation, and the RTL matches them."
+  },
+  "grid_sweep_result": {
+    "method": "tools/export_stage_differential.py --grid-sweep shifts the reconstructed sample grid and reports where the transmitted symbols and the PL's own decisions each match best. The difference is the PL's grid error in samples, which is the only form in which the two sides can be compared: the board measures its offsets from packet_start_count plus chips_to_boundary and the model from an origin derived from the trace alignment.",
+    "headline": "On all fifteen captures, five before the clock change and ten after, a single integer grid shift recovers 53 of 53 symbols. The whole symbol-decision defect is a sample-grid offset; everything below the grid is correct.",
+    "grid_error_samples_before_fine_correction": [
+      1,
+      11,
+      0,
+      -5,
+      4
+    ],
+    "grid_error_samples_after_fine_correction": [
+      -3,
+      4,
+      9,
+      -3,
+      14,
+      21,
+      15,
+      7,
+      7,
+      -7
+    ],
+    "mean_absolute_before": 4.2,
+    "mean_absolute_after": 9.0,
+    "conclusion": "The joint fine correction, which exists to remove this residual, roughly doubles it. The correction that was actually needed is small - reference plus applied is -3 to +7 samples - while the board applies -14 to +5, and the magnitude it applies is what ends up as the grid error.",
+    "reference_and_applied_corrections": [
+      {
+        "reference": -3,
+        "applied": 0,
+        "correction_actually_needed": -3
+      },
+      {
+        "reference": 9,
+        "applied": -9,
+        "correction_actually_needed": 0
+      },
+      {
+        "reference": -3,
+        "applied": 4,
+        "correction_actually_needed": 1
+      },
+      {
+        "reference": 14,
+        "applied": -10,
+        "correction_actually_needed": 4
+      },
+      {
+        "reference": 21,
+        "applied": -14,
+        "correction_actually_needed": 7
+      },
+      {
+        "reference": 15,
+        "applied": -11,
+        "correction_actually_needed": 4
+      },
+      {
+        "reference": 7,
+        "applied": -7,
+        "correction_actually_needed": 0
+      },
+      {
+        "reference": -7,
+        "applied": 5,
+        "correction_actually_needed": -2
+      }
+    ]
   }
 }
