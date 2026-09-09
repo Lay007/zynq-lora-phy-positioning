@@ -51,7 +51,9 @@ fpga/**/*.str
 *.asv
 
 # Editors, scratch, OS and IDE-local files
-#article/
+# The article draft is kept local only. It is a work in progress that tracks
+# an open investigation, so it is not published from this repository.
+article/
 .idea/
 .vscode/
 tmp/
