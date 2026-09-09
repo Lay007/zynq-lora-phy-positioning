@@ -108,7 +108,15 @@ module lora_packet_toa_receiver_top #(
     output wire               toa_mac_response_mismatch_error,
     output wire               toa_mac_restart_error,
     output wire               toa_peak_boundary_error,
-    output wire               toa_peak_restart_error
+    output wire               toa_peak_restart_error,
+    // Joint estimator diagnostics. Held from the cycle the estimate
+    // completes until the next stream reset, so software can compare
+    // what the search was told, what it found, and what it concluded
+    // against the reference model in one epoch.
+    output wire [63:0]        joint_up_coarse_start,
+    output wire signed [31:0] joint_up_offset_samples,
+    output wire signed [31:0] joint_timing_correction_samples,
+    output wire               joint_timing_valid
 );
 
     wire gated_valid_in = valid_in && receiver_enable;
@@ -290,6 +298,8 @@ module lora_packet_toa_receiver_top #(
                 .reference_down(reference_down),
                 .busy(joint_grid_busy),
                 .timing_correction_samples(joint_timing_correction_unused),
+                .diag_up_coarse_start(joint_up_coarse_start),
+                .diag_up_offset_samples(joint_up_offset_samples),
                 .fine_skip(fine_resync_skip),
                 .fine_resync_valid(fine_resync_valid),
                 .timing_valid(joint_timing_valid_unused),
@@ -302,6 +312,8 @@ module lora_packet_toa_receiver_top #(
             assign joint_search_coarse_start = packet_start_count;
             assign reference_down = 1'b0;
             assign joint_grid_busy = raw_search_busy;
+            assign joint_up_coarse_start = 64'd0;
+            assign joint_up_offset_samples = 32'sd0;
             assign fine_resync_skip = 32'd0;
             assign fine_resync_valid = 1'b0;
             assign joint_timing_correction_unused = 32'sd0;
@@ -313,6 +325,9 @@ module lora_packet_toa_receiver_top #(
     endgenerate
 
     assign toa_search_busy = joint_grid_busy;
+    assign joint_timing_correction_samples = joint_timing_correction_unused;
+    assign joint_timing_valid = joint_timing_valid_unused;
+
     assign peak_triplet_valid = raw_peak_triplet_valid && !reference_down;
     assign toa_search_restart_error =
         raw_search_restart_error || joint_grid_restart_error;

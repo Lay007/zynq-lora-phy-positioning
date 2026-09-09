@@ -193,6 +193,35 @@ measure frequency directly against the 100 MHz control clock:
 Frequency is `count * 100e6 / 65536`. Monitor 1 sits on a clock of known
 frequency, so it calibrates the formula and turns monitor 0 into an absolute
 measurement rather than an inference from the divider setting.
+
+Control bit 18 selects a fourth read-only page carrying the joint estimator's
+own numbers, and it wins over bits 17 and 16. It exists because the correction
+the board applies is not the one the reference model derives from the same
+packet, and the two cannot be compared without it: the board measures its
+offsets from `packet_start_count` plus `chips_to_boundary`, the model from an
+origin it derives from the trace alignment, so comparing the two corrections
+directly compares nothing.
+
+| Register | Meaning |
+|---|---|
+| `STATUS` | `0x4a54` (`JT`) marker in bits 31:16, estimate-seen flag in bit 0 |
+| `SEQUENCE` | `timing_correction_samples`, signed |
+| `SYMBOL` | `up_offset_samples`, signed: how far the up peak was from the coarse start |
+| `SAMPLE_LO` | `up_coarse_start[31:0]`: where the up search was told to look |
+| `SAMPLE_HI` | `packet_start_count[31:0]` |
+| `METRICS` | `{chips_to_boundary[15:0], preamble_bin[15:0]}` |
+
+The values are frozen when the estimate completes and hold until the next
+stream reset. The remaining quantities follow from them:
+`down_coarse_start = up_coarse_start + 10240` and
+`down_offset = 2 * timing_correction_samples - up_offset_samples`.
+
+`tools/read_clg400_symbol_trace.py` reads the page and every capture report
+carries it under `joint_estimate`, including `derived_up_coarse_start`, which
+recomputes `packet_start_count + chips_to_boundary * 8` in software. If the
+board's own `up_coarse_start` and that recomputation disagree, the estimator is
+searching somewhere other than where its inputs say it should.
+
  The full capture and
 software-decoder contract is documented in
 [`docs/clg400-symbol-trace.md`](../../../docs/clg400-symbol-trace.md).

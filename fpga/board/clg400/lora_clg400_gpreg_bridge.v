@@ -105,6 +105,11 @@ module lora_clg400_gpreg_bridge #(
     wire packet_detected;
     wire [15:0] preamble_bin;
     wire grid_resync_armed;
+    wire [15:0] chips_to_boundary;
+    wire [63:0] joint_up_coarse_start;
+    wire signed [31:0] joint_up_offset_samples;
+    wire signed [31:0] joint_timing_correction_samples;
+    wire joint_timing_valid;
 
     wire unused_awready;
     wire unused_wready;
@@ -158,6 +163,11 @@ module lora_clg400_gpreg_bridge #(
         .sync_valid(),
         .preamble_bin(preamble_bin),
         .grid_resync_armed(grid_resync_armed),
+        .chips_to_boundary(chips_to_boundary),
+        .joint_up_coarse_start(joint_up_coarse_start),
+        .joint_up_offset_samples(joint_up_offset_samples),
+        .joint_timing_correction_samples(joint_timing_correction_samples),
+        .joint_timing_valid(joint_timing_valid),
         .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
@@ -255,6 +265,44 @@ module lora_clg400_gpreg_bridge #(
         .ctrl_capture_sequence(trace_capture_sequence_ctrl)
     );
 
+    // Joint estimator numbers, frozen when the estimate completes.
+    //
+    // The correction the board applies is not the one the reference model
+    // derives from the same packet, but the two are measured from
+    // different origins - the board's from packet_start_count plus
+    // chips_to_boundary, the model's from the trace alignment - so
+    // comparing them compares nothing. These are the inputs and the
+    // intermediate, which put both sides in one epoch.
+    reg [31:0] joint_correction_sample;
+    reg [31:0] joint_up_offset_sample;
+    reg [31:0] joint_up_coarse_sample;
+    reg [31:0] joint_packet_start_sample;
+    reg [15:0] joint_chips_sample;
+    reg [15:0] joint_preamble_bin_sample;
+    reg        joint_seen_sample;
+
+    always @(posedge sample_clk) begin
+        if (!sample_resetn) begin
+            joint_correction_sample   <= 32'd0;
+            joint_up_offset_sample    <= 32'd0;
+            joint_up_coarse_sample    <= 32'd0;
+            joint_packet_start_sample <= 32'd0;
+            joint_chips_sample        <= 16'd0;
+            joint_preamble_bin_sample <= 16'd0;
+            joint_seen_sample         <= 1'b0;
+        end else if (stream_reset) begin
+            joint_seen_sample         <= 1'b0;
+        end else if (joint_timing_valid) begin
+            joint_correction_sample   <= joint_timing_correction_samples;
+            joint_up_offset_sample    <= joint_up_offset_samples;
+            joint_up_coarse_sample    <= joint_up_coarse_start[31:0];
+            joint_packet_start_sample <= packet_start_count[31:0];
+            joint_chips_sample        <= chips_to_boundary;
+            joint_preamble_bin_sample <= preamble_bin;
+            joint_seen_sample         <= 1'b1;
+        end
+    end
+
     // Clock accounting, measured in the receiver's own domain.
     //
     // That the receiver used to get one clock per sample was established from
@@ -345,6 +393,18 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_interval_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_search_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_search_sync;
+    (* ASYNC_REG = "TRUE" *) reg joint_seen_meta;
+    (* ASYNC_REG = "TRUE" *) reg joint_seen_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_b_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_b_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_c_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_c_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_d_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_d_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_e_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] joint_e_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_misc_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_misc_sync;
 
@@ -434,6 +494,18 @@ module lora_clg400_gpreg_bridge #(
             diag_search_sync   <= 32'd0;
             diag_misc_meta     <= 32'd0;
             diag_misc_sync     <= 32'd0;
+            joint_seen_meta    <= 1'b0;
+            joint_seen_sync    <= 1'b0;
+            joint_a_meta       <= 32'd0;
+            joint_a_sync       <= 32'd0;
+            joint_b_meta       <= 32'd0;
+            joint_b_sync       <= 32'd0;
+            joint_c_meta       <= 32'd0;
+            joint_c_sync       <= 32'd0;
+            joint_d_meta       <= 32'd0;
+            joint_d_sync       <= 32'd0;
+            joint_e_meta       <= 32'd0;
+            joint_e_sync       <= 32'd0;
             timestamp_sequence_ctrl  <= 32'd0;
             timestamp_coarse_lo_ctrl <= 32'd0;
             timestamp_coarse_hi_ctrl <= 32'd0;
@@ -467,6 +539,18 @@ module lora_clg400_gpreg_bridge #(
                                    sample_interval_min,
                                    search_done_count};
             diag_misc_sync     <= diag_misc_meta;
+            joint_seen_meta <= joint_seen_sample;
+            joint_seen_sync <= joint_seen_meta;
+            joint_a_meta <= joint_correction_sample;
+            joint_a_sync <= joint_a_meta;
+            joint_b_meta <= joint_up_offset_sample;
+            joint_b_sync <= joint_b_meta;
+            joint_c_meta <= joint_up_coarse_sample;
+            joint_c_sync <= joint_c_meta;
+            joint_d_meta <= joint_packet_start_sample;
+            joint_d_sync <= joint_d_meta;
+            joint_e_meta <= {joint_chips_sample, joint_preamble_bin_sample};
+            joint_e_sync <= joint_e_meta;
 
             if (event_request_sync != event_ack_toggle) begin
                 timestamp_coarse_lo_ctrl <= event_hold_sample[31:0];
@@ -493,12 +577,19 @@ module lora_clg400_gpreg_bridge #(
         gp_ctrl[0]
     };
     wire [31:0] timestamp_debug = debug_sync;
-    wire symbol_page_selected = gp_ctrl[16] && !gp_ctrl[17];
+    wire joint_page_selected = gp_ctrl[18];
+    wire symbol_page_selected =
+        gp_ctrl[16] && !gp_ctrl[17] && !joint_page_selected;
+    wire [31:0] joint_status = {
+        16'h4a54, // "JT": joint estimator ABI marker
+        15'd0,
+        joint_seen_sync
+    };
     // A third page reports what the receiver clock actually is, in the
     // receiver's own domain. gp_ctrl[17] selects it and wins over the symbol
     // page, so the existing two-page ABI is untouched for software that never
     // sets it.
-    wire clock_page_selected = gp_ctrl[17];
+    wire clock_page_selected = gp_ctrl[17] && !joint_page_selected;
     wire [31:0] clock_status = {
         16'h434b, // "CK": clock-accounting ABI marker
         15'd0,
@@ -522,22 +613,28 @@ module lora_clg400_gpreg_bridge #(
         trace_captured_count_ctrl
     };
 
-    assign gp_status = clock_page_selected ? clock_status :
+    assign gp_status = joint_page_selected ? joint_status :
+        clock_page_selected ? clock_status :
         symbol_page_selected ? trace_status : timestamp_status;
     // Clocks between the last two accepted samples: sixty-three says the
     // receiver is on the fixed PL clock, one says it is back on the AD9361
     // divided data clock.
-    assign gp_sequence = clock_page_selected ? diag_interval_sync :
+    assign gp_sequence = joint_page_selected ? joint_a_sync :
+        clock_page_selected ? diag_interval_sync :
         symbol_page_selected ? trace_capture_sequence_ctrl : timestamp_sequence_ctrl;
     // Clocks the last joint search held the fabric, against a budget of
     // 2304 samples of SFD.
-    assign gp_coarse_lo = clock_page_selected ? diag_search_sync :
+    assign gp_coarse_lo = joint_page_selected ? joint_b_sync :
+        clock_page_selected ? diag_search_sync :
         symbol_page_selected ? trace_symbol_index_ctrl : timestamp_coarse_lo_ctrl;
-    assign gp_coarse_hi = clock_page_selected ? {17'd0, diag_misc_sync[30:16]} :
+    assign gp_coarse_hi = joint_page_selected ? joint_c_sync :
+        clock_page_selected ? {17'd0, diag_misc_sync[30:16]} :
         symbol_page_selected ? trace_sample_count_ctrl[31:0] : timestamp_coarse_hi_ctrl;
-    assign gp_fractional_q12 = clock_page_selected ? {16'd0, diag_misc_sync[15:0]} :
+    assign gp_fractional_q12 = joint_page_selected ? joint_d_sync :
+        clock_page_selected ? {16'd0, diag_misc_sync[15:0]} :
         symbol_page_selected ? trace_sample_count_ctrl[63:32] : timestamp_fractional_ctrl;
-    assign gp_log_peak_q12 = symbol_page_selected ?
+    assign gp_log_peak_q12 = joint_page_selected ? joint_e_sync :
+        symbol_page_selected ?
         {8'd0, trace_flags_ctrl, trace_confidence_ctrl} : timestamp_log_peak_ctrl;
     assign gp_debug = symbol_page_selected ? trace_debug : timestamp_debug;
     assign gp_signature = SIGNATURE;

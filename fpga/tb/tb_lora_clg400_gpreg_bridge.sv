@@ -273,6 +273,44 @@ module tb_lora_clg400_gpreg_bridge;
         expect32(gp_coarse_lo, 32'h5060_7080,
                  "timestamp snapshot after clock page read");
 
+        // Page three carries the joint estimator's own numbers. Without it
+        // the board's correction can only be inferred from the skip it
+        // applies, which cannot be compared with the reference model at all:
+        // the two are measured from different origins.
+        @(negedge sample_clk);
+        force dut.joint_timing_correction_samples = -32'sd7;
+        force dut.joint_up_offset_samples = 32'sd12;
+        force dut.joint_up_coarse_start = 64'h0000_0000_0001_3880;
+        force dut.packet_start_count = 64'h0000_0000_0001_2345;
+        force dut.chips_to_boundary = 16'd31;
+        force dut.preamble_bin = 16'd97;
+        force dut.joint_timing_valid = 1'b1;
+        @(negedge sample_clk);
+        force dut.joint_timing_valid = 1'b0;
+        repeat (4) @(posedge sample_clk);
+
+        gp_ctrl = 32'h0004_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[31:16] !== 16'h4a54) begin
+            $display("FAIL joint page marker status=0x%08x", gp_status);
+            $fatal(1);
+        end
+        if (gp_status[0] !== 1'b1) begin
+            $display("FAIL joint page reports no estimate");
+            $fatal(1);
+        end
+        expect32(gp_sequence, 32'hffff_fff9, "joint timing correction");
+        expect32(gp_coarse_lo, 32'd12, "joint up offset");
+        expect32(gp_coarse_hi, 32'h0001_3880, "joint up coarse start");
+        expect32(gp_fractional_q12, 32'h0001_2345, "joint packet start");
+        expect32(gp_log_peak_q12, 32'h001f_0061,
+                 "joint chips to boundary and preamble bin");
+
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+        expect32(gp_coarse_lo, 32'h5060_7080,
+                 "timestamp snapshot after joint page read");
+
         $display("PASS tb_lora_clg400_gpreg_bridge");
         $finish;
     end

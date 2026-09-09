@@ -47,6 +47,16 @@ module lora_async_sample_fifo #(
     (* ASYNC_REG = "TRUE" *) reg [ADDR_WIDTH:0] wr_gray_meta;
     (* ASYNC_REG = "TRUE" *) reg [ADDR_WIDTH:0] wr_gray_sync;
 
+    // The two sides leave reset independently. On the board the write side
+    // is released as soon as the AD9361 clock is up, while the read side
+    // waits for the MMCM to lock, so samples arrive for a long window with
+    // nothing draining them. That filled the FIFO and set wr_overflow on
+    // every boot, permanently, which made the flag useless as a diagnostic.
+    // Nothing is lost by discarding those samples: the receiver they feed is
+    // held in reset for the same window.
+    (* ASYNC_REG = "TRUE" *) reg rd_resetn_meta;
+    (* ASYNC_REG = "TRUE" *) reg rd_resetn_sync;
+
     function [ADDR_WIDTH:0] bin_to_gray;
         input [ADDR_WIDTH:0] value;
         begin
@@ -70,10 +80,14 @@ module lora_async_sample_fifo #(
             wr_overflow  <= 1'b0;
             rd_gray_meta <= {(ADDR_WIDTH+1){1'b0}};
             rd_gray_sync <= {(ADDR_WIDTH+1){1'b0}};
+            rd_resetn_meta <= 1'b0;
+            rd_resetn_sync <= 1'b0;
         end else begin
             rd_gray_meta <= rd_gray;
             rd_gray_sync <= rd_gray_meta;
-            if (wr_valid) begin
+            rd_resetn_meta <= rd_resetn;
+            rd_resetn_sync <= rd_resetn_meta;
+            if (wr_valid && rd_resetn_sync) begin
                 if (full) begin
                     // Sticky: one dropped sample invalidates every sample
                     // count downstream, so the fact has to survive to a

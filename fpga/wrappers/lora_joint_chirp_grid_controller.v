@@ -45,6 +45,12 @@ module lora_joint_chirp_grid_controller #(
     output reg                busy,
 
     output reg  signed [31:0] timing_correction_samples,
+    // Diagnostics. The board applies a correction that is not the one
+    // the reference model derives, and the two are measured from
+    // different origins, so only these make them comparable: where the
+    // up search was told to look, and how far from there its peak was.
+    output wire [63:0]        diag_up_coarse_start,
+    output wire signed [31:0] diag_up_offset_samples,
     output reg  [31:0]        fine_skip,
     output reg                fine_resync_valid,
     output reg                timing_valid,
@@ -72,6 +78,9 @@ module lora_joint_chirp_grid_controller #(
     reg [63:0] up_coarse_start;
     reg [63:0] down_coarse_start;
     reg signed [64:0] up_offset;
+
+    assign diag_up_coarse_start = up_coarse_start;
+    assign diag_up_offset_samples = up_offset[31:0];
 
     wire [63:0] coarse_chip_advance = chips_to_boundary * SAMPLES_PER_CHIP;
     // Both searches read coarse_start-SEARCH_RADIUS .. coarse_start+M+RADIUS,

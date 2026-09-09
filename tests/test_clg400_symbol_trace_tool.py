@@ -1,8 +1,10 @@
 import pytest
 
 from tools.read_clg400_symbol_trace import (
+    JointEstimate,
     ClockAccounting,
     _clock_summary,
+    _joint_summary,
     grid_phase,
     parse_trace,
 )
@@ -244,3 +246,79 @@ def test_every_reading_one_clock_is_still_caught() -> None:
     assert summary is not None
     assert not summary["clocks_per_sample_ok"]
     assert summary["sfd_deadline_clocks"] == 2304
+
+
+def _joint_page(
+    correction: int = -7,
+    up_offset: int = 12,
+    up_coarse: int = 0x13880,
+    packet_start: int = 0x12345,
+    chips: int = 31,
+    bin_: int = 97,
+    seen: bool = True,
+    marker: int = 0x4A54,
+) -> str:
+    status = (marker << 16) | (1 if seen else 0)
+    packed = (chips << 16) | bin_
+    return (
+        f"JOINT 0x{status:08x} 0x{correction & 0xffffffff:08x} "
+        f"0x{up_offset & 0xffffffff:08x} 0x{up_coarse:08x} "
+        f"0x{packet_start:08x} 0x{packed:08x}"
+    )
+
+
+def test_joint_page_reports_signed_values() -> None:
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\n" + _joint_page(),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.joint is not None
+    assert trace.joint.correction_samples == -7
+    assert trace.joint.up_offset_samples == 12
+    assert trace.joint.chips_to_boundary == 31
+    assert trace.joint.preamble_bin == 97
+    assert trace.joint.seen
+
+
+def test_joint_summary_recomputes_the_controllers_origin() -> None:
+    """The controller derives up_coarse_start from these two inputs.
+
+    Recomputing it in software is the whole point of the page: if the board's
+    own value and the formula disagree, the estimator is searching somewhere
+    other than where its inputs say it should.
+    """
+
+    summary = _joint_summary(
+        JointEstimate(
+            correction_samples=-7,
+            up_offset_samples=12,
+            up_coarse_start=0x13880,
+            packet_start_count=0x12345,
+            chips_to_boundary=31,
+            preamble_bin=97,
+            seen=True,
+        )
+    )
+
+    assert summary is not None
+    assert summary["derived_up_coarse_start"] == 0x12345 + 31 * 8
+
+
+def test_joint_page_marker_mismatch_is_rejected() -> None:
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\n" + _joint_page(marker=0x434B),
+    )
+
+    with pytest.raises(ValueError, match="joint page marker"):
+        parse_trace(text)
+
+
+def test_trace_without_a_joint_page_still_parses() -> None:
+    trace = parse_trace(_trace_page(grid_realigned=False))
+
+    assert trace.joint is None
+    assert _joint_summary(trace.joint) is None

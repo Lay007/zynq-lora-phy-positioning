@@ -80,10 +80,28 @@ module tb_lora_async_sample_fifo;
 
     integer i;
     initial begin
+        // The board releases these two independently: the write side as
+        // soon as the AD9361 clock is up, the read side only once the MMCM
+        // has locked. Samples arriving in that window used to fill the FIFO
+        // and latch wr_overflow on every boot, which made the flag useless.
         repeat (4) @(posedge wr_clk);
         wr_resetn <= 1'b1;
+        for (i = 0; i < 40; i = i + 1) begin
+            @(negedge wr_clk);
+            wr_data  <= 32'hdead_0000 + i;
+            wr_valid <= 1'b1;
+            @(negedge wr_clk);
+            wr_valid <= 1'b0;
+        end
+        if (wr_overflow !== 1'b0) begin
+            errors = errors + 1;
+            $display("FAIL overflow latched while the read side was in reset");
+        end else begin
+            $display("PASS no overflow while the read side is held in reset");
+        end
+
         rd_resetn <= 1'b1;
-        repeat (4) @(posedge wr_clk);
+        repeat (8) @(posedge wr_clk);
         checking <= 1'b1;
 
         // Slow writer, fast reader: the board case.

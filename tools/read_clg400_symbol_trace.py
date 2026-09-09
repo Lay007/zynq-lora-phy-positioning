@@ -25,6 +25,12 @@ DEBUG = "0x79040588"
 SIGNATURE = "0x790405c8"
 
 
+def _signed32(value: int) -> int:
+    """Two's complement: the correction and the offset are both signed."""
+
+    return value - (1 << 32) if value & (1 << 31) else value
+
+
 @dataclass(frozen=True)
 class TraceEntry:
     index: int
@@ -53,6 +59,25 @@ class ClockAccounting:
 
 
 @dataclass(frozen=True)
+class JointEstimate:
+    """What the board's joint estimator was told, found and concluded.
+
+    The correction the board applies is not the one the reference model
+    derives from the same packet, and the two cannot be compared without
+    these: the board measures its offsets from packet_start_count plus
+    chips_to_boundary, the model from an origin it derives from the trace.
+    """
+
+    correction_samples: int
+    up_offset_samples: int
+    up_coarse_start: int
+    packet_start_count: int
+    chips_to_boundary: int
+    preamble_bin: int
+    seen: bool
+
+
+@dataclass(frozen=True)
 class SymbolTrace:
     capture_sequence: int
     preamble_bin: int
@@ -60,6 +85,7 @@ class SymbolTrace:
     grid_realigned: bool
     entries: tuple[TraceEntry, ...]
     clock: ClockAccounting | None = None
+    joint: JointEstimate | None = None
 
 
 def _ssh_args(args: argparse.Namespace) -> list[str]:
@@ -164,6 +190,12 @@ sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
 clocksel=$(((orig & 0x80fcffff) | 0x00020000))
 devmem {CONTROL} 32 "$clocksel" >/dev/null
+jointsel=$(((orig & 0x80f8ffff) | 0x00040000))
+devmem {CONTROL} 32 "$jointsel" >/dev/null
+printf 'JOINT %s %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
+  "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)" \\
+  "$(devmem {METRICS} 32)"
 c=0
 while [ "$c" -lt 8 ]; do
   printf 'CLOCK %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
@@ -193,6 +225,7 @@ done
 def parse_trace(text: str) -> SymbolTrace:
     signature: int | None = None
     clock: ClockAccounting | None = None
+    joint: JointEstimate | None = None
     rows: list[tuple[int, ...]] = []
     for line in text.splitlines():
         fields = line.split()
@@ -200,6 +233,22 @@ def parse_trace(text: str) -> SymbolTrace:
             continue
         if fields[0] == "SIGNATURE" and len(fields) == 2:
             signature = int(fields[1], 0)
+        elif fields[0] == "JOINT" and len(fields) == 7:
+            values = [int(value, 0) for value in fields[1:]]
+            if (values[0] >> 16) != 0x4A54:
+                raise ValueError(
+                    "joint page marker is 0x%04x, not 0x4a54; the bitstream "
+                    "predates the joint estimator page" % (values[0] >> 16)
+                )
+            joint = JointEstimate(
+                correction_samples=_signed32(values[1]),
+                up_offset_samples=_signed32(values[2]),
+                up_coarse_start=values[3],
+                packet_start_count=values[4],
+                chips_to_boundary=(values[5] >> 16) & 0xFFFF,
+                preamble_bin=values[5] & 0xFFFF,
+                seen=bool(values[0] & 1),
+            )
         elif fields[0] == "CLOCK" and len(fields) == 6:
             values = [int(value, 0) for value in fields[1:]]
             status = values[0]
@@ -265,7 +314,8 @@ def parse_trace(text: str) -> SymbolTrace:
         for row in rows[:captured_count]
     )
     return SymbolTrace(
-        rows[0][2], preamble_bin, captured_count, grid_realigned, entries, clock
+        rows[0][2], preamble_bin, captured_count, grid_realigned, entries,
+        clock, joint
     )
 
 
@@ -335,6 +385,27 @@ def _clock_summary(clock: ClockAccounting | None) -> dict[str, object] | None:
         "crossing_overflow": clock.crossing_overflow,
     }
 
+def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:
+    """Report what the board's estimator was told, found and concluded."""
+
+    if joint is None:
+        return None
+    return {
+        "correction_samples": joint.correction_samples,
+        "up_offset_samples": joint.up_offset_samples,
+        "up_coarse_start": joint.up_coarse_start,
+        "packet_start_count": joint.packet_start_count,
+        "chips_to_boundary": joint.chips_to_boundary,
+        "preamble_bin": joint.preamble_bin,
+        # The controller derives its origin this way; recomputing it here lets
+        # a mismatch between the two be seen without reading the RTL.
+        "derived_up_coarse_start": (
+            joint.packet_start_count + joint.chips_to_boundary * 8
+        ),
+        "estimate_seen": joint.seen,
+    }
+
+
 def build_report(trace: SymbolTrace) -> dict[str, object]:
     candidate = decode_lora_symbol_trace(
         [entry.symbol for entry in trace.entries], grid_phase(trace)
@@ -349,6 +420,7 @@ def build_report(trace: SymbolTrace) -> dict[str, object]:
         "captured_count": trace.captured_count,
         "grid_realigned": trace.grid_realigned,
         "receiver_clock": _clock_summary(trace.clock),
+        "joint_estimate": _joint_summary(trace.joint),
         "decode": {
             "success": result.success,
             "header_valid": result.header_valid,
