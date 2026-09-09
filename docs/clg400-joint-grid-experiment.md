@@ -596,6 +596,66 @@ clocked from the AD9361 data clock, at any sample rate. The options are to
 clock the receiver from a fixed PL clock, to cut the search cost by about
 sixty, or to stop requiring the correction inside the SFD.
 
+### The fix: a fixed receiver clock
+
+The receiver now has its own clock, and the samples cross into it.
+
+`lora_overlay_injection.tcl` adds a `clk_wiz` fed from `sys_cpu_clk` producing
+62.5 MHz, a `proc_sys_reset` for the new domain held until the MMCM locks, and
+drives `lora_clg400_bridge/sample_clk` from it. `util_ad9361_divclk/clk_out`
+stays connected, but only as `rx_clk`, carrying arriving samples.
+
+62.5 MHz is not a free choice. It is the frequency the design is already
+written and constrained for, and the last board build closed at `WNS +0.264 ns`
+against it, which puts the routed ceiling near 63.5 MHz. The 71.266 MHz on
+record is out-of-context synthesis of the receiver alone, not the routed board;
+treating those two numbers as interchangeable would be the same class of
+mistake as the clock itself. At 62.5 MHz and 1 MS/s the SFD deadline is
+2304 * 62.5 = 144,000 clocks against the 135,443 the search needs - a 6 %
+margin, thin but positive, and now a measured quantity rather than an
+assumption.
+
+The crossing is `lora_async_sample_fifo`, a small dual-clock FIFO with
+Gray-coded pointers, not a toggle handshake. On the old clock `rx_valid` is
+asserted on essentially every `rx_clk` cycle, because the clock *is* the sample
+rate, so a handshake with acknowledgement would pass one sample per round trip
+and drop most of the stream. A bare toggle would work at this rate and fail
+silently if the sample rate were ever raised; the FIFO turns that case into an
+explicit `wr_overflow`.
+
+### Measuring it rather than believing it
+
+The estimate this section replaces was wrong because it was derived and then
+reported alongside measurements. The same build therefore carries two
+independent ways to check the claim.
+
+`axi_gpreg_lora` now instantiates two ADI clock monitors: monitor 0 on
+`util_ad9361_divclk/clk_out` and monitor 1 on the new fixed clock. Monitor 1
+sits on a clock of known frequency, so it calibrates the count-to-frequency
+formula and turns monitor 0 into an absolute measurement.
+
+The bridge counts, in the receiver's own domain, the clocks between two
+accepted samples and the clocks the last joint search held the fabric, and
+reports them on a third register page selected by `gp_ctrl[17]`.
+`tools/read_clg400_symbol_trace.py` reads that page on every capture and puts
+the numbers in the report under `receiver_clock`, with the SFD deadline
+computed from the **measured** ratio. Scoring a search against the deadline the
+design wants rather than the one it has is precisely how a fifty-nine-fold
+overshoot came to look comfortable.
+
+The page is read eight times and the largest interval kept, because
+`util_wfifo` hands out samples in bursts of eight and a single reading can
+legitimately land inside a burst.
+
+### What this does and does not settle
+
+A receiver clocked at 62.5 MHz makes the joint search *able* to finish inside
+the SFD. It does not by itself establish that the search then produces a
+correct estimate, that the `+1` bin bias disappears, or anything about link
+quality. Those need the twelve-capture experiment re-run and the differential
+ladder re-checked; the entry above records what was measured before the change,
+and the result of the re-run belongs beside it.
+
 ## Evidence boundary
 
 A successful result closes the symbol-decision defect and unblocks a PER
