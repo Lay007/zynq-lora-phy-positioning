@@ -126,6 +126,7 @@ class DifferentialReport:
     bin_error_histogram: dict[str, int] = field(default_factory=dict)
     raw_bin_error_histogram: dict[str, int] = field(default_factory=dict)
     raw_decision_bin_spread: int = 0
+    grid_sweep: dict[str, object] = field(default_factory=dict)
     rows: list[dict[str, object]] = field(default_factory=list)
 
 
@@ -179,7 +180,7 @@ def _named(stage: str, verdict: StageVerdict) -> StageVerdict:
 
 
 def analyze(
-    trace_path: Path, iq_path: Path, *, compare_count: int = 24
+    trace_path: Path, iq_path: Path, *, compare_count: int = 24, sweep_radius: int = 0
 ) -> DifferentialReport:
     trace = json.loads(trace_path.read_text(encoding="utf-8"))
     entries = trace["entries"]
@@ -452,6 +453,66 @@ def analyze(
         corrected_bins = np.full(packet_end, -1, dtype=np.int64)
         corrected_final = np.full(packet_end, -1, dtype=np.int64)
 
+    # ---- where each grid actually sat ---------------------------------------
+    #
+    # The estimator recovers every symbol when its correction is applied to the
+    # reconstructed grid, yet the PL's delivered decisions are still wrong.
+    # Comparing the two corrections directly compares nothing, because they are
+    # measured from different origins: the PL's from packet_start_count plus
+    # chips_to_boundary, the model's from an origin derived from the trace
+    # alignment. Sweeping the grid says where each side actually sat against one
+    # common thing, the symbols the transmitter sent, and the difference between
+    # the two best offsets is the PL's grid error in samples.
+    if sweep_radius > 0 and expected and joint is not None:
+        expected_by_index = {
+            symbol_offset + i: v for i, v in enumerate(expected[:determined])
+        }
+        sweep_rows: list[dict[str, int]] = []
+        for offset in range(-sweep_radius, sweep_radius + 1):
+            candidate = bins_at(offset)
+            normalised = normalise(candidate, 0)
+            against_expected = against_pl = counted = 0
+            for index in range(packet_end):
+                want = expected_by_index.get(index)
+                if want is None or candidate[index] < 0:
+                    continue
+                counted += 1
+                against_expected += int(int(normalised[index]) == want)
+                against_pl += int(int(candidate[index]) == int(pl_raw[index]))
+            sweep_rows.append(
+                {
+                    "offset_samples": offset,
+                    "matches_transmitted": against_expected,
+                    "matches_pl": against_pl,
+                    "compared": counted,
+                }
+            )
+        if sweep_rows:
+            best_expected = max(
+                sweep_rows, key=lambda r: r["matches_transmitted"]
+            )
+            best_pl = max(sweep_rows, key=lambda r: r["matches_pl"])
+            report.grid_sweep = {
+                "radius_samples": sweep_radius,
+                "best_offset_against_transmitted": best_expected[
+                    "offset_samples"
+                ],
+                "best_matches_transmitted": best_expected[
+                    "matches_transmitted"
+                ],
+                "best_offset_against_pl": best_pl[
+                    "offset_samples"
+                ],
+                "best_matches_pl": best_pl["matches_pl"],
+                "compared": best_expected["compared"],
+                "pl_grid_error_samples": (
+                    best_pl["offset_samples"]
+                    - best_expected["offset_samples"]
+                ),
+                "joint_correction_samples": joint.correction_samples,
+                "rows": sweep_rows,
+            }
+
     # ---- stage: symbol -------------------------------------------------------
     expected_by_entry: dict[int, int] = {
         symbol_offset + index: value for index, value in enumerate(expected)
@@ -658,6 +719,16 @@ def parse_args() -> argparse.Namespace:
         default=24,
         help="trace entries used to align the trace to the DMA epoch",
     )
+    parser.add_argument(
+        "--grid-sweep",
+        type=int,
+        default=0,
+        help=(
+            "sweep the reconstructed sample grid this many samples either side "
+            "and report where the transmitted symbols and the PL decisions each "
+            "match best; the difference is the PL grid error"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -678,7 +749,12 @@ def main() -> int:
         iq_path = trace_path.parent / name
 
     try:
-        report = analyze(trace_path, iq_path, compare_count=args.compare_count)
+        report = analyze(
+            trace_path,
+            iq_path,
+            compare_count=args.compare_count,
+            sweep_radius=args.grid_sweep,
+        )
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
