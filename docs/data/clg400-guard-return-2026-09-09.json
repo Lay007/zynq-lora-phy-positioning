@@ -148,5 +148,40 @@
     },
     "supersedes": "This replaces the earlier future-read conclusion. That was reached by elimination - a too-old read is impossible so soon after the stream reset - but the elimination missed a third cause, the collision. The up-search data-ready wait added on the strength of it is correct and harmless, but it was not the fix.",
     "open": "Why the search is still running after fifty-four symbols. The packet-rate RTL regression measures the pair at 135,443 clocks, about two symbols. Twenty-five times that on hardware is the next thing to explain, and it is what makes the read window age out at all."
+  },
+  "search_duration_measured": {
+    "recorded_utc": "2026-09-09",
+    "question": "Is the joint search slow on hardware, or does it merely start late? The abort timing alone cannot tell the two apart.",
+    "method": "toa_search_busy is status bit 4. The sampling loop runs on the board rather than over SSH: each devmem is a process spawn of about a millisecond, which separates 2 ms from 56 ms, whereas an SSH round trip per sample would not.",
+    "measured": {
+      "samples": 400,
+      "mean_interval_ms": 14.04,
+      "busy_samples": 4,
+      "busy_span_ms": 40.0,
+      "rising_between_s": [
+        0.29,
+        0.31
+      ],
+      "falling_between_s": [
+        0.35,
+        0.36
+      ]
+    },
+    "simulation_reference": {
+      "full_receiver_probe": {
+        "WAIT_UP_clocks": 67720,
+        "WAIT_DOWN_clocks": 67720,
+        "WAIT_DOWN_DATA_clocks": 1,
+        "LAUNCH_UP_clocks": 1,
+        "elapsed_clocks": 135444,
+        "read_miss": 0,
+        "packet_start_pulses": 1
+      },
+      "equivalent_ms_at_62p5MHz": 2.17,
+      "clocks_per_tap": 2.0
+    },
+    "conclusion": "The search is genuinely slow, not late. Hardware holds toa_search_busy for 40 to 70 ms against 2.17 ms in simulation, which is roughly 37 clocks per tap instead of 2. That duration is what lets the read window age out at 56 ms, so the slowness is the cause and the collision is the symptom.",
+    "eliminated": "STATE_WAIT_DOWN_DATA is one clock in the full-receiver probe, so the controller does not wait there. packet_start_valid pulses once, so there is no repeated retriggering. The joint-path regression measures the identical 135,443 clocks whether the sample stream is frozen, dense or paced at the real 63 clocks per sample, so the search duration does not depend on sample pacing either.",
+    "next": "Why a tap costs about 37 clocks on hardware and 2 in simulation. The MAC aborts on the first iq_read_miss rather than grinding through misses, and response_mismatch_error is clear, so neither explains it. Settling this needs visibility into the MAC state on hardware."
   }
 }
