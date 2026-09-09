@@ -4,6 +4,14 @@ module tb_lora_joint_chirp_grid_path;
     localparam integer M = 1024;
     localparam integer SEARCH_RADIUS = 16;
     localparam integer HISTORY_DEPTH = 32768;
+    // Sixty-three clocks per sample is a property of the board wiring, not of
+    // this RTL: it holds because lora_overlay_injection.tcl clocks the
+    // receiver from a fixed 62.5 MHz PL clock while the AD9361 runs at
+    // 1 MS/s. It was false for the whole of the joint search's life before
+    // that, when the receiver ran on util_ad9361_divclk/clk_out and got one
+    // clock per sample, and this test passed anyway. Nothing here can detect
+    // that; the board reports it, through the clock page of the CLG400
+    // bridge, and run_clg400_payload_capture checks it on every capture.
     localparam integer CLOCKS_PER_SAMPLE_CEIL = 63;
     localparam integer SFD_SAMPLES = 2304;
     localparam real PI = 3.14159265358979323846;

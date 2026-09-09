@@ -35,12 +35,31 @@ class TraceEntry:
 
 
 @dataclass(frozen=True)
+class ClockAccounting:
+    """What the receiver clock actually is, read from the board.
+
+    The receiver spent this project clocked from the AD9361 divided data
+    clock, which is the sample rate itself, so it had one clock per
+    sample where the joint search budget assumes sixty-three. Nothing in
+    RTL or simulation can see that - the coupling lives in the board
+    wiring - so the board reports it and every capture checks it.
+    """
+
+    clocks_per_sample: int
+    clocks_per_sample_min: int
+    search_clocks: int
+    search_count: int
+    crossing_overflow: bool
+
+
+@dataclass(frozen=True)
 class SymbolTrace:
     capture_sequence: int
     preamble_bin: int
     captured_count: int
     grid_realigned: bool
     entries: tuple[TraceEntry, ...]
+    clock: ClockAccounting | None = None
 
 
 def _ssh_args(args: argparse.Namespace) -> list[str]:
@@ -143,9 +162,14 @@ restore() {{ devmem {CONTROL} 32 "$orig" >/dev/null; }}
 trap restore EXIT HUP INT TERM
 sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
+clocksel=$(((orig & 0x80fcffff) | 0x00020000))
+devmem {CONTROL} 32 "$clocksel" >/dev/null
+printf 'CLOCK %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
+  "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)"
 i=0
 while [ "$i" -lt {depth} ]; do
-  selector=$(((orig & 0x80feffff) | 0x00010000 | (i << 24)))
+  selector=$(((orig & 0x80fcffff) | 0x00010000 | (i << 24)))
   devmem {CONTROL} 32 "$selector" >/dev/null
   status=$(devmem {STATUS} 32)
   sequence=$(devmem {SEQUENCE} 32)
@@ -164,6 +188,7 @@ done
 
 def parse_trace(text: str) -> SymbolTrace:
     signature: int | None = None
+    clock: ClockAccounting | None = None
     rows: list[tuple[int, ...]] = []
     for line in text.splitlines():
         fields = line.split()
@@ -171,6 +196,21 @@ def parse_trace(text: str) -> SymbolTrace:
             continue
         if fields[0] == "SIGNATURE" and len(fields) == 2:
             signature = int(fields[1], 0)
+        elif fields[0] == "CLOCK" and len(fields) == 6:
+            values = [int(value, 0) for value in fields[1:]]
+            status = values[0]
+            if (status >> 16) != 0x434B:
+                raise ValueError(
+                    "clock page marker is 0x%04x, not 0x434b; the bitstream "
+                    "predates the fixed receiver clock" % (status >> 16)
+                )
+            clock = ClockAccounting(
+                clocks_per_sample=values[1],
+                clocks_per_sample_min=values[3],
+                search_clocks=values[2],
+                search_count=values[4],
+                crossing_overflow=bool(status & 1),
+            )
         elif fields[0] == "ENTRY" and len(fields) == 9:
             rows.append(tuple([int(fields[1], 10)] + [int(value, 0) for value in fields[2:]]))
     if signature != 0x4C4F5241:
@@ -211,7 +251,7 @@ def parse_trace(text: str) -> SymbolTrace:
         for row in rows[:captured_count]
     )
     return SymbolTrace(
-        rows[0][2], preamble_bin, captured_count, grid_realigned, entries
+        rows[0][2], preamble_bin, captured_count, grid_realigned, entries, clock
     )
 
 
@@ -247,6 +287,40 @@ def grid_phase(trace: SymbolTrace) -> int:
     return 0 if trace.grid_realigned else trace.preamble_bin
 
 
+# One 1 MS/s sample every 62.5 clocks of the fixed 62.5 MHz receiver clock.
+# Anything near one clock per sample means the receiver is back on the AD9361
+# divided data clock, where the joint search cannot finish inside a packet.
+EXPECTED_CLOCKS_PER_SAMPLE = 63
+CLOCKS_PER_SAMPLE_TOLERANCE = 3
+
+
+def _clock_summary(clock: ClockAccounting | None) -> dict[str, object] | None:
+    """Report the receiver clock and whether it is the one the design needs."""
+
+    if clock is None:
+        return None
+    low = EXPECTED_CLOCKS_PER_SAMPLE - CLOCKS_PER_SAMPLE_TOLERANCE
+    high = EXPECTED_CLOCKS_PER_SAMPLE + CLOCKS_PER_SAMPLE_TOLERANCE
+    healthy = low <= clock.clocks_per_sample <= high
+    return {
+        "clocks_per_sample": clock.clocks_per_sample,
+        "clocks_per_sample_min": clock.clocks_per_sample_min,
+        "clocks_per_sample_expected": EXPECTED_CLOCKS_PER_SAMPLE,
+        "clocks_per_sample_ok": healthy,
+        "search_clocks": clock.search_clocks,
+        "search_count": clock.search_count,
+        # The deadline follows the clock that is actually running, not the
+        # one that should be: on the AD9361-derived clock the whole SFD is
+        # 2304 clocks, and scoring against 145152 is how a fifty-nine-fold
+        # overshoot came to look comfortable in the first place.
+        "sfd_deadline_clocks": 2304 * clock.clocks_per_sample,
+        "search_within_sfd": (
+            clock.search_clocks > 0
+            and clock.search_clocks <= 2304 * clock.clocks_per_sample
+        ),
+        "crossing_overflow": clock.crossing_overflow,
+    }
+
 def build_report(trace: SymbolTrace) -> dict[str, object]:
     candidate = decode_lora_symbol_trace(
         [entry.symbol for entry in trace.entries], grid_phase(trace)
@@ -260,6 +334,7 @@ def build_report(trace: SymbolTrace) -> dict[str, object]:
         "grid_phase_removed": grid_phase(trace),
         "captured_count": trace.captured_count,
         "grid_realigned": trace.grid_realigned,
+        "receiver_clock": _clock_summary(trace.clock),
         "decode": {
             "success": result.success,
             "header_valid": result.header_valid,

@@ -90,10 +90,16 @@ module tb_lora_joint_grid_completion;
     integer errors = 0;
     integer symbol_seen = 0;
     integer packet_start_seen = 0;
-    // On the board one 1 MS/s sample arrives roughly every 63 clocks of the
-    // 62.5 MHz receiver. Driving a sample every clock hides anything that
-    // depends on how much history has accumulated when a search launches, so
-    // the gap is selectable: +sample_gap=63 reproduces the board's density.
+    // On the board one 1 MS/s sample arrives every 62.5 clocks of the fixed
+    // 62.5 MHz receiver clock. Driving a sample every clock hides anything
+    // that depends on how much history has accumulated when a search
+    // launches, so the gap is selectable: +sample_gap=63 is the board.
+    //
+    // That number is only true because the receiver has its own clock. While
+    // it ran on util_ad9361_divclk/clk_out the board's real density was one
+    // clock per sample and this comment was wrong by a factor of sixty-three,
+    // which is why a search fifty-nine times over its deadline looked
+    // comfortable here. The board checks the ratio now; simulation cannot.
     integer sample_gap = 0;
     // On the board the packet lands at an arbitrary phase, so chips_to_boundary
     // sweeps the whole symbol and the coarse resync withholds a large advance.
