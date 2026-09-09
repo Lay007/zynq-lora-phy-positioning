@@ -2,12 +2,21 @@
 
 // CLG400 board adapter for the portable LoRa timestamp receiver.
 //
-// The AD9361 FIFO already supplies signed, formatted complex samples in the
-// divided sample clock domain. The course axi_gpreg control/status block lives
-// on sys_cpu_clk, so this wrapper uses a request/acknowledge toggle to transfer
-// each complete 128-bit timestamp record atomically. The payload is held stable
-// from request until acknowledgement; only the toggles pass through ordinary
-// two-flop synchronizers.
+// The AD9361 FIFO supplies signed, formatted complex samples on the divided
+// AD9361 data clock. That clock is not a fixed frequency: util_clkdiv divides
+// the AD9361 data clock by four and the data clock is four times the sample
+// rate, so it equals the sample rate exactly, at every rate the part can be
+// programmed to. Clocking the receiver from it gave the fabric one clock per
+// sample where the joint up/down search budget assumes sixty-three, which is
+// why the search could never finish inside a packet. The receiver therefore
+// runs on a fixed PL clock and rx_clk carries only the arriving samples, which
+// cross in lora_async_sample_fifo.
+//
+// The course axi_gpreg control/status block lives on sys_cpu_clk, so this
+// wrapper uses a request/acknowledge toggle to transfer each complete 128-bit
+// timestamp record atomically. The payload is held stable from request until
+// acknowledgement; only the toggles pass through ordinary two-flop
+// synchronizers.
 module lora_clg400_gpreg_bridge #(
     parameter REFERENCE_FILE = "fpga/rom/lora_sf7_l8_reference_q10.mem"
 ) (
@@ -15,6 +24,8 @@ module lora_clg400_gpreg_bridge #(
     input  wire                    ctrl_resetn,
     input  wire                    sample_clk,
     input  wire                    sample_resetn,
+    input  wire                    rx_clk,
+    input  wire                    rx_resetn,
     input  wire [31:0]             gp_ctrl,
     input  wire [32:0]             rx_sample_bus,
 
@@ -30,9 +41,31 @@ module lora_clg400_gpreg_bridge #(
 
     localparam [31:0] SIGNATURE = 32'h4c4f5241; // "LORA"
 
-    wire                    rx_valid = rx_sample_bus[32];
-    wire signed [15:0]      rx_i = rx_sample_bus[31:16];
-    wire signed [15:0]      rx_q = rx_sample_bus[15:0];
+    wire                    rx_bus_valid = rx_sample_bus[32];
+    wire signed [15:0]      rx_bus_i = rx_sample_bus[31:16];
+    wire signed [15:0]      rx_bus_q = rx_sample_bus[15:0];
+
+    wire [31:0] rx_payload;
+    wire        rx_valid;
+    wire        rx_cdc_overflow;
+
+    lora_async_sample_fifo #(
+        .WIDTH(32),
+        .ADDR_WIDTH(4)
+    ) u_rx_sample_cdc (
+        .wr_clk(rx_clk),
+        .wr_resetn(rx_resetn),
+        .wr_valid(rx_bus_valid),
+        .wr_data({rx_bus_i, rx_bus_q}),
+        .wr_overflow(rx_cdc_overflow),
+        .rd_clk(sample_clk),
+        .rd_resetn(sample_resetn),
+        .rd_valid(rx_valid),
+        .rd_data(rx_payload)
+    );
+
+    wire signed [15:0]      rx_i = rx_payload[31:16];
+    wire signed [15:0]      rx_q = rx_payload[15:0];
 
     (* ASYNC_REG = "TRUE" *) reg [31:0] ctrl_sample_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] ctrl_sample_sync;
@@ -222,6 +255,79 @@ module lora_clg400_gpreg_bridge #(
         .ctrl_capture_sequence(trace_capture_sequence_ctrl)
     );
 
+    // Clock accounting, measured in the receiver's own domain.
+    //
+    // That the receiver used to get one clock per sample was established from
+    // the util_clkdiv divider setting and ADI's clock monitor on the AD9361
+    // data clock - both static facts, neither of them a measurement at the
+    // point that matters. An earlier estimate of the same quantity, taken from
+    // how long toa_search_busy stayed high, was wrong by more than a factor of
+    // two. These counters measure it where it is actually consumed, so the
+    // fixed-clock rebuild can be checked rather than believed.
+    reg [31:0] sample_interval_count;
+    reg [31:0] sample_interval_last;
+    reg [14:0] sample_interval_min;
+    reg        sample_interval_seen;
+    reg [31:0] search_clock_count;
+    reg [31:0] search_clock_last;
+    reg [15:0] search_done_count;
+    reg        search_busy_delayed;
+    reg        rx_cdc_overflow_sample;
+
+    always @(posedge sample_clk) begin
+        if (!sample_resetn) begin
+            sample_interval_count  <= 32'd0;
+            sample_interval_last   <= 32'd0;
+            sample_interval_min    <= 15'h7fff;
+            sample_interval_seen   <= 1'b0;
+            search_clock_count     <= 32'd0;
+            search_clock_last      <= 32'd0;
+            search_done_count      <= 16'd0;
+            search_busy_delayed    <= 1'b0;
+            rx_cdc_overflow_sample <= 1'b0;
+        end else begin
+            // Sticky across a stream reset: a dropped sample invalidates every
+            // sample count that follows it, including in the capture before.
+            if (rx_cdc_overflow)
+                rx_cdc_overflow_sample <= 1'b1;
+
+            if (stream_reset) begin
+                sample_interval_count <= 32'd0;
+                sample_interval_last  <= 32'd0;
+                sample_interval_min   <= 15'h7fff;
+                sample_interval_seen  <= 1'b0;
+                search_clock_count    <= 32'd0;
+                search_clock_last     <= 32'd0;
+                search_done_count     <= 16'd0;
+                search_busy_delayed   <= 1'b0;
+            end else begin
+                if (rx_valid) begin
+                    sample_interval_count <= 32'd1;
+                    sample_interval_seen  <= 1'b1;
+                    if (sample_interval_seen) begin
+                        sample_interval_last <= sample_interval_count;
+                        if (sample_interval_count < {17'd0, sample_interval_min})
+                            sample_interval_min <= sample_interval_count[14:0];
+                    end
+                end else if (!(&sample_interval_count)) begin
+                    sample_interval_count <= sample_interval_count + 32'd1;
+                end
+
+                search_busy_delayed <= toa_search_busy;
+                if (toa_search_busy) begin
+                    search_clock_count <= search_clock_count + 32'd1;
+                end else if (search_busy_delayed) begin
+                    search_clock_last <= search_clock_count;
+                    search_clock_count <= 32'd0;
+                    if (!(&search_done_count))
+                        search_done_count <= search_done_count + 16'd1;
+                end else begin
+                    search_clock_count <= 32'd0;
+                end
+            end
+        end
+    end
+
     // Low-rate diagnostic flags cross independently; they are status only and
     // do not form part of the atomic timestamp record.
     (* ASYNC_REG = "TRUE" *) reg [4:0] status_meta;
@@ -232,6 +338,15 @@ module lora_clg400_gpreg_bridge #(
     // never samples it while the sample domain is changing it.
     (* ASYNC_REG = "TRUE" *) reg grid_resync_meta;
     (* ASYNC_REG = "TRUE" *) reg grid_resync_sync;
+    // Clock accounting is static between captures, so software never reads it
+    // while the sample domain is changing it. Two flops each, like the other
+    // status words.
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_interval_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_interval_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_search_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_search_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_misc_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] diag_misc_sync;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -313,6 +428,12 @@ module lora_clg400_gpreg_bridge #(
             debug_sync         <= 32'd0;
             grid_resync_meta   <= 1'b1;
             grid_resync_sync   <= 1'b1;
+            diag_interval_meta <= 32'd0;
+            diag_interval_sync <= 32'd0;
+            diag_search_meta   <= 32'd0;
+            diag_search_sync   <= 32'd0;
+            diag_misc_meta     <= 32'd0;
+            diag_misc_sync     <= 32'd0;
             timestamp_sequence_ctrl  <= 32'd0;
             timestamp_coarse_lo_ctrl <= 32'd0;
             timestamp_coarse_hi_ctrl <= 32'd0;
@@ -338,6 +459,14 @@ module lora_clg400_gpreg_bridge #(
             debug_sync <= debug_meta;
             grid_resync_meta <= grid_resync_armed;
             grid_resync_sync <= grid_resync_meta;
+            diag_interval_meta <= sample_interval_last;
+            diag_interval_sync <= diag_interval_meta;
+            diag_search_meta   <= search_clock_last;
+            diag_search_sync   <= diag_search_meta;
+            diag_misc_meta     <= {rx_cdc_overflow_sample,
+                                   sample_interval_min,
+                                   search_done_count};
+            diag_misc_sync     <= diag_misc_meta;
 
             if (event_request_sync != event_ack_toggle) begin
                 timestamp_coarse_lo_ctrl <= event_hold_sample[31:0];
@@ -364,7 +493,17 @@ module lora_clg400_gpreg_bridge #(
         gp_ctrl[0]
     };
     wire [31:0] timestamp_debug = debug_sync;
-    wire symbol_page_selected = gp_ctrl[16];
+    wire symbol_page_selected = gp_ctrl[16] && !gp_ctrl[17];
+    // A third page reports what the receiver clock actually is, in the
+    // receiver's own domain. gp_ctrl[17] selects it and wins over the symbol
+    // page, so the existing two-page ABI is untouched for software that never
+    // sets it.
+    wire clock_page_selected = gp_ctrl[17];
+    wire [31:0] clock_status = {
+        16'h434b, // "CK": clock-accounting ABI marker
+        15'd0,
+        diag_misc_sync[31] // receive crossing dropped a sample
+    };
     wire [31:0] trace_status = {
         16'h5359, // "SY": symbol-trace ABI version marker
         6'd0,
@@ -383,15 +522,21 @@ module lora_clg400_gpreg_bridge #(
         trace_captured_count_ctrl
     };
 
-    assign gp_status = symbol_page_selected ? trace_status : timestamp_status;
-    assign gp_sequence = symbol_page_selected ?
-        trace_capture_sequence_ctrl : timestamp_sequence_ctrl;
-    assign gp_coarse_lo = symbol_page_selected ?
-        trace_symbol_index_ctrl : timestamp_coarse_lo_ctrl;
-    assign gp_coarse_hi = symbol_page_selected ?
-        trace_sample_count_ctrl[31:0] : timestamp_coarse_hi_ctrl;
-    assign gp_fractional_q12 = symbol_page_selected ?
-        trace_sample_count_ctrl[63:32] : timestamp_fractional_ctrl;
+    assign gp_status = clock_page_selected ? clock_status :
+        symbol_page_selected ? trace_status : timestamp_status;
+    // Clocks between the last two accepted samples: sixty-three says the
+    // receiver is on the fixed PL clock, one says it is back on the AD9361
+    // divided data clock.
+    assign gp_sequence = clock_page_selected ? diag_interval_sync :
+        symbol_page_selected ? trace_capture_sequence_ctrl : timestamp_sequence_ctrl;
+    // Clocks the last joint search held the fabric, against a budget of
+    // 2304 samples of SFD.
+    assign gp_coarse_lo = clock_page_selected ? diag_search_sync :
+        symbol_page_selected ? trace_symbol_index_ctrl : timestamp_coarse_lo_ctrl;
+    assign gp_coarse_hi = clock_page_selected ? {17'd0, diag_misc_sync[30:16]} :
+        symbol_page_selected ? trace_sample_count_ctrl[31:0] : timestamp_coarse_hi_ctrl;
+    assign gp_fractional_q12 = clock_page_selected ? {16'd0, diag_misc_sync[15:0]} :
+        symbol_page_selected ? trace_sample_count_ctrl[63:32] : timestamp_fractional_ctrl;
     assign gp_log_peak_q12 = symbol_page_selected ?
         {8'd0, trace_flags_ctrl, trace_confidence_ctrl} : timestamp_log_peak_ctrl;
     assign gp_debug = symbol_page_selected ? trace_debug : timestamp_debug;

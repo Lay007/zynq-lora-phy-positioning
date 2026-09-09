@@ -4,11 +4,16 @@ module tb_lora_clg400_gpreg_bridge;
 
     reg ctrl_clk = 1'b0;
     reg sample_clk = 1'b0;
+    // The receive clock is the AD9361 divided data clock and is far slower
+    // than the receiver clock; on the board the ratio is 62.5, here 32.
+    reg rx_clk = 1'b0;
     always #25 ctrl_clk = ~ctrl_clk;
     always #5 sample_clk = ~sample_clk;
+    always #160 rx_clk = ~rx_clk;
 
     reg ctrl_resetn = 1'b0;
     reg sample_resetn = 1'b0;
+    reg rx_resetn = 1'b0;
     reg [31:0] gp_ctrl = 32'd0;
     reg [32:0] rx_sample_bus = 33'd0;
 
@@ -27,6 +32,8 @@ module tb_lora_clg400_gpreg_bridge;
         .ctrl_resetn(ctrl_resetn),
         .sample_clk(sample_clk),
         .sample_resetn(sample_resetn),
+        .rx_clk(rx_clk),
+        .rx_resetn(rx_resetn),
         .gp_ctrl(gp_ctrl),
         .rx_sample_bus(rx_sample_bus),
         .gp_status(gp_status),
@@ -103,6 +110,7 @@ module tb_lora_clg400_gpreg_bridge;
         repeat (4) @(posedge ctrl_clk);
         ctrl_resetn = 1'b1;
         sample_resetn = 1'b1;
+        rx_resetn = 1'b1;
         gp_ctrl = 32'h0000_1201;
 
         repeat (8) @(posedge ctrl_clk);
@@ -212,6 +220,58 @@ module tb_lora_clg400_gpreg_bridge;
         expect32(gp_sequence, 32'd2, "timestamp sequence after trace read");
         expect32(gp_coarse_lo, 32'h5060_7080,
                  "timestamp snapshot after trace read");
+
+        // Page two reports what the receiver clock actually is. This is the
+        // regression that would have caught the original defect: a receiver
+        // clocked from the AD9361 divided data clock reports one clock per
+        // sample, and the joint search budget assumes sixty-three.
+        for (i = 0; i < 8; i = i + 1) begin
+            @(negedge rx_clk);
+            rx_sample_bus = {1'b1, 16'sd100, 16'sd200};
+            @(negedge rx_clk);
+            rx_sample_bus = 33'd0;
+        end
+        repeat (4) @(posedge sample_clk);
+
+        // Hold the search busy for a known number of receiver clocks.
+        @(negedge sample_clk);
+        force dut.toa_search_busy = 1'b1;
+        repeat (40) @(negedge sample_clk);
+        force dut.toa_search_busy = 1'b0;
+        repeat (4) @(posedge sample_clk);
+
+        gp_ctrl = 32'h0002_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[31:16] !== 16'h434b) begin
+            $display("FAIL clock page marker status=0x%08x", gp_status);
+            $fatal(1);
+        end
+        if (gp_status[0] !== 1'b0) begin
+            $display("FAIL receive crossing reported a dropped sample");
+            $fatal(1);
+        end
+        // Two rx_clk periods per driven sample, 32 receiver clocks each, so
+        // the accepted samples are 64 receiver clocks apart. The synchronizers
+        // move that by a cycle or so; what must never pass is the single clock
+        // per sample the AD9361-derived clock gave.
+        if (gp_sequence < 32'd60 || gp_sequence > 32'd68) begin
+            $display("FAIL clocks between samples=%0d expected about 64",
+                     gp_sequence);
+            $fatal(1);
+        end
+        $display("PASS clocks between accepted samples=%0d", gp_sequence);
+        expect32(gp_coarse_lo, 32'd40, "joint search duration in clocks");
+        expect32(gp_fractional_q12, 32'd1, "completed search count");
+        if (gp_coarse_hi < 32'd60 || gp_coarse_hi > 32'd68) begin
+            $display("FAIL minimum sample interval=%0d", gp_coarse_hi);
+            $fatal(1);
+        end
+        $display("PASS minimum clocks between samples=%0d", gp_coarse_hi);
+
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+        expect32(gp_coarse_lo, 32'h5060_7080,
+                 "timestamp snapshot after clock page read");
 
         $display("PASS tb_lora_clg400_gpreg_bridge");
         $finish;

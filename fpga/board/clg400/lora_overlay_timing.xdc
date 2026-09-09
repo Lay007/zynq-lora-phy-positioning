@@ -28,3 +28,22 @@ set mailbox_first_stages [get_pins -hier -quiet -filter { \
 if {[llength $mailbox_first_stages] > 0} {
   set_false_path -to $mailbox_first_stages
 }
+
+# The receiver runs on a fixed PL clock, not the AD9361 divided data clock.
+# That clock is made by an MMCM fed from the AXI control clock, so Vivado
+# relates the two, but every path between them is either a two-flop
+# synchronizer or a Gray-coded FIFO pointer. It is asynchronous to the AD9361
+# receive family for the same reason. Grouping it explicitly keeps the existing
+# false paths meaningful instead of leaving the crossings to be timed.
+set lora_receiver_clks [get_clocks -quiet -of_objects \
+  [get_pins -quiet -hier -filter {NAME =~ *lora_clg400_bridge/sample_clk}]]
+if {[llength $lora_receiver_clks] > 0 && [llength $ctrl_async_clks] > 0} {
+  set_clock_groups -asynchronous \
+    -group $lora_receiver_clks \
+    -group $ctrl_async_clks
+}
+if {[llength $lora_receiver_clks] > 0 && [llength $sample_async_clks] > 0} {
+  set_clock_groups -asynchronous \
+    -group $lora_receiver_clks \
+    -group $sample_async_clks
+}
