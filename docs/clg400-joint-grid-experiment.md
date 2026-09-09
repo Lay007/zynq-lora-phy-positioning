@@ -521,10 +521,43 @@ elimination — a too-old read is impossible so soon after a stream reset — an
 the elimination missed this third cause. The up-search data-ready wait added on
 the strength of it is correct and harmless, but it was not the fix.
 
-**What is now the open question:** why the search is still running after
-fifty-four symbols at all. The packet-rate RTL regression measures the pair at
-135,443 clocks, about two symbols. Twenty-five times that on hardware is what
-lets the read window age out, and it is the next thing to explain.
+### Root cause: the fabric clock scales with the sample rate
+
+The receiver's `sample_clk` comes from `util_ad9361_divclk/clk_out`
+(`lora_overlay_injection.tcl`, `clk_sel` tied to GND). That divider is fed by
+the AD9361 data clock, **which scales with the configured sample rate**. The
+design is written and constrained for the 62.5 MHz that divide-by-four yields
+at 30.72 MS/s. At the LoRa profile's 1 MS/s it yields single-digit MHz.
+
+Measured rather than assumed: `toa_search_busy` is held for 42 to 70 ms for a
+search the probe times at 135,444 clocks, which puts the fabric clock at
+**1.9 to 3.2 MHz** against the 62.5 MHz every timing argument in this project
+uses. About thirty times slower.
+
+That single fact explains the whole investigation:
+
+- The search needs 135,444 clocks. At roughly **two** clocks per sample instead
+  of the assumed sixty-three, the 2304-sample SFD deadline is about 4,600
+  clocks. The search is some thirty times over its deadline and **cannot fit at
+  this profile**.
+- It therefore runs about 68 ms, and the 65,536-sample history is 65.5 ms at
+  1 MS/s. The buffer wraps mid-search and the read window ages out.
+- **The read miss and the missed deadline are the same root cause**, which is
+  why every attempt to fix one of them left the other in place.
+
+And it explains why no regression caught it.
+`tb_lora_joint_chirp_grid_path` checks the deadline as
+`SFD_SAMPLES * CLOCKS_PER_SAMPLE_CEIL` with `CLOCKS_PER_SAMPLE_CEIL = 63` —
+the 62.5 MHz assumption written into the test. A thirtyfold overshoot was
+scored as 135,443 against 145,152 and read as comfortable. No simulation can
+catch this: nothing in the RTL says the fabric clock and the sample rate are
+tied together on this platform.
+
+**This is a design-level problem, not a bug to patch.** The joint up/down
+estimator as specified cannot complete inside the SFD at 1 MS/s while the
+receiver is clocked from the AD9361 data clock. The options are to clock the
+receiver from a fixed PL clock, to cut the search cost by about thirty, or to
+stop requiring the correction inside the SFD.
 
 ## Evidence boundary
 

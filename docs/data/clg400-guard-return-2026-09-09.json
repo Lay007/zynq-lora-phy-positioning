@@ -183,5 +183,29 @@
     "conclusion": "The search is genuinely slow, not late. Hardware holds toa_search_busy for 40 to 70 ms against 2.17 ms in simulation, which is roughly 37 clocks per tap instead of 2. That duration is what lets the read window age out at 56 ms, so the slowness is the cause and the collision is the symptom.",
     "eliminated": "STATE_WAIT_DOWN_DATA is one clock in the full-receiver probe, so the controller does not wait there. packet_start_valid pulses once, so there is no repeated retriggering. The joint-path regression measures the identical 135,443 clocks whether the sample stream is frozen, dense or paced at the real 63 clocks per sample, so the search duration does not depend on sample pacing either.",
     "next": "Why a tap costs about 37 clocks on hardware and 2 in simulation. The MAC aborts on the first iq_read_miss rather than grinding through misses, and response_mismatch_error is clear, so neither explains it. Settling this needs visibility into the MAC state on hardware."
+  },
+  "root_cause_fabric_clock_scales_with_sample_rate": {
+    "recorded_utc": "2026-09-09",
+    "finding": "The receiver's sample_clk is derived from the AD9361 data clock, which scales with the configured sample rate. The design is written and constrained for the 62.5 MHz that divide-by-four yields at 30.72 MS/s. At the LoRa profile's 1 MS/s the same divider yields single-digit MHz, so the fabric runs roughly thirty times slower than every timing argument in the project assumes.",
+    "wiring": "lora_overlay_injection.tcl connects util_ad9361_divclk/clk_out to lora_clg400_bridge/sample_clk with clk_sel tied to GND.",
+    "board_rates": {
+      "rx_path_rates": "BBPLL:1024000000 ADC:32000000 R2:16000000 R1:8000000 RF:4000000 RXSAMP:1000000",
+      "rx_sampl_clk_hz": 1000000
+    },
+    "derived_clock": {
+      "measured_search_ms": [
+        42,
+        70
+      ],
+      "search_clocks": 135444,
+      "implied_fabric_clock_mhz": [
+        1.93,
+        3.22
+      ],
+      "assumed_fabric_clock_mhz": 62.5,
+      "ratio": "about thirty times slower than assumed"
+    },
+    "consequences": "The joint search needs 135,444 clocks. At roughly two clocks per sample instead of the assumed sixty-three, the 2304-sample SFD deadline is about 4,600 clocks, so the search is around thirty times over its deadline and cannot fit at this profile. It also runs for some 68 ms, during which the 65,536-sample history - 65.5 ms at 1 MS/s - wraps and its read window ages out. The read miss and the missed deadline are therefore the same root cause.",
+    "why_regressions_passed": "tb_lora_joint_chirp_grid_path checks the deadline as SFD_SAMPLES * CLOCKS_PER_SAMPLE_CEIL with CLOCKS_PER_SAMPLE_CEIL = 63. That constant is the 62.5 MHz assumption, so a thirty-fold overshoot was scored as 135,443 against 145,152 and looked comfortable. Simulation cannot catch this: it has no notion that the fabric clock and the sample rate are tied together on this platform."
   }
 }
