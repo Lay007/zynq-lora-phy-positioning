@@ -156,7 +156,44 @@ captured count in bits 7:0; `SEQUENCE` is the trace sequence; the next three
 words contain the raw symbol and 64-bit sample count; `LOG_PEAK` contains trace
 flags and confidence; and `DEBUG` contains the preamble bin, selected index,
 the grid-realigned flag in bit 8, and the count. A complete trace reports
-`STATUS=0x53590280`. The full capture and
+`STATUS=0x53590280`.
+
+Control bit 17 selects a third read-only page carrying clock accounting, and it
+wins over bit 16. It exists because the receiver spent this project clocked
+from `util_ad9361_divclk/clk_out`, which is the AD9361 data clock divided by
+four while that clock is four times the sample rate - so it equalled the sample
+rate exactly, giving the fabric one clock per sample where the joint search
+budget assumes sixty-three. Nothing in the RTL or in simulation can see that,
+because the coupling lives in the board wiring, so the board reports it.
+
+On this page `STATUS` carries the `0x434b` (`CK`) marker in bits 31:16 and the
+receive-crossing overflow flag in bit 0; `SEQUENCE` is the number of receiver
+clocks between the last two accepted samples; `SYMBOL` is the number of clocks
+the last joint search held the fabric; `SAMPLE_LO` is the smallest sample
+interval seen; and `SAMPLE_HI` is the number of completed searches. All of them
+clear on a stream reset except the overflow flag, which is sticky because a
+dropped sample invalidates every sample count that follows it.
+
+Sixty-three clocks per sample means the receiver is on its own fixed clock; one
+means it is back on the AD9361-derived clock and no joint estimate can succeed.
+`tools/read_clg400_symbol_trace.py` reads the page and every capture report
+carries the numbers under `receiver_clock`, with the SFD deadline computed from
+the measured ratio rather than the intended one.
+
+The overlay also enables two ADI clock monitors inside `axi_gpreg_lora`, which
+measure frequency directly against the 100 MHz control clock:
+
+| Address | Direction | Meaning |
+|---|---|---|
+| `0x79040800` | write | monitor 0 enable, write `1` |
+| `0x79040808` | read | monitor 0 count: `util_ad9361_divclk/clk_out` |
+| `0x79040840` | write | monitor 1 enable, write `1` |
+| `0x79040848` | read | monitor 1 count: the fixed receiver clock |
+
+Frequency is `count * 100e6 / 65536`. Monitor 1 sits on a clock of known
+frequency, so it calibrates the formula and turns monitor 0 into an absolute
+measurement rather than an inference from the divider setting.
+ The full capture and
 software-decoder contract is documented in
 [`docs/clg400-symbol-trace.md`](../../../docs/clg400-symbol-trace.md).
 
