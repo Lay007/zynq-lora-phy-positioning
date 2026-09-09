@@ -245,7 +245,15 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   fine request that must return it never arrives, so the delivered grid is
   sixteen samples short. See
   [`data/clg400-joint-grid-result-2026-09-08.json`](data/clg400-joint-grid-result-2026-09-08.json).
-- [ ] Make the fine grid correction observable — a "fine correction applied"
+- [x] Make the guard return unconditional. Withholding the coarse guard
+  was unconditional while returning it depended on the joint estimate
+  succeeding, so any search abort left the grid sixteen samples short and
+  the build strictly worse than its predecessor. Reproduced offline at a
+  non-zero packet arrival phase, fixed on all three abort paths, and
+  covered by `tb_lora_joint_grid_completion`, which now requires the guard
+  back whatever the estimate does. A `search_abort_error` output makes the
+  abort visible.
+- [ ] Find why the joint search fails at a non-zero arrival phase — a "fine correction applied"
   flag beside `DEBUG` bit 8 and a sticky bit per abort reason — then rebuild
   and repeat. `lora_joint_chirp_grid_controller` has three silent paths to
   `STATE_IDLE`, and a frozen trace cannot currently tell them apart.

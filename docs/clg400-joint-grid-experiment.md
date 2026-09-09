@@ -268,6 +268,50 @@ same eleven captures takes ten of them to a fully agreeing symbol stage and a
 valid packet decode, exactly as it did on the baseline arm. What failed is this
 build's ability to apply that correction, not the correction.
 
+### Reproduced offline, and the defect named
+
+The failure was then reproduced in simulation without the bench.
+`tb_lora_joint_grid_completion` drives the packet at a non-zero arrival phase
+(`+grid_phase=N`, a silence prefix rather than a partial chirp so the stimulus
+is not itself an artefact). At any non-zero phase:
+
+```
+search_failed=1  fine_resync=0  state=IDLE
+peakboundary=1   macreadmiss=0  range_error=0
+```
+
+The abort trigger differs from the board — a peak at the search boundary here,
+a history read miss there — but the outcome is identical and is exactly the
+board's signature: the search fails, no fine request is issued, and the coarse
+resync has already withheld the guard.
+
+**That asymmetry is the defect.** Withholding the guard is unconditional;
+returning it was conditional on the estimate succeeding. Any search failure,
+through any of the three paths, left the grid permanently sixteen samples
+short — strictly worse than never attempting the correction. It is why this
+build measured worse than the one it replaced rather than merely no better.
+
+The fix makes the return unconditional: every abort path now issues a fine
+request carrying the bare `FINE_GUARD_SAMPLES` with a zero correction, so a
+declined estimate degrades to exactly the coarse-only grid. A new
+`search_abort_error` output feeds `toa_peak_boundary_error`, because a silent
+abort is what made this cost a full bench run to find.
+
+| Arrival phase | Searches | Aborted | `timing_valid` | `fine_skip` |
+|---:|---:|---:|---:|---:|
+| 0 | 2 | 0 | 1 | 23 (guard + correction 7) |
+| 64 | 1 | 1 | 0 | **16** (bare guard returned) |
+| 512 | 1 | 1 | 0 | **16** |
+
+The regression now requires the guard back whatever the estimate does. The
+controller, joint-path, receiver-top and CLG400 bridge regressions are
+unchanged by it, and the joint path still reports `fine_skip=27`.
+
+**Still open:** why the search fails at a non-zero arrival phase at all. The
+fix makes that failure harmless rather than harmful; it does not yet deliver
+the correction. Note that `chips_to_boundary` reads 0 in this stimulus even at
+non-zero phase, which is worth understanding before the next build.
+
 ### Where to look next
 
 `lora_joint_chirp_grid_controller` has three paths that reach `STATE_IDLE`
