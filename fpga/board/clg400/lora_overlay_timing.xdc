@@ -35,14 +35,31 @@ if {[llength $mailbox_first_stages] > 0} {
 # synchronizer or a Gray-coded FIFO pointer. It is asynchronous to the AD9361
 # receive family for the same reason. Grouping it explicitly keeps the existing
 # false paths meaningful instead of leaving the crossings to be timed.
+# Find it by the pin it drives, then by the MMCM that makes it. If neither
+# works the crossings would be timed as if they were synchronous, which
+# either fails implementation or, worse, passes with the CDC unconstrained.
+# Stop instead: a missing constraint here is not something to discover on
+# the bench.
 set lora_receiver_clks [get_clocks -quiet -of_objects \
   [get_pins -quiet -hier -filter {NAME =~ *lora_clg400_bridge/sample_clk}]]
-if {[llength $lora_receiver_clks] > 0 && [llength $ctrl_async_clks] > 0} {
+if {[llength $lora_receiver_clks] == 0} {
+  set lora_receiver_clks [get_clocks -quiet -of_objects \
+    [get_pins -quiet -hier -filter {NAME =~ *lora_receiver_clk*/clk_out1}]]
+}
+if {[llength $lora_receiver_clks] == 0} {
+  set lora_receiver_clks [get_clocks -quiet {*lora_receiver_clk*}]
+}
+if {[llength $lora_receiver_clks] == 0} {
+  error "lora_overlay_timing: cannot find the fixed receiver clock; the\
+ sample-domain crossings would be left unconstrained"
+}
+puts "LORA_RECEIVER_CLOCK: $lora_receiver_clks"
+if {[llength $ctrl_async_clks] > 0} {
   set_clock_groups -asynchronous \
     -group $lora_receiver_clks \
     -group $ctrl_async_clks
 }
-if {[llength $lora_receiver_clks] > 0 && [llength $sample_async_clks] > 0} {
+if {[llength $sample_async_clks] > 0} {
   set_clock_groups -asynchronous \
     -group $lora_receiver_clks \
     -group $sample_async_clks
