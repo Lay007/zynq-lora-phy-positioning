@@ -15,6 +15,7 @@
 module tb_lora_joint_grid_completion;
     localparam integer SF = 7;
     localparam integer SAMPLES_PER_CHIP = 8;
+    parameter integer HISTORY_DEPTH = 65536;
     localparam integer SYMBOL_COUNT = (1 << SF);
     localparam integer SAMPLES_PER_SYMBOL = SYMBOL_COUNT * SAMPLES_PER_CHIP;
     localparam real PI = 3.14159265358979323846;
@@ -99,6 +100,14 @@ module tb_lora_joint_grid_completion;
     // A packet driven straight onto the grid gives chips_to_boundary = 0 and
     // never exercises that against the joint search.
     integer grid_phase = 0;
+    // On the board every packet arrives at a non-zero preamble bin, so the
+    // coarse resync withholds hundreds of samples from the correlator. In
+    // this stimulus chips_to_boundary is 0 and it withholds none, which
+    // leaves the interaction between that drop and the joint search's
+    // addressing completely unexercised. +coarse_skip drives the external
+    // resync port to reproduce it.
+    integer coarse_skip = 0;
+    reg detected_seen = 1'b0;
     integer joint_search_start_seen = 0;
     integer joint_search_failed_seen = 0;
     integer joint_timing_valid_seen = 0;
@@ -114,7 +123,12 @@ module tb_lora_joint_grid_completion;
     reg [63:0] captured_metadata_coarse = 64'd0;
     reg signed [31:0] captured_metadata_fractional = 32'sd0;
 
-    lora_packet_toa_receiver_top dut (
+    // With the production 65536-sample history the buffer never fills in this
+    // stimulus, so oldest_sample_count stays 0 and the "read too old" half of
+    // the miss condition is unreachable. On the board the count runs into the
+    // millions and that half is live. A shallow history makes it reachable
+    // without driving a million samples.
+    lora_packet_toa_receiver_top #(.HISTORY_DEPTH(HISTORY_DEPTH)) dut (
         .clk(clk), .resetn(resetn),
         .iq_in_re(iq_in_re), .iq_in_im(iq_in_im), .valid_in(valid_in),
         .reset_in(reset_in), .resync_valid(resync_valid),
@@ -260,6 +274,13 @@ module tb_lora_joint_grid_completion;
             // events without asserting the shorter expected sequence.
             if (symbol_valid)
                 symbol_seen = symbol_seen + 1;
+            if (coarse_skip > 0 && detected && !detected_seen) begin
+                detected_seen <= 1'b1;
+                resync_valid <= 1'b1;
+                resync_skip <= coarse_skip;
+            end else begin
+                resync_valid <= 1'b0;
+            end
             if (dut.g_joint_grid_timing.u_joint_grid_timing.search_start)
                 joint_search_start_seen = joint_search_start_seen + 1;
             if (dut.g_joint_grid_timing.u_joint_grid_timing.search_failed)
@@ -332,7 +353,9 @@ module tb_lora_joint_grid_completion;
             sample_gap = 0;
         if (!$value$plusargs("grid_phase=%d", grid_phase))
             grid_phase = 0;
-        $display("INFO sample_gap=%0d grid_phase=%0d", sample_gap, grid_phase);
+        if (!$value$plusargs("coarse_skip=%d", coarse_skip))
+            coarse_skip = 0;
+        $display("INFO sample_gap=%0d grid_phase=%0d coarse_skip=%0d", sample_gap, grid_phase, coarse_skip);
         repeat (6) @(posedge clk);
         resetn <= 1'b1;
         repeat (3) @(posedge clk);

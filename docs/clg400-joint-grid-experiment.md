@@ -334,7 +334,42 @@ is deterministic and phase independent, so the next steps are:
   addressing or counter-domain error in the joint search. It also confirms the
   simulated boundary abort and the board's abort are different events.
 
-A third step is now clearly worth its cost: `history_next_sample_count`,
+### The board's read miss, reproduced offline
+
+`tb_lora_joint_grid_completion` takes `HISTORY_DEPTH` as a parameter. At the
+production 65536 the buffer never fills in this stimulus, `oldest_sample_count`
+stays 0, and the "read too old" half of the miss condition is unreachable. On
+the board the count runs into the millions and that half is always live.
+
+Building the same test with a shallow history reproduces the board's flag
+exactly:
+
+```bash
+iverilog -g2012 -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_grid_completion   -Ptb_lora_joint_grid_completion.HISTORY_DEPTH=4096 -o /tmp/jg.vvp <sources>
+vvp /tmp/jg.vvp
+```
+
+| `HISTORY_DEPTH` | Result |
+|---:|---|
+| 65536 | passes; 2 searches, no abort, `fine_skip=23` |
+| 4096 | `macreadmiss=1`, every other flag clear |
+
+That single flag, alone, is precisely what the board reported on 14 of 14
+packets. **The joint search reads history that has already been overwritten.**
+Its up search targets `packet_start_count`, roughly ten symbols behind the
+current sample when detection fires, and misses whenever that point has left
+the retained window by the time the search actually runs.
+
+This is a lookback-versus-retention problem, not an arithmetic one, which is
+consistent with the miss being deterministic and phase independent on the
+board. The remaining question is why the lookback exceeds 65536 samples there —
+65,536 samples is 65.5 ms at 1 MS/s against an 83 ms packet, so a search that
+starts late rather than at detection would age its own target out. The shared
+`u_toa_search` and its `search_busy` gate are the first place to look.
+
+The guard fix already makes this failure harmless rather than harmful.
+
+A further step is now clearly worth its cost: `history_next_sample_count`,
 `history_oldest_sample_count` and `history_samples_retained` are left
 unconnected in `lora_clg400_gpreg_bridge`, so the retained window cannot be
 read from the PS. Exposing them would say immediately whether the failing read
