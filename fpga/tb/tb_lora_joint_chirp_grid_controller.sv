@@ -154,9 +154,20 @@ module tb_lora_joint_chirp_grid_controller;
         return_peak(64'd61117);
         expect_result(32'sd2, 32'd18);
 
-        // The down search must not start until its complete window is stored.
+        // Neither search may start until its complete window is stored. The
+        // up window here ends at 70008+1024+16 = 71048; the down window ends
+        // at 81288, so this level releases the up search and still holds the
+        // down one back.
         history_next_sample_count <= 64'd0;
         pulse_packet(64'd70000, 16'd1);
+        repeat (5) begin
+            @(negedge clk);
+            if (search_start) begin
+                errors = errors + 1;
+                $display("FAIL up search started before IQ was available");
+            end
+        end
+        history_next_sample_count <= 64'd71048;
         wait_search(1'b0, 64'd70008);
         return_peak(64'd70008);
         repeat (5) begin

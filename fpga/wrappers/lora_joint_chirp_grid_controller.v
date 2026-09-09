@@ -74,6 +74,15 @@ module lora_joint_chirp_grid_controller #(
     reg signed [64:0] up_offset;
 
     wire [63:0] coarse_chip_advance = chips_to_boundary * SAMPLES_PER_CHIP;
+    // Both searches read coarse_start-SEARCH_RADIUS .. coarse_start+M+RADIUS,
+    // so neither may start before that window has arrived. The down search
+    // always waited; the up search did not, and a read past
+    // next_sample_count is a history miss exactly like a read that has aged
+    // out. Measured on the board: the miss persists when the packet is sent
+    // 0.2 ms after the stream reset, where nothing can have been overwritten
+    // yet, so the failing read is ahead of the stream rather than behind it.
+    wire [63:0] up_ready_count = up_coarse_start
+        + SYMBOL_SAMPLES_U64 + SEARCH_RADIUS_U64;
     wire [63:0] down_ready_count = down_coarse_start
         + SYMBOL_SAMPLES_U64 + SEARCH_RADIUS_U64;
     wire signed [64:0] peak_signed = {1'b0, search_peak_sample_count};
@@ -148,7 +157,8 @@ module lora_joint_chirp_grid_controller #(
                 end
 
                 STATE_LAUNCH_UP: begin
-                    if (!search_busy) begin
+                    if (!search_busy
+                        && history_next_sample_count >= up_ready_count) begin
                         search_start <= 1'b1;
                         state <= STATE_WAIT_UP;
                     end
