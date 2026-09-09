@@ -521,43 +521,80 @@ elimination — a too-old read is impossible so soon after a stream reset — an
 the elimination missed this third cause. The up-search data-ready wait added on
 the strength of it is correct and harmless, but it was not the fix.
 
-### Root cause: the fabric clock scales with the sample rate
+### Root cause: the receiver got one clock per sample
 
-The receiver's `sample_clk` comes from `util_ad9361_divclk/clk_out`
-(`lora_overlay_injection.tcl`, `clk_sel` tied to GND). That divider is fed by
-the AD9361 data clock, **which scales with the configured sample rate**. The
-design is written and constrained for the 62.5 MHz that divide-by-four yields
-at 30.72 MS/s. At the LoRa profile's 1 MS/s it yields single-digit MHz.
+The receiver's `sample_clk` came from `util_ad9361_divclk/clk_out`
+(`lora_overlay_injection.tcl`, `clk_sel` tied to GND). Two static facts fix
+what that clock is:
 
-Measured rather than assumed: `toa_search_busy` is held for 42 to 70 ms for a
-search the probe times at 135,444 clocks, which puts the fabric clock at
-**1.9 to 3.2 MHz** against the 62.5 MHz every timing argument in this project
-uses. About thirty times slower.
+- `util_clkdiv` is instantiated with its defaults, `SEL_0_DIV = "4"`, and
+  `BUFGMUX_CTRL` selects `I0` when `clk_sel` is 0. The output is the input
+  divided by four.
+- The AD9361 data clock is four times the sample rate. That is what makes the
+  overlay's own comment - "62.5 MHz at the 250 MHz XDC maximum" - come out
+  right: 250/4, at 61.44 MS/s.
+
+Multiply them and the divider output is the sample rate itself. **The receiver
+had exactly one fabric clock per sample, and no choice of AD9361 sample rate
+changes that**, because both terms scale together. The 62.5 MHz the design is
+written and constrained for exists only at the maximum sample rate, and even
+there it is one clock per sample.
+
+Measured rather than inferred, with ADI's clock monitor inside `axi_ad9361`
+(`ADI_REG_CLK_FREQ` at `0x79020054`, against `fclk0` read from the PS clock
+tree as 99,999,999 Hz):
+
+| AD9361 sample rate | `CLK_FREQ` | AD9361 data clock | ratio to sample rate |
+|---:|---:|---:|---:|
+| 1.00 MS/s | 2624 | 4.0039 MHz | 4.004 |
+| 2.00 MS/s | 5248 | 8.0078 MHz | 4.004 |
+| 4.00 MS/s | 10496 | 16.016 MHz | 4.004 |
+| 8.00 MS/s | 20992 | 32.031 MHz | 4.004 |
+| 15.36 MS/s | 40306 | 61.505 MHz | 4.004 |
+| 30.72 MS/s | 80613 | 123.00 MHz | 4.004 |
+
+Linear over the whole range, so the receiver clock at the LoRa profile was
+4.0039/4 = **1.001 MHz**, one clock per sample.
 
 That single fact explains the whole investigation:
 
-- The search needs 135,444 clocks. At roughly **two** clocks per sample instead
-  of the assumed sixty-three, the 2304-sample SFD deadline is about 4,600
-  clocks. The search is some thirty times over its deadline and **cannot fit at
-  this profile**.
-- It therefore runs about 68 ms, and the 65,536-sample history is 65.5 ms at
-  1 MS/s. The buffer wraps mid-search and the read window ages out.
+- The joint search costs 135,443 clocks. The SFD deadline is 2304 samples,
+  which at one clock per sample is 2304 clocks. The search is **fifty-nine
+  times** over its deadline and cannot fit at any profile.
+- It therefore never completes. The history read window sits 9,984 samples
+  behind the write pointer, so it ages out 65,536 - 9,984 = 55,552 samples
+  after the search is armed - and 55,552 is well short of the 135,443 the
+  search would need. The abort is the age-out, every time.
 - **The read miss and the missed deadline are the same root cause**, which is
   why every attempt to fix one of them left the other in place.
 
+Three independent measurements agree: the abort lands 55,552 samples after the
+phase-corrected origin with zero residual across five captures; the fine skip
+appears 50 to 51 symbols after the coarse resync in the traces; and
+`toa_search_busy` is held 60 ms against the 55.5 ms the model predicts, on a
+poll with 13.8 ms granularity.
+
+An earlier estimate in this document put the clock at 1.9 to 3.2 MHz. It was
+derived from that same busy window while assuming the search ran to
+completion, and it was wrong by about a factor of two in one direction and
+sixty in the other - the search does not complete, so its duration measures the
+age-out rather than the cost. The number above is measured at a register, not
+derived.
+
 And it explains why no regression caught it.
 `tb_lora_joint_chirp_grid_path` checks the deadline as
-`SFD_SAMPLES * CLOCKS_PER_SAMPLE_CEIL` with `CLOCKS_PER_SAMPLE_CEIL = 63` —
-the 62.5 MHz assumption written into the test. A thirtyfold overshoot was
-scored as 135,443 against 145,152 and read as comfortable. No simulation can
-catch this: nothing in the RTL says the fabric clock and the sample rate are
-tied together on this platform.
+`SFD_SAMPLES * CLOCKS_PER_SAMPLE_CEIL` with `CLOCKS_PER_SAMPLE_CEIL = 63`, and
+`tb_lora_joint_grid_completion` offers `+sample_gap=63` as the setting that
+"reproduces the board's density". Sixty-three is the assumption, not the
+board: a fifty-nine-fold overshoot was scored as 135,443 against 145,152 and
+read as comfortable. No simulation could catch it, because nothing in the RTL
+says the fabric clock and the sample rate are tied together on this platform.
 
 **This is a design-level problem, not a bug to patch.** The joint up/down
-estimator as specified cannot complete inside the SFD at 1 MS/s while the
-receiver is clocked from the AD9361 data clock. The options are to clock the
-receiver from a fixed PL clock, to cut the search cost by about thirty, or to
-stop requiring the correction inside the SFD.
+estimator as specified cannot complete inside the SFD while the receiver is
+clocked from the AD9361 data clock, at any sample rate. The options are to
+clock the receiver from a fixed PL clock, to cut the search cost by about
+sixty, or to stop requiring the correction inside the SFD.
 
 ## Evidence boundary
 

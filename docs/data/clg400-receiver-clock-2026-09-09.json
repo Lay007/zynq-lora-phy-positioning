@@ -1,0 +1,56 @@
+{
+  "schema": "zynq-lora-receiver-clock-measurement-v1",
+  "recorded_utc": "2026-09-09",
+  "claim_under_test": "The LoRa receiver's sample_clk, taken from util_ad9361_divclk/clk_out, is the 62.5 MHz the design is written and constrained for.",
+  "result": "Refuted. The divider output equals the AD9361 sample rate exactly, at every rate, so the receiver had one fabric clock per sample rather than the sixty-three its joint-search budget assumes.",
+  "method": {
+    "instrument": "ADI clock monitor inside axi_ad9361 (up_clock_mon), read over /dev/mem",
+    "registers": {
+      "ADI_REG_CLK_FREQ": "0x79020054",
+      "ADI_REG_CLK_RATIO": "0x79020058"
+    },
+    "formula": "f_monitored = CLK_FREQ * f_axi / 65536",
+    "axi_reference_hz": 99999999,
+    "axi_reference_source": "/sys/kernel/debug/clk/clk_summary, fclk0",
+    "monitored_net": "axi_ad9361/clk, which is l_clk and also the input of util_ad9361_divclk"
+  },
+  "sweep": [
+    {"sample_rate_hz": 1000000, "clk_freq_raw": 2624, "measured_hz": 4003906, "ratio_to_sample_rate": 4.004},
+    {"sample_rate_hz": 2000000, "clk_freq_raw": 5248, "measured_hz": 8007813, "ratio_to_sample_rate": 4.004},
+    {"sample_rate_hz": 4000000, "clk_freq_raw": 10496, "measured_hz": 16015625, "ratio_to_sample_rate": 4.004},
+    {"sample_rate_hz": 8000000, "clk_freq_raw": 20992, "measured_hz": 32031250, "ratio_to_sample_rate": 4.004},
+    {"sample_rate_hz": 15360000, "clk_freq_raw": 40306, "measured_hz": 61505127, "ratio_to_sample_rate": 4.004},
+    {"sample_rate_hz": 30720000, "clk_freq_raw": 80613, "measured_hz": 123004761, "ratio_to_sample_rate": 4.004}
+  ],
+  "divider": {
+    "instance": "util_ad9361_divclk",
+    "ip": "analog.com:user:util_clkdiv",
+    "sel_0_div": 4,
+    "sel_1_div": 2,
+    "clk_sel": 0,
+    "note": "BUFGMUX_CTRL selects I0 when S is 0, and I0 is the SEL_0_DIV leg.",
+    "receiver_clock_hz_at_1ms": 1000977,
+    "clocks_per_sample": 1.0,
+    "clocks_per_sample_is_rate_independent": true
+  },
+  "consequences": {
+    "joint_search_clocks": 135443,
+    "sfd_deadline_samples": 2304,
+    "sfd_deadline_clocks_before_fix": 2304,
+    "overshoot_factor_before_fix": 58.8,
+    "history_depth_samples": 65536,
+    "search_window_lookback_samples": 9984,
+    "age_out_after_samples": 55552,
+    "abort_cause": "The window ages out at 55552 samples, which is reached long before the 135443 the search needs, so the abort is always the age-out rather than a completed search."
+  },
+  "corroboration": [
+    "Abort lands 55552 samples after the phase-corrected origin with zero residual across five captures.",
+    "Fine skip appears 50 to 51 symbols after the coarse resync in all five traces.",
+    "toa_search_busy held 60 ms against 55.5 ms predicted, polled at 13.8 ms granularity."
+  ],
+  "supersedes": {
+    "claim": "The fabric clock is 1.9 to 3.2 MHz.",
+    "why_it_was_wrong": "It divided the simulated search cost by the measured busy duration, which assumes the search runs to completion. It does not; the busy duration measures the age-out instead, so the quotient measured nothing.",
+    "recorded_in": "docs/clg400-joint-grid-experiment.md, superseded 2026-09-09"
+  }
+}
