@@ -5,7 +5,7 @@
   "previous_bitstream_sha256_prefix": "3265ed82843a7b36c2859e8a6726d9df",
   "post_route": {
     "wns_ns": 0.052,
-    "whs_ns": 0.030,
+    "whs_ns": 0.03,
     "failing_endpoints": 0,
     "receiver_clock": "clk_out1_system_lora_receiver_clk_0",
     "receiver_clock_mhz": 62.5,
@@ -24,7 +24,16 @@
     "monitor_0_ad9361_divided_hz": 1000977,
     "clocks_per_sample_before": 1,
     "clocks_per_sample_after": 63,
-    "clocks_per_sample_after_readings": [62, 62, 63, 62, 63, 63, 63, 62],
+    "clocks_per_sample_after_readings": [
+      62,
+      62,
+      63,
+      62,
+      63,
+      63,
+      63,
+      62
+    ],
     "note": "Monitor 1 sits on a clock of known frequency and read it exactly, so monitor 0 is an absolute measurement rather than an inference from the divider setting. The AD9361 driver's own rx_path_rates reports RF:4000000 at RXSAMP:1000000, a third confirmation of the four-to-one ratio."
   },
   "search": {
@@ -39,21 +48,191 @@
   },
   "still_open": {
     "raw_decision_bin_spread": 2,
-    "combined_bin_error_histogram": {"-1": 34, "0": 94, "1": 137, "2": 53},
-    "symbols_compared": 318,
-    "errors_above": 190,
-    "errors_below": 34,
+    "packets_decoded": 1,
+    "packets_attempted": 10,
     "statement": "The one-sided bias is NOT resolved by the clock fix. The clock defect was masking it: before the fix no joint estimate was ever applied at all, so the estimator could not be assessed.",
-    "localisation": "Every rung through peak_bin agrees 58/58 against the reference model evaluated on the PL's own window, so the PL computes the correct answer for the window it chose. The first divergence is still symbol. Applying the reference's joint correction to the reconstructed grid gives 53/53 on two of three paired captures, so the correction the reference derives is right and what the PL applies is not."
+    "localisation": "Every rung through peak_bin agrees 58/58 against the reference model evaluated on the PL's own sample window, so the PL computes the correct answer for the window it chose. The first divergence is still symbol. Applying the reference's joint correction to the reconstructed grid gives 53/53 on eight of ten paired captures, so the estimator as specified is sufficient to recover every symbol; what the PL's grid ends up on is not.",
+    "decode_threshold": "A packet decodes only when essentially every symbol lands on one bin. Sequence 101 was 52 of 53 on a single bin and passed CRC; every capture whose decisions split across two bins failed, because coding rate 4/5 is parity only and corrects nothing."
   },
   "paired_captures": [
-    {"tx_sequence": 91, "preamble_bin": 97, "search_clocks": 135443, "reference_correction_samples": -3, "applied_fine_skip": 16, "cfo_displacement_samples": -3.5048, "symbol_timing_corrected": "53/53", "bin_error_histogram": {"0": 32, "1": 21}},
-    {"tx_sequence": 92, "preamble_bin": 9, "search_clocks": 67721, "reference_correction_samples": 5, "applied_fine_skip": null, "cfo_displacement_samples": -3.5041, "symbol_timing_corrected": "48/53", "bin_error_histogram": {"0": 26, "1": 27}},
-    {"tx_sequence": 93, "preamble_bin": 1, "search_clocks": 135443, "reference_correction_samples": 9, "applied_fine_skip": 7, "cfo_displacement_samples": -3.5330, "symbol_timing_corrected": "53/53", "bin_error_histogram": {"0": 44, "1": 9}}
+    {
+      "tx_sequence": 91,
+      "preamble_bin": 97,
+      "search_clocks": 135443,
+      "reference_correction_samples": -3,
+      "applied_fine_skip": 16,
+      "pl_correction_samples": 0,
+      "cfo_displacement_samples": -3.5048,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "0": 32,
+        "1": 21
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 92,
+      "preamble_bin": 9,
+      "search_clocks": 67721,
+      "reference_correction_samples": 5,
+      "applied_fine_skip": null,
+      "pl_correction_samples": null,
+      "cfo_displacement_samples": -3.5041,
+      "symbol_timing_corrected": "48/53",
+      "bin_error_histogram": {
+        "0": 27,
+        "-1": 26
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 93,
+      "preamble_bin": 1,
+      "search_clocks": 135443,
+      "reference_correction_samples": 9,
+      "applied_fine_skip": 7,
+      "pl_correction_samples": -9,
+      "cfo_displacement_samples": -3.533,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-1": 44,
+        "0": 9
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 94,
+      "preamble_bin": 27,
+      "search_clocks": 135443,
+      "reference_correction_samples": -3,
+      "applied_fine_skip": 20,
+      "pl_correction_samples": 4,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "0": 36,
+        "1": 17
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 95,
+      "preamble_bin": 7,
+      "search_clocks": 135443,
+      "reference_correction_samples": 14,
+      "applied_fine_skip": 6,
+      "pl_correction_samples": -10,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-2": 34,
+        "-1": 19
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 96,
+      "preamble_bin": 16,
+      "search_clocks": 135443,
+      "reference_correction_samples": 21,
+      "applied_fine_skip": 2,
+      "pl_correction_samples": -14,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-2": 28,
+        "-3": 25
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 98,
+      "preamble_bin": 14,
+      "search_clocks": 135443,
+      "reference_correction_samples": 15,
+      "applied_fine_skip": 5,
+      "pl_correction_samples": -11,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-2": 42,
+        "-1": 11
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 99,
+      "preamble_bin": 124,
+      "search_clocks": 67721,
+      "reference_correction_samples": 7,
+      "applied_fine_skip": null,
+      "pl_correction_samples": null,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-1": 44,
+        "0": 9
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 100,
+      "preamble_bin": 25,
+      "search_clocks": 135443,
+      "reference_correction_samples": 7,
+      "applied_fine_skip": 9,
+      "pl_correction_samples": -7,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "53/53",
+      "bin_error_histogram": {
+        "-1": 46,
+        "0": 7
+      },
+      "crc_valid": false
+    },
+    {
+      "tx_sequence": 101,
+      "preamble_bin": 49,
+      "search_clocks": 135443,
+      "reference_correction_samples": -7,
+      "applied_fine_skip": 21,
+      "pl_correction_samples": 5,
+      "cfo_displacement_samples": null,
+      "symbol_timing_corrected": "51/53",
+      "bin_error_histogram": {
+        "1": 52,
+        "2": 1
+      },
+      "crc_valid": true
+    }
   ],
   "open_leads": [
-    "The applied fine skip does not equal FINE_GUARD_SAMPLES plus the correction the reference derives. On sequence 93 it equals 16 - 9 = 7, which would follow from an inverted sign; on sequence 91 it is the bare guard, which would follow from the estimate being zero or declined. Two captures are not enough to separate those.",
-    "cfo_displacement_samples is -3.50, -3.50, -3.53 here and -3.33 to -3.49 across the earlier twelve captures: about -427 Hz, or -0.49 ppm at 868.1 MHz, and -0.44 of a bin. lora_joint_chirp_grid_controller computes only the half-sum, which cancels CFO by design; the half-difference is never formed and nothing in the RTL consumes a CFO term. An uncompensated sub-bin displacement of that size would put every decision within half a bin of a boundary, which is what a spread of exactly two adjacent bins looks like."
+    {
+      "lead": "the applied fine skip is close to the negation of the model's correction",
+      "data": "Across the eight captures where a fine skip was applied, pl_correction + reference_correction has mean 1.4 and mean absolute value 2.6, while pl_correction - reference_correction has mean absolute value 17.4. A least-squares fit over the five captures whose reference correction is inside the plus or minus 16 search radius gives a slope of -0.885.",
+      "not_a_conclusion_because": "The two numbers are measured against different origins. The PL offsets are relative to packet_start_count plus chips_to_boundary times the chip length; the model's are relative to an origin it derives from the trace alignment. A systematic difference between those two origins that scales with the preamble bin would produce the same apparent anti-correlation, and both quantities do correlate with the preamble bin.",
+      "ruled_out": "A plain sign error in the RTL. tb_lora_joint_chirp_grid_path drives an upchirp at sample 1008 and a downchirp at 11254 against a declared packet_start_count of 1000 with chips_to_boundary zero, so the stimulus carries a true timing offset of +11 samples and a built-in CFO displacement of -3. The controller reports +11 and a fine skip of 27, which is the guard plus the correct signed correction. The arithmetic and the sign are right; the inputs on the board are the open question.",
+      "next_step": "Expose the controller's up_coarse_start and timing_correction_samples so the PL and the model can be compared against the same origin instead of inferring the PL's correction from the skip it applies. That needs a rebuild."
+    },
+    {
+      "lead": "carrier frequency offset is measured but never compensated",
+      "data": "cfo_displacement_samples is -3.50, -3.50 and -3.53 on the three captures where it was computed here, and -3.33 to -3.49 across the earlier twelve: about -427 Hz, or -0.49 ppm at 868.1 MHz, and -0.44 of a bin.",
+      "not_a_conclusion_because": "lora_joint_chirp_grid_controller forms only the half-sum, which cancels CFO by design, and nothing in the RTL consumes a CFO term. Whether an uncompensated sub-bin displacement of that size is what spreads the decisions over two bins has not been tested; the reference model reaches 53 of 53 without compensating it either, which argues against it being the whole story."
+    }
   ],
-  "evidence_boundary": "Nine captures at one power level with one transmitter. This measures the search-completion defect and the decision bias; it establishes nothing about packet error rate, sensitivity, acquisition probability, or calibrated time of arrival."
+  "evidence_boundary": "Sixteen captures at one power level with one transmitter, ten of them paired with raw IQ. This measures the search-completion defect and the decision bias. It establishes nothing about packet error rate, sensitivity, acquisition probability, or calibrated time of arrival, and one decoded packet out of ten is not a link measurement.",
+  "simulation_cross_check": {
+    "testbench": "fpga/tb/tb_lora_joint_chirp_grid_path.sv",
+    "stimulus_upchirp_sample": 1008,
+    "stimulus_downchirp_sample": 11254,
+    "declared_packet_start_count": 1000,
+    "declared_chips_to_boundary": 0,
+    "derived_true_up_offset": 8,
+    "derived_true_down_offset": 14,
+    "derived_true_timing": 11,
+    "derived_true_cfo_displacement": -3,
+    "rtl_timing_correction_samples": 11,
+    "rtl_fine_skip": 27,
+    "verdict": "The testbench is a correctness check rather than a change detector: its expected values follow from the stimulus rather than from the implementation, and the RTL matches them."
+  }
 }
