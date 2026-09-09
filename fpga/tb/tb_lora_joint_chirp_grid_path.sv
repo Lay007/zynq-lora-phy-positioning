@@ -76,6 +76,16 @@ module tb_lora_joint_chirp_grid_path;
     integer q_im;
     integer source_n;
     integer cycles_after_detection = 0;
+    // The board never stops delivering samples while the joint search runs.
+    // With the stream halted the write pointer is frozen, so the read window
+    // cannot age out and read_write_collision cannot fire at all - the two
+    // things that abort the search on hardware. +stream_during_search keeps
+    // the stream going, and +stream_gap sets its pacing in idle clocks per
+    // sample (63 is the 1 MS/s to 62.5 MHz ratio).
+    integer stream_during_search = 0;
+    integer stream_gap = 0;
+    integer post_stream_gap = 0;
+    wire [2:0] dut_state = controller.state;
     reg timing_seen = 1'b0;
     real phase_cycles;
     real angle;
@@ -187,6 +197,11 @@ module tb_lora_joint_chirp_grid_path;
             iq_in_re <= q_re;
             iq_in_im <= q_im;
             sample_valid <= 1'b1;
+            if (stream_gap > 0) begin
+                @(negedge clk);
+                sample_valid <= 1'b0;
+                repeat (stream_gap - 1) @(negedge clk);
+            end
         end
     endtask
 
@@ -218,6 +233,13 @@ module tb_lora_joint_chirp_grid_path;
     end
 
     initial begin
+        if (!$value$plusargs("stream_during_search=%d", stream_during_search))
+            stream_during_search = 0;
+        if (!$value$plusargs("stream_gap=%d", post_stream_gap))
+            post_stream_gap = 0;
+        stream_gap = 0;
+        $display("INFO stream_during_search=%0d post_stream_gap=%0d",
+                 stream_during_search, post_stream_gap);
         repeat (5) @(posedge clk);
         resetn <= 1'b1;
         repeat (3) @(posedge clk);
@@ -234,6 +256,18 @@ module tb_lora_joint_chirp_grid_path;
         @(negedge clk);
         packet_start_valid <= 1'b0;
 
+        if (stream_during_search) begin
+            // Keep feeding the history exactly as the board does. The search
+            // now races the write pointer instead of reading a frozen buffer.
+            stream_gap = post_stream_gap;
+            n = 13000;
+            while (!timing_seen && n < 13000 + 200000) begin
+                drive_history_sample(n);
+                n = n + 1;
+            end
+            @(negedge clk);
+            sample_valid <= 1'b0;
+        end
         while (!timing_seen) @(negedge clk);
         repeat (4) @(posedge clk);
 
@@ -250,13 +284,22 @@ module tb_lora_joint_chirp_grid_path;
             $display("FAIL tb_lora_joint_chirp_grid_path (%0d errors)", errors);
             $fatal(1);
         end
-        $display("PASS tb_lora_joint_chirp_grid_path");
+        $display("PASS tb_lora_joint_chirp_grid_path cycles_after_detection=%0d fine_skip=%0d",
+                 cycles_after_detection, fine_skip);
         $finish;
     end
 
     initial begin
-        #5000000;
-        $display("FAIL tb_lora_joint_chirp_grid_path timeout");
+        #200000000;
+        // Name the flags: a bare timeout does not say whether the search
+        // aborted, stalled, or simply had not finished yet.
+        $display("FAIL tb_lora_joint_chirp_grid_path timeout: state=%0d busy=%0d cycles=%0d",
+                 dut_state, controller_busy, cycles_after_detection);
+        $display("     flags underflow=%0b restart=%0b window=%0b readmiss=%0b resp=%0b macrestart=%0b boundary=%0b peakrestart=%0b ctlrestart=%0b range=%0b",
+                 underflow_error, search_restart_error, mac_window_mismatch_error,
+                 mac_read_miss_error, mac_response_mismatch_error, mac_restart_error,
+                 peak_boundary_error, peak_restart_error, restart_error,
+                 timing_range_error);
         $fatal(1);
     end
 endmodule
