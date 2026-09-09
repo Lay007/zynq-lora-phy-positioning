@@ -1293,5 +1293,22 @@
     "toa_peak_boundary_error": "clear on all fourteen",
     "conclusion": "The history read miss is not phase dependent. It occurs on every packet across the whole preamble-bin range, deterministically, with the sticky word identical every time. That refutes the working hypothesis that the abort depends on where the packet lands, and points instead at a systematic addressing or counter-domain error in the joint search rather than a marginal history depth or timing effect. The boundary-peak abort seen in simulation never fires on the board, so the simulated abort and the board's abort are different events.",
     "observability_gap": "history_next_sample_count, history_oldest_sample_count and history_samples_retained are left unconnected in lora_clg400_gpreg_bridge, so the retained window cannot be read from the PS. Exposing them would say immediately whether the failing read is too old or in the future."
+  },
+  "read_miss_is_a_future_read": {
+    "recorded_utc": "2026-09-09",
+    "question": "The history miss condition has two halves: a read below oldest_sample_count, and a read at or above next_sample_count. Which one fires on the board?",
+    "method": "The receive-stream reset zeroes the history counters, so oldest_sample_count stays 0 until DEPTH samples accumulate - 65536 samples is 65.5 ms at 1 MS/s. Sending a packet immediately after the reset therefore makes a too-old read impossible. The transmitter was fully prepared before the reset so the only work in between is one serial write, and the interval was measured at the write rather than at the response, which would have hidden it behind the 83 ms transmission.",
+    "measured_arm_to_send_ms": [
+      0.2,
+      0.2,
+      3000.4,
+      0.3,
+      3000.4,
+      0.2
+    ],
+    "read_miss": "set on all six, fast and slow alike",
+    "conclusion": "At 0.2 ms after the reset only a few hundred samples exist and detection lands around twelve thousand, far below the 65536 needed before anything is overwritten. oldest_sample_count is therefore 0 and a too-old read cannot occur, yet the miss does. The board's failing read is ahead of the stream, not behind it.",
+    "correction": "This contradicts the shallow-history simulation, which reproduced the same sticky flag through a TOO_OLD read. That reproduction matched the flag, not the mechanism, and must not be cited as the board's failure.",
+    "fix": "Both searches read coarse_start-SEARCH_RADIUS through coarse_start+REF_SAMPLES+SEARCH_RADIUS. The down search always waited for that window via STATE_WAIT_DOWN_DATA; the up search did not and launched as soon as the shared search was free. STATE_LAUNCH_UP now waits on the same condition against up_ready_count."
   }
 }

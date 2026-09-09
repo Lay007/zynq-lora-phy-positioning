@@ -354,18 +354,35 @@ vvp /tmp/jg.vvp
 | 65536 | passes; 2 searches, no abort, `fine_skip=23` |
 | 4096 | `macreadmiss=1`, every other flag clear |
 
-That single flag, alone, is precisely what the board reported on 14 of 14
-packets. **The joint search reads history that has already been overwritten.**
-Its up search targets `packet_start_count`, roughly ten symbols behind the
-current sample when detection fires, and misses whenever that point has left
-the retained window by the time the search actually runs.
+That single flag, alone, is precisely what the board reported. **But it is the
+same flag reached by a different route, and the board was then measured
+directly to settle which.**
 
-This is a lookback-versus-retention problem, not an arithmetic one, which is
-consistent with the miss being deterministic and phase independent on the
-board. The remaining question is why the lookback exceeds 65536 samples there —
-65,536 samples is 65.5 ms at 1 MS/s against an 83 ms packet, so a search that
-starts late rather than at detection would age its own target out. The shared
-`u_toa_search` and its `search_busy` gate are the first place to look.
+The miss condition has two halves: a read below `oldest_sample_count`, and a
+read at or above `next_sample_count`. The receive-stream reset zeroes the
+history counters, so `oldest` stays 0 until 65536 samples accumulate — 65.5 ms
+at 1 MS/s. Sending a packet immediately after the reset therefore makes a
+too-old read impossible. With the transmitter prepared beforehand and the
+interval measured at the serial write rather than at the response:
+
+| arm → send | read miss |
+|---:|---|
+| 0.2 ms ×4 | set |
+| 3000 ms ×2 | set |
+
+At 0.2 ms only a few hundred samples exist and detection lands near twelve
+thousand, far short of the 65536 needed before anything is overwritten. Nothing
+can have aged out, yet the miss occurs. **The board's failing read is ahead of
+the stream, not behind it.** The shallow-history simulation reproduced the flag
+through a `TOO_OLD` read and so matched the symptom, not the mechanism; it must
+not be cited as the board's failure.
+
+A future read points at one asymmetry. Both searches read
+`coarse_start − SEARCH_RADIUS` through `coarse_start + REF_SAMPLES +
+SEARCH_RADIUS`. The down search always waited for that window via
+`STATE_WAIT_DOWN_DATA`. **The up search did not** — it launched as soon as the
+shared search was free, whether or not its window had arrived.
+`STATE_LAUNCH_UP` now waits on the same condition against `up_ready_count`.
 
 The guard fix already makes this failure harmless rather than harmful.
 
