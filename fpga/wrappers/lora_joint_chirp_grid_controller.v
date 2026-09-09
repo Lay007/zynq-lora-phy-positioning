@@ -50,7 +50,11 @@ module lora_joint_chirp_grid_controller #(
     output reg                timing_valid,
 
     output reg                restart_error,
-    output reg                timing_range_error
+    output reg                timing_range_error,
+    // Asserted for one cycle when a search abort forced the
+    // correction to be declined. Without it a trace cannot tell
+    // "the estimator never ran" from "it ran and was rejected".
+    output reg                search_abort_error
 );
 
     localparam [2:0] STATE_IDLE           = 3'd0;
@@ -116,12 +120,14 @@ module lora_joint_chirp_grid_controller #(
             timing_valid              <= 1'b0;
             restart_error             <= 1'b0;
             timing_range_error        <= 1'b0;
+            search_abort_error        <= 1'b0;
         end else begin
             search_start       <= 1'b0;
             fine_resync_valid  <= 1'b0;
             timing_valid       <= 1'b0;
             restart_error      <= 1'b0;
             timing_range_error <= 1'b0;
+            search_abort_error <= 1'b0;
 
             if (packet_start_valid && busy)
                 restart_error <= 1'b1;
@@ -150,6 +156,15 @@ module lora_joint_chirp_grid_controller #(
 
                 STATE_WAIT_UP: begin
                     if (search_failed) begin
+                        // Withholding the guard is unconditional, so returning
+                        // it must be too. Abandoning the request here leaves
+                        // the grid permanently FINE_GUARD_SAMPLES short, which
+                        // is strictly worse than never attempting the
+                        // correction. Give the guard back with a zero
+                        // correction and degrade to the coarse-only grid.
+                        fine_skip <= FINE_GUARD_U64[31:0];
+                        fine_resync_valid <= 1'b1;
+                        search_abort_error <= 1'b1;
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
@@ -175,6 +190,9 @@ module lora_joint_chirp_grid_controller #(
 
                 STATE_WAIT_DOWN: begin
                     if (search_failed) begin
+                        fine_skip <= FINE_GUARD_U64[31:0];
+                        fine_resync_valid <= 1'b1;
+                        search_abort_error <= 1'b1;
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
@@ -186,7 +204,11 @@ module lora_joint_chirp_grid_controller #(
                             fine_skip <= guarded_skip[31:0];
                             fine_resync_valid <= 1'b1;
                         end else begin
-                            fine_skip <= 32'd0;
+                            // Same rule for a rejected out-of-range estimate:
+                            // decline the correction, but still hand back the
+                            // guard the coarse resync withheld.
+                            fine_skip <= FINE_GUARD_U64[31:0];
+                            fine_resync_valid <= 1'b1;
                             timing_range_error <= 1'b1;
                         end
                     end

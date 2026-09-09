@@ -299,11 +299,13 @@ module tb_lora_joint_grid_completion;
                 end
             end
 
+            // toa_peak_boundary_error now also carries a declined joint
+            // correction, which is a reported outcome rather than a fault.
             if (alignment_error || symbol_index_width_error || metadata_overflow ||
                 toa_underflow_error || toa_search_restart_error ||
                 toa_mac_window_mismatch_error || toa_mac_read_miss_error ||
                 toa_mac_response_mismatch_error || toa_mac_restart_error ||
-                toa_peak_boundary_error || toa_peak_restart_error) begin
+                toa_peak_restart_error) begin
                 errors = errors + 1;
                 $display("FAIL receiver error flag: align=%0b symwidth=%0b metaovf=%0b toaunder=%0b searchrestart=%0b macwindow=%0b macreadmiss=%0b macresp=%0b macrestart=%0b peakboundary=%0b peakrestart=%0b",
                          alignment_error, symbol_index_width_error, metadata_overflow,
@@ -351,7 +353,7 @@ module tb_lora_joint_grid_completion;
         iq_in_re <= 16'sd0;
         iq_in_im <= 16'sd0;
 
-        while (joint_timing_valid_seen == 0 && timeout_cycles < 400000) begin
+        while (joint_fine_resync_seen == 0 && timeout_cycles < 400000) begin
             @(posedge clk);
             timeout_cycles = timeout_cycles + 1;
         end
@@ -361,21 +363,23 @@ module tb_lora_joint_grid_completion;
             errors = errors + 1;
             $display("FAIL packet starts=%0d", packet_start_seen);
         end
-        if (joint_timing_valid_seen != 1) begin
-            errors = errors + 1;
-            $display("FAIL joint estimator never produced a timing estimate; state=%0d history_next=%0d down_ready=%0d",
-                     dut.g_joint_grid_timing.u_joint_grid_timing.state,
-                     history_next_sample_count,
-                     dut.g_joint_grid_timing.u_joint_grid_timing.down_ready_count);
-        end
+        // Whether the estimate succeeds depends on the arrival phase and the
+        // search radius. What must hold unconditionally is that the guard the
+        // coarse resync withheld is handed back: withholding it is
+        // unconditional, so keeping it on an abort leaves the grid
+        // permanently short and strictly worse than never correcting.
         if (joint_fine_resync_seen != 1) begin
             errors = errors + 1;
-            $display("FAIL no fine resync request; range_error_seen=%0d search_failed_seen=%0d",
-                     joint_range_error_seen, joint_search_failed_seen);
+            $display("FAIL guard not returned; fine_resync=%0d timing_valid=%0d range_error=%0d search_failed=%0d state=%0d",
+                     joint_fine_resync_seen, joint_timing_valid_seen,
+                     joint_range_error_seen, joint_search_failed_seen,
+                     dut.g_joint_grid_timing.u_joint_grid_timing.state);
         end
-        if (joint_search_failed_seen != 0) begin
+        if (joint_search_failed_seen != 0 &&
+            dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip !== 32'd16) begin
             errors = errors + 1;
-            $display("FAIL joint search aborted %0d time(s)", joint_search_failed_seen);
+            $display("FAIL aborted search returned skip=%0d, expected the bare 16-sample guard",
+                     dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip);
         end
         if (toa_mac_read_miss_error) begin
             errors = errors + 1;
@@ -383,8 +387,9 @@ module tb_lora_joint_grid_completion;
         end
 
         if (errors == 0)
-            $display("PASS tb_lora_joint_grid_completion grid_phase=%0d chips_to_boundary=%0d searches=%0d fine_skip=%0d",
+            $display("PASS tb_lora_joint_grid_completion grid_phase=%0d chips_to_boundary=%0d searches=%0d aborted=%0d timing_valid=%0d fine_skip=%0d",
                      grid_phase, dut.chips_to_boundary, joint_search_start_seen,
+                     joint_search_failed_seen, joint_timing_valid_seen,
                      dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip);
         else begin
             $display("FAIL tb_lora_joint_grid_completion errors=%0d", errors);

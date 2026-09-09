@@ -255,6 +255,7 @@ module lora_packet_toa_receiver_top #(
     wire joint_grid_busy;
     wire joint_grid_restart_error;
     wire joint_grid_timing_range_error;
+    wire joint_grid_search_abort_error;
     wire joint_search_start;
     wire [63:0] joint_search_coarse_start;
     wire signed [31:0] joint_timing_correction_unused;
@@ -293,7 +294,8 @@ module lora_packet_toa_receiver_top #(
                 .fine_resync_valid(fine_resync_valid),
                 .timing_valid(joint_timing_valid_unused),
                 .restart_error(joint_grid_restart_error),
-                .timing_range_error(joint_grid_timing_range_error)
+                .timing_range_error(joint_grid_timing_range_error),
+                .search_abort_error(joint_grid_search_abort_error)
             );
         end else begin : g_legacy_toa_search
             assign joint_search_start = packet_start_valid && receiver_enable;
@@ -306,6 +308,7 @@ module lora_packet_toa_receiver_top #(
             assign joint_timing_valid_unused = 1'b0;
             assign joint_grid_restart_error = 1'b0;
             assign joint_grid_timing_range_error = 1'b0;
+            assign joint_grid_search_abort_error = 1'b0;
         end
     endgenerate
 
@@ -316,7 +319,8 @@ module lora_packet_toa_receiver_top #(
     // A timing estimate outside the bounded search is operationally the same
     // as a peak at its boundary: neither is safe to apply to the live grid.
     assign toa_peak_boundary_error =
-        raw_peak_boundary_error || joint_grid_timing_range_error;
+        raw_peak_boundary_error || joint_grid_timing_range_error
+        || joint_grid_search_abort_error;
 
     lora_matched_filter_search #(
         .REF_SAMPLES(REF_SAMPLES),
