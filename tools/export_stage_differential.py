@@ -239,13 +239,16 @@ def analyze(
         for index, gap in enumerate(gaps)
         if gap != size
     ]
-    # Exactly one irregular gap is the documented one-shot resync skip.  More
-    # than one means the symbol grid moved where it should not have.
+    # The integer-chip build makes one resync request. The joint-grid build
+    # makes two: a coarse one that withholds FINE_GUARD_SAMPLES, and a late
+    # fine one that returns the guard together with the signed correction.
+    # More than two means the grid moved where it should not have.
     verdicts["sample_grid"] = _verdict(
-        int(len(irregular) <= 1),
+        int(len(irregular) <= 2),
         1,
         f"{regular}/{len(gaps)} gaps equal one symbol; "
-        f"{len(irregular)} resync skip(s): {irregular}",
+        f"{len(irregular)} resync skip(s), total "
+        f"{sum(item['skip_samples'] for item in irregular)} samples: {irregular}",
     )
 
     # The entries before the resync sit on the old grid, so the receiver's

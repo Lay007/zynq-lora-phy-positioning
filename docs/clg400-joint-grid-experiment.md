@@ -442,6 +442,46 @@ Until that build exists, the previous integer-chip image is the better one to
 run: it is the arm whose skip matches the formula exactly. It is preserved on
 the card as `system_top.bit.pre_jointgrid_20260908T173805Z`.
 
+## Guard return, verified on hardware — 2026-09-09
+
+The board design was rebuilt with both changes and closes better than the one
+before it: post-route WNS +0.264 ns, WHS +0.034 ns, 100 % of nets routed. The
+routed netlist still carries every joint-grid cell. Evidence:
+[`data/clg400-guard-return-2026-09-09.json`](data/clg400-guard-return-2026-09-09.json).
+
+**The guard return works.** Every capture now shows *two* resync skips instead
+of one:
+
+| seq | preamble bin | coarse skip | fine skip | total | formula | total − formula |
+|---:|---:|---:|---:|---:|---:|---:|
+| 76 | 41 | 936 | 16 | 952 | 952 | **0** |
+| 77 | 21 | 72 | 16 | 88 | 88 | **0** |
+| 78 | 74 | 672 | 16 | 688 | 688 | **0** |
+| 80 | 86 | 576 | 16 | 592 | 592 | **0** |
+| 81 | 29 | 8 | 16 | 24 | 24 | **0** |
+
+Against `−16` on eleven of eleven captures before the fix. The delivered grid
+now lands exactly on the coarse formula, so the joint-grid build is no longer
+worse than the integer-chip build it replaces. That was the whole point of
+making the return unconditional.
+
+The analysis tool was corrected alongside: its `sample_grid` rung allowed one
+resync skip, which was right for the integer-chip build and wrong for this one.
+A coarse-plus-fine pair is now the expected shape.
+
+**What is still not fixed.** The joint estimate itself is still declined — the
+search continues to hit a history read miss — so the grid degrades to
+coarse-only rather than being refined. Adding the missing data-ready wait to
+the up search did **not** remove the miss: sending a packet 0.1 ms after the
+stream reset, where nothing can have been overwritten, still produces it. The
+failing read is still ahead of the stream and it is not the up search's first
+read.
+
+One new observation narrows the next step: the fine skip lands around trace
+entry 53, far past the header. Whatever the controller is waiting on, it is
+waiting roughly fifty symbols, not the dozen the geometry predicts. That
+duration is now the most informative unexplained number.
+
 ## Evidence boundary
 
 A successful result closes the symbol-decision defect and unblocks a PER

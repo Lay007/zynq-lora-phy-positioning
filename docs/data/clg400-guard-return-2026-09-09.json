@@ -1,0 +1,109 @@
+{
+  "schema": "zynq-lora-guard-return-hardware-v1",
+  "recorded_utc": "2026-09-09",
+  "bitstream_sha256_prefix": "3265ed82843a7b36c285",
+  "post_route": {
+    "wns_ns": 0.264,
+    "whs_ns": 0.034,
+    "nets_routed_percent": 100.0
+  },
+  "claim_under_test": "Returning the withheld FINE_GUARD_SAMPLES on every abort path makes the delivered grid land on the coarse formula instead of sixteen samples short.",
+  "result": "Confirmed on hardware. Every capture now shows two resync skips: the coarse one at formula minus sixteen and a late fine one of exactly sixteen. Their total equals the formula exactly on all five captures, against minus sixteen on eleven of eleven before the fix.",
+  "still_open": "The joint estimate itself is still declined - the search continues to hit a history read miss - so the grid degrades to coarse-only rather than being refined. The fine skip also lands around trace entry 53, far past the header, so it cannot help the symbols decoded before it.",
+  "captures": [
+    {
+      "tx_sequence": 76,
+      "preamble_bin": 41,
+      "coarse_skip": 936,
+      "fine_skip": 16,
+      "total_skip": 952,
+      "formula": 952,
+      "total_minus_formula": 0,
+      "fine_skip_after_entry": 53,
+      "first_divergent_stage": "dechirp",
+      "raw_decision_bin_spread": 2,
+      "bin_error_histogram": {
+        "0": 32,
+        "1": 20,
+        "15": 1
+      },
+      "trace_sha256": "c1688424a88e2cc070236f05b7468fbfcbeca7fe0ed09f769744280966e7e85b",
+      "iq_sha256": "9fdffbfa731be1c17130cb95aba3497419efcbaf0a50f35ce210fd11aa3bfce3"
+    },
+    {
+      "tx_sequence": 77,
+      "preamble_bin": 21,
+      "coarse_skip": 72,
+      "fine_skip": 16,
+      "total_skip": 88,
+      "formula": 88,
+      "total_minus_formula": 0,
+      "fine_skip_after_entry": 54,
+      "first_divergent_stage": "correlator_power",
+      "raw_decision_bin_spread": 2,
+      "bin_error_histogram": {
+        "0": 46,
+        "1": 7
+      },
+      "trace_sha256": "3c70bc2004313e713f1bbadb287a16c4f4d5ab8e39b898cc1af1bacc9c5b07d4",
+      "iq_sha256": "9d63df2993050b594f2bf15a51e67ca4ea3b703a7d378edb412fd678dce1fb6e"
+    },
+    {
+      "tx_sequence": 78,
+      "preamble_bin": 74,
+      "coarse_skip": 672,
+      "fine_skip": 16,
+      "total_skip": 688,
+      "formula": 688,
+      "total_minus_formula": 0,
+      "fine_skip_after_entry": 53,
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 1,
+      "bin_error_histogram": {
+        "0": 52,
+        "2": 1
+      },
+      "trace_sha256": "57517f4072f933c0ece5c623df5e321ddfcc95f560d50ced5f41591a5ce0ac93",
+      "iq_sha256": "e2d7b123ef137be4022cc73c79d0846a72a24e0291f2935e5d352f1ae9dd73d4"
+    },
+    {
+      "tx_sequence": 80,
+      "preamble_bin": 86,
+      "coarse_skip": 576,
+      "fine_skip": 16,
+      "total_skip": 592,
+      "formula": 592,
+      "total_minus_formula": 0,
+      "fine_skip_after_entry": 53,
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 3,
+      "bin_error_histogram": {
+        "1": 30,
+        "2": 18,
+        "0": 4,
+        "3": 1
+      },
+      "trace_sha256": "e8238c2e99eeb7f37e567a8c30269c05b0b614ad29075dc2e6ffc0e6ccdea377",
+      "iq_sha256": "73881e24a48af3ffc22d9b8d87bb74775c4bbffaef668783987570e172eb2496"
+    },
+    {
+      "tx_sequence": 81,
+      "preamble_bin": 29,
+      "coarse_skip": 8,
+      "fine_skip": 16,
+      "total_skip": 24,
+      "formula": 24,
+      "total_minus_formula": 0,
+      "fine_skip_after_entry": 54,
+      "first_divergent_stage": "symbol",
+      "raw_decision_bin_spread": 2,
+      "bin_error_histogram": {
+        "-1": 26,
+        "0": 26,
+        "1": 1
+      },
+      "trace_sha256": "fbbc65909f16bbbc6bfba711c6eb820186bba1447d205277de28f64cb1035c59",
+      "iq_sha256": "6dbf0b12c58ec2a3ff0f169721929d019f1e5b02b114dafb5687e0c983d0fd3e"
+    }
+  ]
+}
