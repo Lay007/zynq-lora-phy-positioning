@@ -1,47 +1,248 @@
-# HDL IQ-записи для LoRa PHY Inspector
+# HDL IQ-записи и 5 контрольных точек LoRa TX
 
-Каталог `hdl/signal` предназначен для работы с IQ-записями, сформированными HDL-моделью LoRa/CSS и открываемыми в MATLAB-приложении **LoRa PHY Inspector**.
+Каталог `hdl/signal` предназначен для проверки IQ-потока, сформированного HDL-трактом LoRa/CSS, в MATLAB-приложении **LoRa PHY Inspector**.
 
-Важно: бинарные `*.pcm` здесь считаются **генерируемыми артефактами**, а не исходными файлами проекта. Они не должны храниться в Git. Актуальные записи формируются testbench-ами и, при запуске CI, публикуются как GitHub Actions artifacts вместе с отчётом Inspector.
+Бинарные `*.pcm` являются **воспроизводимыми артефактами симуляции**, а не исходными файлами проекта. Они не должны храниться в Git. Source of truth: HDL + self-checking testbench + MATLAB golden model.
 
-## Что находится в каталоге
+## Быстрый ответ: какой параметр говорит «всё хорошо»
+
+В Inspector совокупный результат выводится крупно:
 
 ```text
-hdl/signal/
-├── README.md
-└── open_in_inspector.m
+OVERALL / ИТОГ: PASS | WARN | FAIL | NOT VERIFIED
 ```
 
-`open_in_inspector.m` — вспомогательный MATLAB-скрипт, который:
+Для точек с полноценным golden reference (`Stage 1` и `Stage 2`) одного значения корреляции недостаточно. Решение принимается по набору условий:
 
-1. находит или принимает путь к HDL IQ-записи;
-2. разбирает SF, BW и Fs из имени файла;
-3. выбирает формат `CI16`;
-4. открывает LoRa PHY Inspector;
-5. выставляет частоту дискретизации;
-6. выбирает MATLAB golden reference;
-7. позволяет выполнить DSP-анализ и golden-сравнение кнопкой **Analyze**.
+```text
+EVM <= 1 %
+correlation >= 0.999
+RMS phase error <= 1 degree
+```
 
-## Формат файла
+Структурные ошибки, например неправильное число отсчётов, дают `FAIL`. Если структура верна, но waveform не проходит строгие golden-пороги, результат `WARN`.
 
-Для HDL-записей используется raw complex int16 без заголовка:
+`NOT VERIFIED` означает, что Inspector распознал контрольную точку, но в репозитории пока нет точного executable golden для production FIR/CIC/mixer. Это намеренно: неподтверждённая точка не должна показывать ложный `PASS`.
+
+## Пять контрольных точек TX
+
+Тракт, который проверяем:
+
+```text
+[1] chirp generator
+        │  Fs = 2.000 MS/s
+        v
+[2] package generator
+        │  Fs = 2.000 MS/s
+        v
+[3] FIR / rational resampler 24/25
+        │  Fs = 1.920 MS/s
+        v
+[4] CIC interpolator x32
+        │  Fs = 61.440 MS/s
+        v
+[5] frequency shifter / NCO
+           Fs = 61.440 MS/s
+```
+
+### Stage 1 — отдельный chirp
+
+Проверяется один конкретный LoRa/CSS-символ.
+
+Для текущей конфигурации:
+
+```text
+SF7
+BW = 125 kHz
+Fs = 2.000 MS/s
+L = Fs/BW = 16 samples/chip
+Ns = 2^7 * 16 = 2048 complex samples
+```
+
+Ожидаемый размер CI16-файла:
+
+```text
+2048 * 4 = 8192 bytes
+```
+
+Inspector проверяет:
+
+- точное число отсчётов;
+- MATLAB golden waveform для указанного `h` и направления;
+- EVM;
+- normalized correlation;
+- RMS/max phase error;
+- peak normalized sample error.
+
+Примеры имён:
+
+```text
+hdl_sf7_bw125k_fs2000k_chirp-h0-up.pcm
+hdl_sf7_bw125k_fs2000k_chirp-h17-up.pcm
+hdl_sf7_bw125k_fs2000k_chirp-h64-down.pcm
+```
+
+Имя `..._chirp.pcm` запрещено: оно не задаёт `h` и направление.
+
+### Stage 2 — текущий package stream
+
+Это проверка **всей последовательности**, формируемой текущим `formiration_package`, а не только первого chirp.
+
+Текущий HDL-контракт:
+
+```text
+6 x h=0 upchirp
+h=5   upchirp
+h=17  upchirp
+h=64  downchirp
+h=127 upchirp
+```
+
+Всего:
+
+```text
+10 symbols
+10 * 2048 = 20480 complex samples
+20480 * 4 = 81920 bytes
+```
+
+Inspector проверяет:
+
+- sample count `20480/20480`;
+- 10/10 ожидаемых символов;
+- каждый символ относительно своего MATLAB golden;
+- mean EVM;
+- worst EVM;
+- worst correlation;
+- worst RMS phase error;
+- всю 10-symbol waveform одной общей complex gain/phase нормировкой;
+- тем самым — границы и переходы между всеми 9 соседними chirp.
+
+Пример имени:
+
+```text
+hdl_sf7_bw125k_fs2000k_package.pcm
+```
+
+Важно: `package` здесь означает **текущий HDL package-stream contract**. Это пока не доказательство генерации полного стандартного LoRa PHY packet с Sync/SFD/PHDR/payload/FEC/CRC.
+
+### Stage 3 — после ресемплера 24/25
+
+Плановый sample rate:
+
+```text
+2.000 MS/s * 24/25 = 1.920 MS/s
+```
+
+Имя:
+
+```text
+hdl_sf7_bw125k_fs1920k_resampler.pcm
+```
+
+Inspector уже умеет:
+
+- распознать Stage 3;
+- проверить, что в metadata указано `Fs = 1.920 MS/s`;
+- выполнить общий DSP-анализ записи;
+- явно показать `NOT VERIFIED`, пока точные coefficients/phase convention production FIR-resampler не зафиксированы как golden reference.
+
+После добавления production FIR/ресемплера в репозиторий golden-путь должен быть:
+
+```text
+MATLAB LoRa golden @ 2.000 MS/s
+        ↓
+reference FIR / resample 24/25
+        ↓
+expected waveform @ 1.920 MS/s
+```
+
+Тогда Stage 3 сможет проверять waveform/EVM и длину sample-to-sample.
+
+### Stage 4 — после CIC x32
+
+Плановый sample rate:
+
+```text
+1.920 MS/s * 32 = 61.440 MS/s
+```
+
+Имя:
+
+```text
+hdl_sf7_bw125k_fs61440k_cic.pcm
+```
+
+Сейчас Inspector распознаёт точку и проверяет metadata/sample rate, но возвращает `NOT VERIFIED`, потому что exact production CIC contract пока не представлен в репозитории как executable reference.
+
+Для полноценного Stage 4 regression нужно зафиксировать:
+
+- interpolation factor;
+- число CIC stages;
+- differential delay;
+- gain/scaling;
+- word lengths и truncation/rounding;
+- ожидаемый droop;
+- pipeline/latency convention.
+
+### Stage 5 — после частотного переноса
+
+Sample rate остаётся:
+
+```text
+Fs = 61.440 MS/s
+```
+
+Имя:
+
+```text
+hdl_sf7_bw125k_fs61440k_mixer.pcm
+```
+
+Stage 5 должен в итоге проверять:
+
+- фактическую частоту переноса;
+- ошибку center frequency;
+- waveform после обратного переноса в baseband;
+- EVM/correlation/phase относительно Stage 4 golden.
+
+Пока точный NCO/mixer contract не зафиксирован в исходниках этого репозитория, Inspector показывает `NOT VERIFIED`.
+
+## Выбор Stage в GUI
+
+В Inspector появился список **TX checkpoint / Контрольная точка TX**:
+
+```text
+Auto from filename
+1 — Chirp 2.000 MS/s
+2 — Package 2.000 MS/s
+3 — Resampler 1.920 MS/s
+4 — CIC 61.440 MS/s
+5 — Shift 61.440 MS/s
+```
+
+Рекомендуемый режим — `Auto from filename`. Ручной выбор нужен для диагностики и переопределяет только номер Stage; SF/BW/Fs по-прежнему берутся из имени HDL PCM.
+
+## Формат CI16
+
+Формат записи:
 
 ```text
 signed int16, little-endian
 I0, Q0, I1, Q1, I2, Q2, ...
 ```
 
-Один комплексный отсчёт занимает 4 байта:
+Один complex sample занимает 4 байта:
 
 ```text
-byte 0..1 : I0, signed int16 little-endian
-byte 2..3 : Q0, signed int16 little-endian
+byte 0..1 : I0
+byte 2..3 : Q0
 byte 4..5 : I1
 byte 6..7 : Q1
 ...
 ```
 
-Внутри HDL `data_out` имеет вид:
+Внутреннее HDL-слово:
 
 ```text
 31                         16 15                          0
@@ -50,156 +251,48 @@ byte 6..7 : Q1
 +----------------------------+----------------------------+
 ```
 
-То есть:
-
-```text
-data_out[31:16] = I = real = cos
-data_out[15:0]  = Q = imag = sin
-```
-
-При записи в файл байты должны быть явно разложены как:
+Нынешний `ci16_file_io_pkg.vhd` записывает байты явно как:
 
 ```text
 I_lo, I_hi, Q_lo, Q_hi
 ```
 
-Нельзя просто записывать весь `std_logic_vector(31 downto 0)` как VHDL `integer`: такой файл не является корректным CI16-потоком для Inspector.
-
-## Нормирование в Inspector
-
-MATLAB loader читает CI16 как signed int16 little-endian и нормирует по полному диапазону `int16`:
+MATLAB loader читает:
 
 ```matlab
 raw = fread(fid, Inf, "int16=>double", 0, "ieee-le");
 iq = complex(raw(1:2:end), raw(2:2:end)) / 32768;
 ```
 
-Текущий HDL-тракт формирует амплитуду примерно Q14, то есть типичные значения находятся около `±16384`. Поэтому в Inspector модуль идеального сигнала будет около `0.5`, а не около `1.0`.
+При Q14-подобной амплитуде HDL модуль сигнала в Inspector получается около `0.5` — это нормально.
 
-Это ожидаемое поведение и не является потерей амплитуды при загрузке.
+## Уточнение по старому `output_hdl.pcm`
 
-## Обязательное имя файла
+Ранее README слишком категорично утверждал, что старый testbench, записывавший packed `data_out` через VHDL `integer`, обязательно создавал неправильный CI16. Проверка самого бинарника показала, что **конкретная запись XSim фактически читается как корректный little-endian CI16 I/Q**: компоненты имеют ожидаемую амплитуду около 16383.
 
-Файл должен называться:
+То есть проблема старого файла была **не доказана на уровне byte layout**.
 
-```text
-hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm
-```
-
-Примеры корректных имён:
+Но этот blob всё равно нельзя использовать как golden current HDL:
 
 ```text
-hdl_sf7_bw125k_fs2000k_package.pcm
-hdl_sf7_bw125k_fs2000k_chirp-h0-up.pcm
-hdl_sf7_bw125k_fs2000k_chirp-h17-up.pcm
-hdl_sf7_bw125k_fs2000k_chirp-h64-down.pcm
+size = 90132 bytes
+90132 / 4 = 22533 complex samples
+22533 = 11 * 2048 + 5
 ```
 
-### Поддерживаемые теги
+Он не является одним SF7 chirp (`2048 samples`) и не соответствует нынешнему Stage 2 package (`20480 samples`). Кроме того, он получен старой версией chirp/phase logic, которую впоследствии исправили относительно MATLAB golden.
 
-Для автоматической golden-верификации сейчас допустимы два типа `<TAG>`:
+Поэтому вывод такой:
 
 ```text
-package
-chirp-h<SYMBOL>-up
-chirp-h<SYMBOL>-down
+old output_hdl.pcm:
+CI16 byte representation — выглядит корректно
+waveform / transaction history — устаревшие и не соответствуют current golden contract
 ```
 
-Для SF7 номер символа должен быть в диапазоне:
+Именно поэтому generated PCM не хранятся в Git: запись должна генерироваться из актуального testbench при каждой проверке.
 
-```text
-0 ... 127
-```
-
-Имя вида:
-
-```text
-hdl_sf7_bw125k_fs2000k_chirp.pcm
-```
-
-считается **неоднозначным и запрещено**, потому что по нему невозможно определить номер символа и направление chirp. Inspector не должен молча предполагать `h=0 up` для неизвестного файла.
-
-Также не следует использовать имена:
-
-```text
-output.pcm
-signal.pcm
-test.pcm
-```
-
-Raw PCM не содержит SF/BW/Fs внутри файла, поэтому метаданные должны однозначно кодироваться в имени.
-
-## Проверенная конфигурация
-
-Текущая полноценно проверенная HDL-конфигурация:
-
-| Параметр | Значение |
-|---|---:|
-| Spreading Factor | SF7 |
-| Bandwidth | 125 кГц |
-| Samples per chip `L` | 16 |
-| Sample rate | 2 Мвыб/с |
-| Chips per symbol | 128 |
-| Samples per symbol | 2048 |
-| I/Q | signed int16 |
-| File format | CI16 little-endian |
-
-Связь параметров:
-
-```text
-Fs = BW × L
-   = 125 kHz × 16
-   = 2 MHz
-
-Ns = 2^SF × L
-   = 128 × 16
-   = 2048 complex samples/symbol
-```
-
-Для одного отдельного SF7/BW125/L16 chirp корректный CI16-файл должен иметь:
-
-```text
-2048 complex samples × 4 bytes = 8192 bytes
-```
-
-Текущий package regression формирует 10 символов:
-
-```text
-10 × 2048 = 20480 complex samples
-20480 × 4 = 81920 bytes
-```
-
-Если размер файла существенно отличается от ожидаемого количества символов, это повод проверить testbench, `valid_out`, условия остановки записи и сам способ сериализации I/Q.
-
-## Как получить корректный PCM
-
-Предпочтительный источник записи — self-checking testbench:
-
-```text
-hdl/tb/test_formiration_package_golden.vhd
-```
-
-Он проверяет каждый сформированный I/Q sample относительно golden-модели и одновременно записывает уже проверенный поток в:
-
-```text
-build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
-```
-
-В CI для этой записи дополнительно проверяется точный размер:
-
-```text
-81920 bytes
-```
-
-Для ручной симуляции также существует:
-
-```text
-hdl/tb/test_formiration_package.vhd
-```
-
-Он использует общий writer `ci16_file_io_pkg.vhd` и завершает запись после ожидаемого числа валидных комплексных отсчётов.
-
-## Как открыть запись в Inspector
+## Как открыть запись
 
 Из MATLAB:
 
@@ -208,90 +301,15 @@ cd hdl/signal
 open_in_inspector("../../build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm")
 ```
 
-Можно передать и абсолютный путь:
+Для русского интерфейса:
 
 ```matlab
-open_in_inspector("D:\work\zynq-lora-phy-positioning\build\ghdl-lora\hdl_sf7_bw125k_fs2000k_package.pcm")
+open_in_inspector("../../build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm", Language="ru")
 ```
 
-Если в `hdl/signal` локально находится ровно один файл, соответствующий принятому шаблону, допустим вызов:
+После открытия нажать **Analyze / Анализ**.
 
-```matlab
-open_in_inspector
-```
-
-После открытия нажать **Analyze**.
-
-## Что проверяет Inspector
-
-Для HDL CI16-записи Inspector выполняет два уровня анализа.
-
-### 1. DSP-анализ записи
-
-Определяются:
-
-- границы активного участка;
-- occupied bandwidth;
-- наиболее вероятный LoRa bandwidth;
-- spreading factor;
-- symbol duration;
-- carrier offset;
-- residual CFO;
-- относительный SNR;
-- DC offset;
-- I/Q power imbalance;
-- clipping;
-- dechirped FFT bins.
-
-Это диагностический PHY-анализ, а не полный декодер стандартного LoRa packet.
-
-### 2. Golden-сравнение
-
-Для корректно именованного HDL-файла Inspector вызывает MATLAB golden comparison.
-
-Для:
-
-```text
-..._package.pcm
-```
-
-сравнивается первый `h=0 upchirp`.
-
-Для:
-
-```text
-..._chirp-h17-up.pcm
-```
-
-golden reference будет `h=17 upchirp`.
-
-Для:
-
-```text
-..._chirp-h64-down.pcm
-```
-
-golden reference будет `h=64 downchirp`.
-
-Проверяются:
-
-- EVM;
-- normalized correlation;
-- RMS phase error;
-- max phase error;
-- peak normalized sample error;
-- complex gain/phase;
-- sample alignment.
-
-Текущие regression-пороги:
-
-```text
-EVM <= 1 %
-correlation >= 0.999
-RMS phase error <= 1 degree
-```
-
-## Автоматическая end-to-end проверка
+## Автоматический Stage 1/2 regression
 
 Workflow:
 
@@ -299,208 +317,84 @@ Workflow:
 .github/workflows/hdl-signal-ci.yml
 ```
 
-проверяет цепочку:
+проверяет путь:
 
 ```text
 production VHDL
-      ↓
-GHDL
-      ↓
-behavioral DDS/FIFO models
-      ↓
-self-checking golden testbench
-      ↓
-CI16 file writer
-      ↓
-*.pcm
-      ↓
+    ↓
+GHDL + behavioral DDS/FIFO
+    ↓
+self-checking HDL golden test
+    ↓
+CI16 PCM
+    ↓
 MATLAB loader
-      ↓
-LoRa PHY Inspector DSP
-      ↓
-MATLAB golden comparison
-```
-
-Для текущего package regression ожидается:
-
-```text
-20480 complex CI16 samples
-SF7
-BW 125 kHz
-carrier near DC
-golden PASS
-```
-
-Таким образом проверяется не только математическая формула chirp, но и реальный путь представления результата HDL как бинарной IQ-записи, которую затем читает Inspector.
-
-## Почему `*.pcm` не хранятся в Git
-
-В корневом `.gitignore` есть правило:
-
-```text
-*.pcm
-```
-
-Это сделано намеренно.
-
-PCM-файлы являются результатом симуляции и могут быть воспроизведены из исходного VHDL и testbench. Хранение таких файлов в Git создаёт несколько рисков:
-
-- можно случайно закоммитить устаревшую запись;
-- имя файла может не соответствовать фактическому содержимому;
-- старый бинарный blob может выглядеть как новый результат после простого переименования;
-- невозможно code review-ить бинарный diff;
-- репозиторий быстро разрастается;
-- CI может проверять freshly-generated сигнал, а пользователь — случайно открыть другой закоммиченный файл.
-
-Поэтому source of truth — это:
-
-```text
-HDL source + self-checking testbench + golden model
-```
-
-а PCM — только временный reproducible artifact.
-
-HDL workflow содержит отдельную защиту: если в `hdl/signal` будет принудительно закоммичен `*.pcm`, CI должен завершиться ошибкой.
-
-## История с устаревшим `output_hdl.pcm`
-
-Ранее в репозитории существовал файл:
-
-```text
-hdl/signal/output_hdl.pcm
-```
-
-Он был создан старым testbench, который записывал packed 32-bit `data_out` через преобразование к VHDL `integer`. Такая запись не соответствовала принятому впоследствии CI16-контракту.
-
-Файл был удалён как устаревший.
-
-Позже тот же бинарный Git blob был случайно возвращён под именем:
-
-```text
-hdl_sf7_bw125k_fs2000k_chirp.pcm
-```
-
-Это было обнаружено по совпадающему Git blob SHA и по размеру файла:
-
-```text
-90132 bytes
-90132 / 4 = 22533 complex samples
-22533 = 11 × 2048 + 5
-```
-
-То есть файл не соответствовал ни одному SF7 chirp, ни текущему 10-symbol package regression.
-
-Inspector в этом случае правильно показывал ошибку: проблема была в самом входном файле, а не в текущей HDL-модели или MATLAB Inspector.
-
-После этого введены дополнительные ограничения:
-
-1. generated `*.pcm` не должны коммититься;
-2. CI проверяет отсутствие tracked PCM в `hdl/signal`;
-3. имя `..._chirp.pcm` запрещено как неоднозначное;
-4. одиночный chirp обязан кодировать symbol и direction в имени;
-5. CI генерирует собственный fresh PCM и проверяет именно его end-to-end.
-
-## Что считается доказанным сейчас
-
-Для **SF7 / BW125 / L16 / Fs=2 MHz** подтверждено:
-
-- все `h=0...127` для upchirp;
-- все `h=0...127` для downchirp;
-- ровно 2048 samples на символ;
-- отсутствие 2049-го sample;
-- I/Q ordering;
-- CI16 little-endian byte layout;
-- текущий 10-symbol `formiration_package` waveform;
-- загрузка сформированного CI16 в MATLAB;
-- определение Inspector-ом SF7/BW125;
-- golden EVM/correlation/phase verification.
-
-## Что пока не следует считать доказанным
-
-Текущие regression-тесты **не доказывают**:
-
-- полное соответствие стандартному LoRa packet framing;
-- SFD/header/payload coding/interleaving/FEC всей стандартной PHY-цепочки;
-- все SF/BW/Fs комбинации;
-- bit-exact поведение proprietary Xilinx DDS Compiler в Vivado/XSim;
-- timing closure;
-- соответствие target FPGA по ресурсам;
-- реальный sample-rate contract 100 MHz fabric → 2 MS/s IQ на аппаратуре;
-- передачу через AD936x;
-- RF/OTA качество сформированного HDL-сигнала.
-
-Для этого нужны следующие ступени верификации:
-
-```text
+    ↓
+LoRa PHY Inspector / verification layer
+    ↓
 MATLAB golden
-    ↓
-GHDL regression
-    ↓
-Vivado/XSim с реальным Xilinx DDS/FIFO
-    ↓
-synthesis / implementation / STA
-    ↓
-Zynq + AD936x
-    ↓
-RF/cable/OTA capture
-    ↓
-LoRa PHY Inspector
 ```
 
-## Практический чек-лист при появлении новой HDL записи
+Stage 1 golden опирается на:
 
-Перед анализом нового PCM полезно проверить:
+```text
+model/matlab/+lora_phy/reference_chirp.m
+model/matlab/+lora_phy/modulate_symbol.m
+```
 
-- [ ] имя соответствует `hdl_sf..._bw..._fs..._<TAG>.pcm`;
-- [ ] tag равен `package` или `chirp-h<SYMBOL>-up/down`;
-- [ ] размер файла кратен 4 байтам;
-- [ ] число complex samples соответствует ожидаемой длительности;
-- [ ] I/Q записаны как `int16 little-endian`;
-- [ ] порядок — `I,Q,I,Q,...`;
+Stage 2 дополнительно проверяется функцией:
+
+```text
+model/matlab/+lora_phy/verify_tx_checkpoint.m
+```
+
+## Поддерживаемые имена
+
+```text
+Stage 1: hdl_sf<SF>_bw<BW>k_fs<FS>k_chirp-h<SYMBOL>-up.pcm
+         hdl_sf<SF>_bw<BW>k_fs<FS>k_chirp-h<SYMBOL>-down.pcm
+
+Stage 2: hdl_sf<SF>_bw<BW>k_fs<FS>k_package.pcm
+Stage 3: hdl_sf<SF>_bw<BW>k_fs<FS>k_resampler.pcm
+Stage 4: hdl_sf<SF>_bw<BW>k_fs<FS>k_cic.pcm
+Stage 5: hdl_sf<SF>_bw<BW>k_fs<FS>k_mixer.pcm
+```
+
+Для текущего тракта ожидаются:
+
+```text
+Stage 1: Fs = 2000 kHz
+Stage 2: Fs = 2000 kHz
+Stage 3: Fs = 1920 kHz
+Stage 4: Fs = 61440 kHz
+Stage 5: Fs = 61440 kHz
+```
+
+## Практический checklist
+
 - [ ] файл получен из актуального testbench;
-- [ ] нет старого/переименованного binary artifact;
-- [ ] Inspector использует Fs из имени файла;
-- [ ] golden verification даёт ожидаемый результат;
-- [ ] при изменениях HDL пройден `HDL LoRa Signal CI`.
+- [ ] размер кратен 4 байтам;
+- [ ] имя однозначно задаёт SF/BW/Fs/Stage;
+- [ ] для Stage 1 указан `h` и `up/down`;
+- [ ] Inspector показывает ожидаемую контрольную точку;
+- [ ] sample rate совпадает с данной точкой тракта;
+- [ ] Stage 1/2 дают `PASS` или объяснимый `WARN/FAIL`;
+- [ ] Stage 3/4/5 не интерпретируются как `PASS`, пока нет production golden;
+- [ ] при изменении HDL запущен CI.
 
 ## Связанные файлы
-
-HDL:
 
 ```text
 hdl/srcs/formiration_chirp.vhd
 hdl/srcs/phase_to_sample.vhd
 hdl/srcs/formiration_package.vhd
-```
-
-Testbench и CI16 writer:
-
-```text
 hdl/tb/test_formiration_chirp_golden.vhd
 hdl/tb/test_formiration_package_golden.vhd
-hdl/tb/test_formiration_package.vhd
 hdl/tb/ci16_file_io_pkg.vhd
-```
-
-MATLAB Inspector:
-
-```text
 model/matlab/apps/lora_phy_inspector.m
-model/matlab/+lora_phy/load_iq_capture.m
 model/matlab/+lora_phy/parse_hdl_recording_name.m
-model/matlab/+lora_phy/inspect_iq_capture.m
+model/matlab/+lora_phy/verify_tx_checkpoint.m
 model/matlab/+lora_phy/compare_iq_to_golden.m
-model/matlab/run_hdl_inspector_regression.m
-```
-
-CI:
-
-```text
+model/matlab/+lora_phy/inspect_iq_capture.m
 .github/workflows/hdl-signal-ci.yml
-```
-
-Общее описание HDL-части проекта:
-
-```text
-hdl/README.md
 ```
