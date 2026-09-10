@@ -138,21 +138,35 @@ module tb_lora_joint_chirp_grid_controller;
         return_peak(64'd20694);
         expect_result(32'sd11, 32'd27);
 
-        // Capture 31: (-5 + 2)/2 = -1.5, rounded away from zero to -2.
-        pulse_packet(64'd30000, 16'd104);
+        // Synthetic negative half-sum: chirp origin 30832 is 192 samples
+        // before FFT window 31024 (previous window 30000); its forward phase
+        // is (1024-192)/8 = 104 chips. Offsets (-5 + 2)/2 round to -2.
+        pulse_packet(64'd31024, 16'd104);
         wait_search(1'b0, 64'd30832);
         return_peak(64'd30827);
         wait_search(1'b1, 64'd41072);
         return_peak(64'd41074);
         expect_result(-32'sd2, 32'd14);
 
-        // Capture 32: (-2 + 5)/2 = +1.5, rounded away from zero to +2.
-        pulse_packet(64'd50000, 16'd109);
+        // Synthetic positive half-sum: chirp origin 50872 is 152 before 51024,
+        // so its forward phase is (1024-152)/8 = 109 chips.
+        // (-2 + 5)/2 = +1.5, rounded away from zero to +2.
+        pulse_packet(64'd51024, 16'd109);
         wait_search(1'b0, 64'd50872);
         return_peak(64'd50870);
         wait_search(1'b1, 64'd61112);
         return_peak(64'd61117);
         expect_result(32'sd2, 32'd18);
+
+        // A packet at 60512 lies halfway between grid origins 60000/61024.
+        // The later decision window represents it; phase 64 chips must point
+        // backwards to that packet, with the SFD at 60512 + 10*1024.
+        pulse_packet(64'd61024, 16'd64);
+        wait_search(1'b0, 64'd60512);
+        return_peak(64'd60512);
+        wait_search(1'b1, 64'd70752);
+        return_peak(64'd70752);
+        expect_result(32'sd0, 32'd16);
 
         // Neither search may start until its complete window is stored. The
         // up window here ends at 70008+1024+16 = 71048; the down window ends

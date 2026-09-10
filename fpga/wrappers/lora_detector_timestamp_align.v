@@ -12,6 +12,9 @@
 // packet-reference timestamp is already in the symbol timestamp history:
 //   * preambleDetected -> oldest timestamp in the newest-8 window;
 //   * detected         -> oldest timestamp in the newest-10 window.
+// These counts are FFT window origins, not phase-corrected chirp onsets. The
+// ToA consumer must resolve the circular preamble phase relative to the chosen
+// decision window; a forward grid-resync skip has a different meaning.
 //
 // This module is deliberately transparent: every detector pulse produces a
 // corresponding aligned timestamp pulse. Higher-level acquisition logic may

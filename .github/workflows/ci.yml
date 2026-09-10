@@ -195,6 +195,9 @@ jobs:
           iverilog -g2012 -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_grid_completion             -o /tmp/lora_joint_grid_completion_tb             fpga/generated/fft-correlator-fixed/lora_fft_correlator_gen/*.v             fpga/generated/blind-detector/lora_blind_detector_gen/lora_blind_BlindDetector.v             fpga/generated/toa-interpolator/lora_toa_interpolator_gen/lora_toa_ToaInterpolator.v             fpga/wrappers/fft_correlator_route_top.v             fpga/wrappers/lora_detector_timestamp_align.v             fpga/wrappers/lora_detector_timestamp_path.v             fpga/wrappers/lora_fft_detector_timestamp_path.v             fpga/wrappers/lora_iq_history_buffer.v             fpga/wrappers/lora_reference_chirp_rom.v             fpga/wrappers/lora_matched_filter_mac.v             fpga/wrappers/lora_peak_triplet_capture.v             fpga/wrappers/lora_matched_filter_search.v             fpga/wrappers/lora_joint_chirp_grid_controller.v             fpga/wrappers/lora_symbol_grid_resync.v             fpga/wrappers/lora_timestamp_metadata_join.v             fpga/wrappers/lora_axi_lite_status.v             fpga/wrappers/lora_packet_toa_receiver_top.v             fpga/tb/tb_lora_joint_grid_completion.sv
           vvp /tmp/lora_joint_grid_completion_tb
           vvp /tmp/lora_joint_grid_completion_tb +grid_phase=296
+          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=512
+          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=700
+          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=1023
       - name: Compile and run asynchronous sample FIFO testbench
         run: |
           iverilog -g2012 -Wall -s tb_lora_async_sample_fifo \

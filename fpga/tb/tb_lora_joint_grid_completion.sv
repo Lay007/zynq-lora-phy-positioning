@@ -322,34 +322,17 @@ module tb_lora_joint_grid_completion;
                 metadata_seen = metadata_seen + 1;
                 captured_metadata_coarse <= metadata_coarse;
                 captured_metadata_fractional <= metadata_fractional_q12;
-                // The packet really does start grid_phase samples later,
-                // so the timestamp has to move with it. Before the
-                // detector phase was held for the joint controller this
-                // read 1023 at grid_phase 296: the arrival phase was
-                // silently dropped.
-                //
-                // Two separate properties. The sub-symbol part must be
-                // exact at every phase, and it is what the symbol
-                // decisions depend on. The whole-symbol part is exact
-                // below half a symbol; at or above it the timestamp
-                // gains one symbol, which is a real error in the
-                // timestamp and harmless to the decisions, and is
-                // recorded rather than tolerated silently.
+                // Stimulus geometry: grid_phase silent samples, then one
+                // non-preamble symbol, then the first preamble upchirp.
+                // Its arrival is SAMPLES_PER_SYMBOL + grid_phase regardless
+                // of which FFT window supplies the detector's first decision.
                 metadata_error = $signed(metadata_coarse)
-                                 - $signed(64'd1024 + grid_phase);
-                if ((metadata_error % SAMPLES_PER_SYMBOL) != 0) begin
+                                 - (SAMPLES_PER_SYMBOL + grid_phase);
+                if (metadata_coarse !== (64'd0 + SAMPLES_PER_SYMBOL + grid_phase)) begin
                     errors = errors + 1;
-                    $display("FAIL sub-symbol timestamp phase coarse=%0d expected=%0d",
-                             metadata_coarse, 64'd1024 + grid_phase);
-                end else if (metadata_error != 0) begin
-                    if (grid_phase < (SAMPLES_PER_SYMBOL / 2)) begin
-                        errors = errors + 1;
-                        $display("FAIL whole-symbol timestamp offset %0d below half a symbol",
-                                 metadata_error);
-                    end else begin
-                        $display("NOTE timestamp gains %0d samples at grid_phase %0d; known open boundary",
-                                 metadata_error, grid_phase);
-                    end
+                    $display("FAIL timestamp coarse=%0d expected=%0d error=%0d",
+                             metadata_coarse, SAMPLES_PER_SYMBOL + grid_phase,
+                             metadata_error);
                 end
                 if (metadata_fractional_q12 < -32'sd2048 ||
                     metadata_fractional_q12 > 32'sd2048) begin
@@ -425,6 +408,10 @@ module tb_lora_joint_grid_completion;
             errors = errors + 1;
             $display("FAIL packet starts=%0d", packet_start_seen);
         end
+        if (metadata_seen != 1) begin
+            errors = errors + 1;
+            $display("FAIL metadata records=%0d expected=1", metadata_seen);
+        end
         // Whether the estimate succeeds depends on the arrival phase and the
         // search radius. What must hold unconditionally is that the guard the
         // coarse resync withheld is handed back: withholding it is
@@ -449,8 +436,8 @@ module tb_lora_joint_grid_completion;
         end
 
         if (errors == 0)
-            $display("PASS tb_lora_joint_grid_completion grid_phase=%0d chips_to_boundary=%0d searches=%0d aborted=%0d timing_valid=%0d fine_skip=%0d",
-                     grid_phase, dut.chips_to_boundary, joint_search_start_seen,
+            $display("PASS tb_lora_joint_grid_completion grid_phase=%0d metadata_coarse=%0d chips_to_boundary=%0d searches=%0d aborted=%0d timing_valid=%0d fine_skip=%0d",
+                     grid_phase, captured_metadata_coarse, dut.chips_to_boundary, joint_search_start_seen,
                      joint_search_failed_seen, joint_timing_valid_seen,
                      dut.g_joint_grid_timing.u_joint_grid_timing.fine_skip);
         else begin

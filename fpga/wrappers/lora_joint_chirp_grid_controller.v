@@ -9,9 +9,16 @@
 //   timingSamples = round_away_from_zero((upOffset + downOffset) / 2).
 //
 // The coarse packet timestamp is the first of the eight preamble decisions
-// retained by the detector's ten-symbol [8 preamble + 2 sync] window. Adding
-// chips_to_boundary*L places the search on that preamble chirp. The first full
-// SFD downchirp is ten symbols later.
+// retained by the detector's ten-symbol [8 preamble + 2 sync] window. It is an
+// FFT window origin, not the grid boundary preceding the packet. A decision
+// follows the chirp occupying most of its window: when arrival crosses half
+// a symbol, the confirmed decision sequence moves to the next FFT window.
+// Therefore the packet chirp is at the NEAREST boundary to that window origin.
+// Unwrap chips_to_boundary*L into [-SYMBOL_SAMPLES/2, SYMBOL_SAMPLES/2), then
+// use that same origin for both searches (the first full SFD is ten symbols
+// later). At the half-symbol tie the confirmed sequence uses the later window.
+// The grid resynchronizer instead needs a forward-only skip modulo a symbol;
+// using that skip as a timestamp displacement selects the next preamble chirp.
 //
 // fine_skip includes FINE_GUARD_SAMPLES. The coarse grid-resync policy must
 // withhold the same guard from its first skip, so both requests together equal
@@ -83,6 +90,12 @@ module lora_joint_chirp_grid_controller #(
     assign diag_up_offset_samples = up_offset[31:0];
 
     wire [63:0] coarse_chip_advance = chips_to_boundary * SAMPLES_PER_CHIP;
+    wire signed [64:0] coarse_phase_samples =
+        (coarse_chip_advance >= (SYMBOL_SAMPLES_U64 / 2))
+        ? $signed({1'b0, coarse_chip_advance}) - $signed({1'b0, SYMBOL_SAMPLES_U64})
+        : $signed({1'b0, coarse_chip_advance});
+    wire signed [64:0] packet_chirp_start =
+        $signed({1'b0, packet_start_count}) + coarse_phase_samples;
     // Both searches read coarse_start-SEARCH_RADIUS .. coarse_start+M+RADIUS,
     // so neither may start before that window has arrived. The down search
     // always waited; the up search did not, and a read past
@@ -153,12 +166,10 @@ module lora_joint_chirp_grid_controller #(
             case (state)
                 STATE_IDLE: begin
                     if (packet_start_valid) begin
-                        up_coarse_start <= packet_start_count + coarse_chip_advance;
-                        down_coarse_start <= packet_start_count
-                            + coarse_chip_advance
+                        up_coarse_start <= packet_chirp_start[63:0];
+                        down_coarse_start <= packet_chirp_start[63:0]
                             + PREAMBLE_TO_SFD_SYMBOLS * SYMBOL_SAMPLES_U64;
-                        search_coarse_start <= packet_start_count
-                            + coarse_chip_advance;
+                        search_coarse_start <= packet_chirp_start[63:0];
                         reference_down <= 1'b0;
                         busy <= 1'b1;
                         state <= STATE_LAUNCH_UP;
