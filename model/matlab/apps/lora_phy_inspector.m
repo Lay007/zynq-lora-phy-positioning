@@ -162,15 +162,15 @@ app.Language = options.Language;
             result = lora_phy.inspect_iq_capture(iq, fs, ...
                 CandidateBandwidthHz=metadata.bandwidthHz, ...
                 CandidateSpreadingFactors=metadata.spreadingFactor);
-            profileSf = metadata.spreadingFactor;
-            profileBw = metadata.bandwidthHz;
+            profile = lora_phy.match_lora_profile( ...
+                metadata.spreadingFactor, metadata.bandwidthHz, centreField.Value);
         else
             result = lora_phy.inspect_iq_capture(iq, fs);
-            profileSf = result.estimatedSpreadingFactor;
-            profileBw = result.estimatedBandwidthHz;
+            profile = lora_phy.match_lora_profile( ...
+                result.estimatedSpreadingFactor, result.estimatedBandwidthHz, ...
+                centreField.Value);
         end
 
-        profile = lora_phy.match_lora_profile(profileSf, profileBw, centreField.Value);
         verification = [];
         if ~isempty(metadata)
             verification = lora_phy.verify_tx_checkpoint( ...
@@ -269,9 +269,9 @@ app.Language = options.Language;
             S.rowRadios, char(profile.compatibilitySummary), S.noteProfile;
             S.rowReferenceRadio, char(profile.projectReferenceRadio), S.noteReferenceRadio;
             S.rowBoundaries, sprintf(S.valueBoundaries, result.packetStartSeconds*1e3, result.packetEndSeconds*1e3), S.noteBoundaries;
-            S.rowBandwidth, sprintf(S.valueBandwidth, profileBw/1e3), sprintf(S.noteBandwidth, result.measuredOccupiedBandwidthHz/1e3);
-            S.rowSpreadingFactor, sprintf("SF%d", profileSf), sprintf(S.noteSpreadingFactor, result.preambleScore);
-            S.rowSymbolDuration, sprintf(S.valueSymbolDuration, 2^profileSf/profileBw*1e3), S.noteSymbolDuration;
+            S.rowBandwidth, sprintf(S.valueBandwidth, profile.bandwidthHz/1e3), sprintf(S.noteBandwidth, result.measuredOccupiedBandwidthHz/1e3);
+            S.rowSpreadingFactor, sprintf("SF%d", profile.spreadingFactor), sprintf(S.noteSpreadingFactor, result.preambleScore);
+            S.rowSymbolDuration, sprintf(S.valueSymbolDuration, profile.symbolDurationSeconds*1e3), S.noteSymbolDuration;
             S.rowCarrier, sprintf(S.valueCarrier, absoluteCarrier/1e6), sprintf(S.noteCarrier, result.estimatedCarrierOffsetHz);
             S.rowCfo, cfoText, cfoNote;
             S.rowSnr, sprintf(S.valueSnr, result.estimatedSnrDb), S.noteSnr;
