@@ -268,6 +268,24 @@ module lora_packet_toa_receiver_top #(
     wire [63:0] joint_search_coarse_start;
     wire signed [31:0] joint_timing_correction_unused;
     wire joint_timing_valid_unused;
+
+    // The detector presents chips_to_boundary on `detected`. The joint
+    // controller starts on `packet_start_valid`, a later pulse, by which
+    // time the detector output has returned to zero, so the controller
+    // was always given an arrival phase of zero and searched up to 1016
+    // samples away from the chirp it was looking for. Hold the value
+    // from the pulse that carries it until the pulse that consumes it.
+    // The coarse resync reads the same signal on `detected` and was
+    // never affected, which is why only the joint estimate was wrong.
+    reg [15:0] held_chips_to_boundary;
+    always @(posedge clk) begin
+        if (!resetn)
+            held_chips_to_boundary <= 16'd0;
+        else if (reset_in)
+            held_chips_to_boundary <= 16'd0;
+        else if (detected)
+            held_chips_to_boundary <= chips_to_boundary;
+    end
     wire raw_search_failure = toa_underflow_error || raw_search_restart_error ||
         toa_mac_window_mismatch_error || toa_mac_read_miss_error ||
         toa_mac_response_mismatch_error || toa_mac_restart_error ||
@@ -287,7 +305,7 @@ module lora_packet_toa_receiver_top #(
                 .stream_reset(reset_in),
                 .packet_start_valid(packet_start_valid && receiver_enable),
                 .packet_start_count(packet_start_count),
-                .chips_to_boundary(chips_to_boundary),
+                .chips_to_boundary(held_chips_to_boundary),
                 .history_next_sample_count(history_next_sample_count),
                 .search_busy(raw_search_busy),
                 .search_failed(raw_search_failure),

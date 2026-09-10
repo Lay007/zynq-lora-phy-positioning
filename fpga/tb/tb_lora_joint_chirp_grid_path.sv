@@ -26,7 +26,17 @@ module tb_lora_joint_chirp_grid_path;
     reg sample_valid = 1'b0;
     reg packet_start_valid = 1'b0;
     reg [63:0] packet_start_count = 64'd1000;
+    // The arrival phase the detector hands the controller. It was a
+    // constant zero here, so the controller's use of it was never
+    // exercised at all: on the board it consumed the signal a pulse too
+    // late and always saw zero, and this test could not tell.
+    //
+    // The stimulus puts the upchirp at 1008 and the downchirp at 11254
+    // against a packet start of 1000, so up_coarse_start is 1000 + 8C
+    // and the true timing correction is 11 - 8C.
+    integer chips = 0;
     reg [15:0] chips_to_boundary = 16'd0;
+    integer expected_timing;
 
     wire iq_read_req;
     wire [63:0] iq_read_sample_count;
@@ -221,8 +231,9 @@ module tb_lora_joint_chirp_grid_path;
 
         if (timing_valid) begin
             timing_seen <= 1'b1;
-            if (timing_correction_samples !== 32'sd11 ||
-                fine_skip !== 32'd27 || !fine_resync_valid) begin
+            if (timing_correction_samples !== expected_timing ||
+                fine_skip !== (16 + expected_timing) ||
+                !fine_resync_valid) begin
                 errors <= errors + 1;
                 $display("FAIL joint path correction=%0d skip=%0d fine=%0d",
                          timing_correction_samples, fine_skip, fine_resync_valid);
@@ -246,6 +257,12 @@ module tb_lora_joint_chirp_grid_path;
         if (!$value$plusargs("stream_gap=%d", post_stream_gap))
             post_stream_gap = 0;
         stream_gap = 0;
+        if (!$value$plusargs("chips_to_boundary=%d", chips))
+            chips = 0;
+        chips_to_boundary = chips[15:0];
+        expected_timing = 11 - 8 * chips;
+        $display("INFO chips_to_boundary=%0d expected_timing=%0d",
+                 chips, expected_timing);
         $display("INFO stream_during_search=%0d post_stream_gap=%0d",
                  stream_during_search, post_stream_gap);
         repeat (5) @(posedge clk);

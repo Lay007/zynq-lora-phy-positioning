@@ -1,0 +1,45 @@
+{
+  "schema": "zynq-lora-detector-phase-root-cause-v1",
+  "recorded_utc": "2026-09-10",
+  "bitstream_sha256_prefix": "74e61256a049e3f2168cb171e553514f",
+  "claim_under_test": "The joint up/down estimator produces a correction that moves the symbol grid away from the transmitter's, and the cause is in the estimator's inputs rather than its arithmetic.",
+  "result": "Confirmed and located. The joint controller samples chips_to_boundary on packet_start_valid, but the detector presents it on the earlier detected pulse and it has returned to zero by then. The controller therefore always used an arrival phase of zero.",
+  "measurement_on_hardware": {
+    "method": "Joint estimator register page, gp_ctrl[18], reporting the controller's own up_coarse_start alongside packet_start_count.",
+    "captures": [
+      {"tx_sequence": 116, "preamble_bin": 97, "up_coarse_start": 454656, "packet_start_count": 454656, "up_coarse_mod_1024": 0, "chips_times_eight_expected": 248},
+      {"tx_sequence": 117, "preamble_bin": 22, "up_coarse_start": 455680, "packet_start_count": 455680, "up_coarse_mod_1024": 0, "chips_times_eight_expected": 848},
+      {"tx_sequence": 118, "preamble_bin": 77, "up_coarse_start": 455680, "packet_start_count": 455680, "up_coarse_mod_1024": 0, "chips_times_eight_expected": 408},
+      {"tx_sequence": 119, "preamble_bin": 117, "up_coarse_start": 466944, "packet_start_count": 466944, "up_coarse_mod_1024": 0, "chips_times_eight_expected": 88}
+    ],
+    "argument": "up_coarse_start equals packet_start_count exactly and is an exact multiple of 1024 on every capture. The advance that should have been added is chips_to_boundary times eight, which is 248, 848, 408 and 88 here; none is a multiple of 1024, so adding any of them would have destroyed that alignment. The advance was therefore zero. This does not depend on any convention shared with the reference model."
+  },
+  "reproduced_in_simulation": {
+    "testbench": "fpga/tb/tb_lora_joint_grid_completion.sv",
+    "stimulus": "+grid_phase=296, an arrival 296 samples late, which is 37 chips",
+    "at_detected": {"chips_to_boundary": 37, "preamble_bin": 91},
+    "at_packet_start_valid": {"chips_to_boundary": 0, "preamble_bin": 0},
+    "note": "preamble_bin 91 is (128 - 37) & 127, so the detector's arithmetic is right; only the moment the controller reads it is wrong."
+  },
+  "consequence": {
+    "search_radius_samples": 16,
+    "worst_case_phase_samples": 1016,
+    "explanation": "The search window is plus or minus 16 samples around up_coarse_start. Without the arrival phase that point can be up to 1016 samples from the chirp boundary it is looking for, so the window contains no chirp start at all and the matched filter returns the best of 33 poor lags. The resulting correction is spurious, which is why applying it roughly doubled the grid error rather than removing it."
+  },
+  "why_no_regression_caught_it": [
+    "tb_lora_joint_chirp_grid_path held chips_to_boundary at a constant 16'd0, so the controller's use of it was never exercised.",
+    "tb_lora_joint_grid_completion drove the packet straight onto the grid, where the detector legitimately reports zero, and its own comments record that this leaves the interaction unexercised.",
+    "The coarse grid resync consumes the same signal on the detected pulse and was always correct, so the symptom appeared only in the joint estimate."
+  ],
+  "fix": {
+    "where": "fpga/wrappers/lora_packet_toa_receiver_top.v",
+    "what": "Hold chips_to_boundary from the detected pulse that carries it until the packet_start_valid pulse that consumes it, and feed the held value to the joint controller only. The coarse resync keeps reading the live signal on its own pulse.",
+    "evidence": "With the fix and an arrival 296 samples late, the integrated ToA metadata reads 1320, which is 1024 plus the 296-sample arrival phase. Before the fix the same stimulus read 1023: the arrival phase was silently dropped."
+  },
+  "regressions_added": {
+    "tb_lora_joint_chirp_grid_path": "+chips_to_boundary=N drives a real arrival phase and the expected correction is derived from the stimulus geometry as 11 - 8N. It passes at N = 0, 1 and 2 with fine_skip 27, 19 and 11, so the controller does use the value correctly once it receives it.",
+    "tb_lora_joint_grid_completion": "the ToA metadata expectation now follows grid_phase instead of being pinned at 1024."
+  },
+  "open": "At an arrival phase of exactly half a symbol the metadata gains an extra symbol: grid_phase 512 reads 2560 where 1536 is expected. The grid alignment is genuinely ambiguous at that phase and this is a separate question from the one above.",
+  "evidence_boundary": "Four captures carrying the estimator page, plus the simulation reproduction. This locates the defect; it does not yet show what the decision bias becomes once the fix is on hardware, which needs a rebuild and a fresh capture run."
+}

@@ -280,6 +280,9 @@ module tb_lora_joint_grid_completion;
             // events without asserting the shorter expected sequence.
             if (symbol_valid)
                 symbol_seen = symbol_seen + 1;
+            if (detected)
+                $display("INFO at detected: chips_to_boundary=%0d preamble_bin=%0d",
+                         dut.chips_to_boundary, dut.preamble_bin);
             if (coarse_skip > 0 && detected && !detected_seen) begin
                 detected_seen <= 1'b1;
                 resync_valid <= 1'b1;
@@ -318,9 +321,15 @@ module tb_lora_joint_grid_completion;
                 metadata_seen = metadata_seen + 1;
                 captured_metadata_coarse <= metadata_coarse;
                 captured_metadata_fractional <= metadata_fractional_q12;
-                if (metadata_coarse !== 64'd1024) begin
+                // The packet really does start grid_phase samples later,
+                // so the timestamp has to move with it. Before the
+                // detector phase was held for the joint controller this
+                // read 1023 at grid_phase 296: the arrival phase was
+                // silently dropped.
+                if (metadata_coarse !== (64'd1024 + grid_phase)) begin
                     errors = errors + 1;
-                    $display("FAIL integrated metadata coarse=%0d", metadata_coarse);
+                    $display("FAIL integrated metadata coarse=%0d expected=%0d",
+                             metadata_coarse, 64'd1024 + grid_phase);
                 end
                 if (metadata_fractional_q12 < -32'sd2048 ||
                     metadata_fractional_q12 > 32'sd2048) begin

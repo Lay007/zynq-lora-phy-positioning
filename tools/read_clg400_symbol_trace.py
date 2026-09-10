@@ -188,14 +188,14 @@ restore() {{ devmem {CONTROL} 32 "$orig" >/dev/null; }}
 trap restore EXIT HUP INT TERM
 sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
-clocksel=$(((orig & 0x80fcffff) | 0x00020000))
-devmem {CONTROL} 32 "$clocksel" >/dev/null
 jointsel=$(((orig & 0x80f8ffff) | 0x00040000))
 devmem {CONTROL} 32 "$jointsel" >/dev/null
 printf 'JOINT %s %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
   "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
   "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)" \\
   "$(devmem {METRICS} 32)"
+clocksel=$(((orig & 0x80f8ffff) | 0x00020000))
+devmem {CONTROL} 32 "$clocksel" >/dev/null
 c=0
 while [ "$c" -lt 8 ]; do
   printf 'CLOCK %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
@@ -205,7 +205,7 @@ while [ "$c" -lt 8 ]; do
 done
 i=0
 while [ "$i" -lt {depth} ]; do
-  selector=$(((orig & 0x80fcffff) | 0x00010000 | (i << 24)))
+  selector=$(((orig & 0x80f8ffff) | 0x00010000 | (i << 24)))
   devmem {CONTROL} 32 "$selector" >/dev/null
   status=$(devmem {STATUS} 32)
   sequence=$(devmem {SEQUENCE} 32)
