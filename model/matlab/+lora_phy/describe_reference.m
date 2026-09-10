@@ -18,12 +18,28 @@ switch metadata.stageNumber
     case 2
         text = string(strings.referencePackage);
     case 3
-        text = string(strings.referenceResampler);
+        if strings.language == "ru"
+            text = "после КИХ/ресемплера 24/25";
+        else
+            text = "after FIR/resampler 24/25";
+        end
     case 4
-        text = string(strings.referenceCic);
+        if strings.language == "ru"
+            text = "после CIC-интерполятора x32";
+        else
+            text = "after CIC interpolator x32";
+        end
     case 5
-        text = string(strings.referenceMixer);
+        if strings.language == "ru"
+            text = "после частотного переноса";
+        else
+            text = "after frequency shift";
+        end
     otherwise
-        text = "unknown TX checkpoint";
+        if strings.language == "ru"
+            text = "неизвестная контрольная точка TX";
+        else
+            text = "unknown TX checkpoint";
+        end
 end
 end
