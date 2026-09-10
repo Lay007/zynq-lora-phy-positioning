@@ -1,23 +1,29 @@
 function text = describe_reference(metadata, strings)
-%DESCRIBE_REFERENCE Localized description of the golden reference symbol.
-%
-% parse_hdl_recording_name reports an English description built into the
-% metadata. This rebuilds it from the structured fields instead, so the
-% Inspector table and the launcher console line stay consistent and both
-% follow the selected interface language.
+%DESCRIBE_REFERENCE Localized description of the selected TX checkpoint.
 
 arguments
     metadata (1,1) struct
     strings (1,1) struct
 end
 
-if metadata.tag == "package"
-    text = string(strings.referencePackage);
-elseif metadata.referenceDirection == "down"
-    text = string(sprintf(strings.referenceChirp, ...
-        metadata.referenceSymbol, strings.directionDown));
-else
-    text = string(sprintf(strings.referenceChirp, ...
-        metadata.referenceSymbol, strings.directionUp));
+switch metadata.stageNumber
+    case 1
+        if metadata.referenceDirection == "down"
+            text = string(sprintf(strings.referenceChirp, ...
+                metadata.referenceSymbol, strings.directionDown));
+        else
+            text = string(sprintf(strings.referenceChirp, ...
+                metadata.referenceSymbol, strings.directionUp));
+        end
+    case 2
+        text = string(strings.referencePackage);
+    case 3
+        text = string(strings.referenceResampler);
+    case 4
+        text = string(strings.referenceCic);
+    case 5
+        text = string(strings.referenceMixer);
+    otherwise
+        text = "unknown TX checkpoint";
 end
 end
