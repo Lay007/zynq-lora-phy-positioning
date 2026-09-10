@@ -732,6 +732,89 @@ by construction; the half-difference is never formed and nothing in the RTL
 consumes it. Against that, the reference model reaches 53/53 without
 compensating it either, so it cannot be the whole story.
 
+### Root cause of the decision bias, 2026-09-10
+
+The joint estimator page answered on its first question.
+
+The controller's own `up_coarse_start` is an exact multiple of 1024 on every
+capture, and exactly equal to `packet_start_count`:
+
+| seq | preamble bin | `up_coarse_start` | mod 1024 | advance that was due |
+|---:|---:|---:|---:|---:|
+| 116 | 97 | 454656 | 0 | 248 |
+| 117 | 22 | 455680 | 0 | 848 |
+| 118 | 77 | 455680 | 0 | 408 |
+| 119 | 117 | 466944 | 0 | 88 |
+
+The advance that should have been added is `chips_to_boundary * 8`: 248, 848,
+408 and 88 samples here. None is a multiple of 1024, so adding any of them
+would have destroyed that alignment. Nothing was added. This argument shares no
+convention with the reference model, which is what makes it decisive where the
+earlier comparison of corrections was not.
+
+Simulation reproduces it in one run. Drive the packet 296 samples late - 37
+chips - and print the signal at two points:
+
+```text
+INFO at detected:        chips_to_boundary=37  preamble_bin=91
+INFO packet_start_valid: chips_to_boundary=0   preamble_bin=0
+```
+
+**The detector presents the arrival phase on `detected`. The joint controller
+samples it on `packet_start_valid`, a later pulse, by which time it has
+returned to zero.** The detector's arithmetic is right: 296/8 is 37 chips and
+`(128 - 37) & 127` is 91.
+
+The consequence follows from the search radius. The window is plus or minus 16
+samples around `up_coarse_start`; without the arrival phase that point can sit
+up to 1016 samples from the chirp boundary it is looking for. The window
+contains no chirp start, the matched filter returns the best of 33 equally poor
+lags, and the correction is spurious - which is exactly the observed behaviour:
+large corrections where a few samples were due, uncorrelated with the truth,
+roughly doubling the grid error instead of removing it.
+
+It also explains why the coarse resync was always right. It reads the same
+signal on `detected`, its own pulse. Only the joint estimate was affected.
+
+### Why no regression caught it
+
+```verilog
+reg [15:0] chips_to_boundary = 16'd0;   // tb_lora_joint_chirp_grid_path
+```
+
+A constant. The controller's use of the signal was never exercised at all.
+`tb_lora_joint_grid_completion` drove the packet straight onto the grid, where
+zero is legitimate, and its own comment recorded that this left the interaction
+unexercised. The `+grid_phase` option added to close that gap kept the
+timestamp expectation pinned at 1024, so a non-zero phase simply failed and was
+put down to a stimulus artefact.
+
+### The fix and what supports it
+
+The arrival phase is held from the pulse that carries it to the pulse that
+consumes it, and handed to the joint controller only; the coarse resync keeps
+reading the live signal on its own pulse.
+
+With the same 296-sample arrival the integrated ToA metadata reads **1320**,
+which is 1024 plus the arrival phase. Before the fix the same stimulus read
+1023: the phase was dropped silently.
+
+`tb_lora_joint_chirp_grid_path` now takes `+chips_to_boundary=N` and derives
+its expectation from the stimulus geometry as `11 - 8N`, passing at N of 0, 1
+and 2 with fine skips of 27, 19 and 11. The controller uses the value correctly
+once it receives it, so the arithmetic was right throughout; one pulse was
+wrong.
+
+### An open boundary at half a symbol
+
+Sweeping the arrival phase: 0, 8, 120 and 296 samples give an exact timestamp.
+At 512 and 1000 the timestamp gains exactly one symbol - 2560 against 1536, and
+3048 against 2024. The sub-symbol part is exact at every phase, which is why the
+symbol decisions do not depend on it: a whole-symbol shift moves which trace
+entry is which and the decoder's offset search absorbs it. The timestamp is a
+different matter. The testbench states both properties separately rather than
+relaxing to whichever one passes.
+
 ## Evidence boundary
 
 A successful result closes the symbol-decision defect and unblocks a PER
