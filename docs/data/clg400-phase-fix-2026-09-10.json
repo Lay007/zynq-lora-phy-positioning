@@ -1,0 +1,57 @@
+{
+  "schema": "zynq-lora-arrival-phase-fix-hardware-v1",
+  "recorded_utc": "2026-09-10",
+  "bitstream_sha256_prefix": "34b0d2524883049dc88a5912c9d37c33",
+  "previous_bitstream_sha256_prefix": "74e61256a049e3f2168cb171e553514f",
+  "post_route": {"wns_ns": 0.094, "whs_ns": 0.024, "failing_endpoints": 0},
+  "claim_under_test": "Holding the detector's arrival phase from the pulse that carries it to the pulse the joint controller consumes it on removes the one-sided decision bias.",
+  "result": "Confirmed. The bias is gone: zero errors on the high side across 371 compared symbols, against 190 high and 34 low before. Seven of seven packets pass CRC, against one of ten.",
+  "decode": {
+    "packets_attempted": 10,
+    "packets_captured": 7,
+    "crc_valid": 7,
+    "crc_valid_before": 1,
+    "packets_before": 10,
+    "note": "Three attempts were lost to capture-window problems, not to decoding: two froze no trace and one recording held no packet."
+  },
+  "symbols": {
+    "compared": 371,
+    "exact": 365,
+    "exact_percent": 98.4,
+    "errors_above": 0,
+    "errors_below": 6,
+    "combined_histogram": {"-2": 2, "-1": 4, "0": 365},
+    "bin_adjustment_applied": 0,
+    "baseline_for_comparison": {
+      "description": "Twelve captures before any of this work, 631 symbols",
+      "errors_of_plus_one": 182,
+      "errors_of_plus_two": 17,
+      "errors_negative": 0
+    },
+    "interpretation": "The surviving six errors are one per capture and all on the low side, so they are not the one-sided residual this investigation was about. The bias itself is resolved."
+  },
+  "grid_error_samples": {
+    "values": [0, -2, 0, 1, -1, -2, 0],
+    "mean_absolute": 0.86,
+    "before_clock_fix": 4.2,
+    "after_clock_fix_before_phase_fix": 9.0,
+    "method": "tools/export_stage_differential.py --grid-sweep"
+  },
+  "joint_estimate": {
+    "up_coarse_start_minus_packet_start": [296, 688, 672, 688, 792, 752, 904],
+    "note": "No longer a multiple of 1024. The arrival phase is being applied, which is the direct signature of the fix; before it, up_coarse_start equalled packet_start_count exactly on every capture.",
+    "up_offset_samples": [-6, -6, -2, -2, 0, -7, -4],
+    "correction_samples": [-3, -3, 1, 1, 3, -4, -2],
+    "applied_fine_skip": [13, 13, 17, 17, 19, 12, 14],
+    "fine_correction_entry": [2, 2, 2, 2, 3, 2, 3],
+    "interpretation": "The search now finds a genuine peak within a few samples of its coarse start, the correction it produces is small, and it is applied two or three entries in, before the header."
+  },
+  "open": {
+    "search_cost_clocks": [148687, 173161, 172163, 173162, 179655, 177158, 186648],
+    "nominal_sfd_budget_clocks": 145152,
+    "statement": "The search now costs more than the nominal SFD budget on every capture, yet the correction still lands at trace entry two or three and every packet decodes. Either the budget expressed as SFD_SAMPLES times clocks-per-sample is stricter than the real requirement, or the clocks beyond the estimate are spent after it is produced. This is recorded rather than explained; it did not previously matter because the search never completed at all.",
+    "half_symbol_timestamp_boundary": "At an arrival phase of half a symbol or more the ToA timestamp gains exactly one symbol. The sub-symbol part is exact at every phase, which is why decisions are unaffected. Covered by tb_lora_joint_grid_completion as a stated known boundary.",
+    "diagnostic_latch_timing": "The joint estimator page latches chips_to_boundary and preamble_bin at joint_timing_valid, which is too late: both read zero. up_coarse_start is latched by the controller itself and is correct, which is what carried the diagnosis. The page's derived_up_coarse_start column is therefore not meaningful as written."
+  },
+  "evidence_boundary": "Seven captures at one power level with one transmitter. This closes the symbol-decision bias and nothing else: it establishes no packet error rate, sensitivity, acquisition probability, or calibrated time of arrival, and the ToA timestamp has a known open boundary above half a symbol of arrival phase."
+}
