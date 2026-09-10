@@ -6,7 +6,15 @@ arguments
     strings (1,1) struct
 end
 
-switch metadata.stageNumber
+if isfield(metadata, "stageNumber")
+    stageNumber = metadata.stageNumber;
+elseif isfield(metadata, "tag") && metadata.tag == "package"
+    stageNumber = 2;
+else
+    stageNumber = 1;
+end
+
+switch stageNumber
     case 1
         if metadata.referenceDirection == "down"
             text = string(sprintf(strings.referenceChirp, ...
