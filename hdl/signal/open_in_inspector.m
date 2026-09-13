@@ -1,4 +1,4 @@
-function [app, metadata] = open_in_inspector(fileName)
+function [app, metadata] = open_in_inspector(fileName, options)
 %OPEN_IN_INSPECTOR Open an HDL IQ recording in LoRa PHY Inspector.
 %
 % HDL recordings must follow:
@@ -6,6 +6,17 @@ function [app, metadata] = open_in_inspector(fileName)
 %
 % File format is conventional complex int16 little-endian:
 %   I0, Q0, I1, Q1, ...
+%
+%   open_in_inspector()                          English interface
+%   open_in_inspector("<name>.pcm", Language="ru")  Russian interface
+%
+% Language selects the interface language only. Error messages stay in
+% English, matching the rest of the project's diagnostics.
+
+arguments
+    fileName (1,1) string = ""
+    options.Language (1,1) string {mustBeMember(options.Language, ["en", "ru"])} = "en"
+end
 
 signalDir = fileparts(mfilename("fullpath"));
 repoRoot = fileparts(fileparts(signalDir));
@@ -13,7 +24,7 @@ matlabRoot = fullfile(repoRoot, "model", "matlab");
 addpath(matlabRoot);
 addpath(fullfile(matlabRoot, "apps"));
 
-if nargin < 1 || strlength(string(fileName)) == 0
+if strlength(fileName) == 0
     recordings = dir(fullfile(signalDir, "hdl_sf*_bw*k_fs*k_*.pcm"));
     if numel(recordings) == 1
         filePath = fullfile(recordings(1).folder, recordings(1).name);
@@ -28,7 +39,6 @@ if nargin < 1 || strlength(string(fileName)) == 0
              "was found in %s"], signalDir);
     end
 else
-    fileName = string(fileName);
     if isfile(fileName)
         filePath = char(fileName);
     else
@@ -41,20 +51,21 @@ else
 end
 
 metadata = lora_phy.parse_hdl_recording_name(filePath);
+strings = lora_phy.inspector_strings(options.Language);
 
-app = lora_phy_inspector;
+app = lora_phy_inspector("on", Language=options.Language);
 app.FileField.Value = char(metadata.filePath);
 app.FormatDropDown.Value = "ci16";
 app.SampleRateField.Value = metadata.sampleRateHz;
 app.CentreFrequencyField.Value = 0;
 app.ExpectedFrequencyField.Value = 0;
 
-fprintf("Loaded HDL recording into LoRa PHY Inspector:\n");
-fprintf("  file: %s\n", metadata.filePath);
-fprintf("  format: ci16 (little-endian I,Q interleaved)\n");
-fprintf("  SF: %d\n", metadata.spreadingFactor);
-fprintf("  BW: %.0f kHz\n", metadata.bandwidthHz/1e3);
-fprintf("  Fs: %.3f MHz\n", metadata.sampleRateHz/1e6);
-fprintf("  golden reference: %s\n", metadata.referenceDescription);
-fprintf("Press Analyze to run DSP analysis and MATLAB golden verification.\n");
+fprintf("%s\n", strings.consoleLoaded);
+fprintf(strings.consoleFile, metadata.filePath);
+fprintf("%s\n", strings.consoleFormat);
+fprintf(strings.consoleSf, metadata.spreadingFactor);
+fprintf(strings.consoleBw, metadata.bandwidthHz/1e3);
+fprintf(strings.consoleFs, metadata.sampleRateHz/1e6);
+fprintf(strings.consoleGolden, lora_phy.describe_reference(metadata, strings));
+fprintf("%s\n", strings.consoleHint);
 end

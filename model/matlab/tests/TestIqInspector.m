@@ -97,6 +97,83 @@ classdef TestIqInspector < matlab.unittest.TestCase
             testCase.verifyTrue(metrics.passed);
         end
 
+        function goldenComparisonAcceptsDefaultSearchRadius(testCase)
+            % The Inspector omits SearchRadiusSamples, so the NaN default
+            % must survive argument validation and widen to one chip.
+            config = lora_phy.css_config(7, 16);
+            reference = lora_phy.modulate_symbol(17, config);
+            capture = [zeros(12,1); 0.5*reference; zeros(8,1)];
+
+            metrics = lora_phy.compare_iq_to_golden( ...
+                capture, 2e6, 7, 125e3, ...
+                StartIndex=10, Symbol=17, Direction="up");
+
+            testCase.verifyEqual(metrics.bestStartIndex, 13);
+            testCase.verifyTrue(metrics.passed);
+        end
+
+        function goldenComparisonRejectsNegativeSearchRadius(testCase)
+            config = lora_phy.css_config(7, 16);
+            reference = lora_phy.modulate_symbol(17, config);
+            capture = [zeros(12,1); 0.5*reference; zeros(8,1)];
+
+            testCase.verifyError(@() lora_phy.compare_iq_to_golden( ...
+                capture, 2e6, 7, 125e3, ...
+                StartIndex=10, Symbol=17, Direction="up", ...
+                SearchRadiusSamples=-1), ...
+                "lora_phy:InvalidGoldenSearchRadius");
+        end
+
+        function inspectorStringsCoverBothLanguages(testCase)
+            en = lora_phy.inspector_strings("en");
+            ru = lora_phy.inspector_strings("ru");
+
+            testCase.verifyEqual(sort(fieldnames(en)), sort(fieldnames(ru)));
+            testCase.verifyEqual(en.language, "en");
+            testCase.verifyEqual(ru.language, "ru");
+            testCase.verifyEqual(lora_phy.inspector_strings().language, "en");
+            testCase.verifyNotEqual(string(en.analyzeButton), string(ru.analyzeButton));
+            testCase.verifyError(@() lora_phy.inspector_strings("de"), ...
+                "MATLAB:validators:mustBeMember");
+        end
+
+        function inspectorStringsKeepFormatSpecifiers(testCase)
+            % A translated string is passed to the same sprintf call as its
+            % English original, so the conversion specifiers must survive
+            % translation in the same order.
+            en = lora_phy.inspector_strings("en");
+            ru = lora_phy.inspector_strings("ru");
+
+            names = fieldnames(en);
+            for index = 1:numel(names)
+                key = names{index};
+                testCase.verifyEqual( ...
+                    format_specifiers(ru.(key)), format_specifiers(en.(key)), ...
+                    sprintf("Format specifiers differ for '%s'", key));
+            end
+        end
+
+        function goldenReferenceDescriptionFollowsLanguage(testCase)
+            chirp = struct("tag", "chirp-h0-up", ...
+                "referenceSymbol", 0, "referenceDirection", "up");
+            down = struct("tag", "chirp-h17-down", ...
+                "referenceSymbol", 17, "referenceDirection", "down");
+            packet = struct("tag", "package", ...
+                "referenceSymbol", 0, "referenceDirection", "up");
+
+            en = lora_phy.inspector_strings("en");
+            ru = lora_phy.inspector_strings("ru");
+
+            testCase.verifyEqual(lora_phy.describe_reference(chirp, en), "h=0 upchirp");
+            testCase.verifyEqual(lora_phy.describe_reference(down, en), "h=17 downchirp");
+            testCase.verifyEqual(lora_phy.describe_reference(packet, en), ...
+                "first preamble h=0 upchirp");
+
+            testCase.verifyTrue(contains(lora_phy.describe_reference(chirp, ru), "восходящий"));
+            testCase.verifyTrue(contains(lora_phy.describe_reference(down, ru), "нисходящий"));
+            testCase.verifyTrue(contains(lora_phy.describe_reference(chirp, ru), "h=0"));
+        end
+
         function sfBandwidthAndCarrierAreEstimated(testCase)
             config = lora_phy.css_config(7, 4);
             payload = [3; 17; 64];
@@ -153,4 +230,9 @@ function delete_if_present(path)
 if isfile(path)
     delete(path);
 end
+end
+
+function list = format_specifiers(text)
+list = string(regexp(string(text), ...
+    '%[-+ #0]*[0-9.*]*[diouxXeEfgGcs%]', "match"));
 end

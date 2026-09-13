@@ -31,6 +31,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Reject committed generated PCM recordings
+        run: |
+          tracked_pcm="$(git ls-files 'hdl/signal/*.pcm')"
+          if [ -n "$tracked_pcm" ]; then
+            echo "Generated HDL PCM recordings must not be committed."
+            echo "They are ignored by .gitignore and published as CI artifacts instead:"
+            echo "$tracked_pcm"
+            exit 1
+          fi
+
       - name: Install GHDL
         run: |
           sudo apt-get update

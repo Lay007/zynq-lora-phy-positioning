@@ -12,7 +12,7 @@ arguments
     options.StartIndex (1,1) double {mustBeInteger, mustBePositive} = 1
     options.Symbol (1,1) double {mustBeInteger, mustBeNonnegative} = 0
     options.Direction (1,1) string {mustBeMember(options.Direction,["up","down"])} = "up"
-    options.SearchRadiusSamples (1,1) double {mustBeNonnegative} = NaN
+    options.SearchRadiusSamples (1,1) double = NaN
 end
 
 samplesPerChipExact = sampleRateHz / bandwidthHz;
@@ -35,8 +35,14 @@ end
 reference = reference(:);
 symbolSamples = numel(reference);
 
+% NaN is the sentinel for "search one chip either side". mustBeNonnegative
+% rejects NaN, so the bound is enforced here rather than in the arguments
+% block, which would make the default itself invalid.
 if isnan(options.SearchRadiusSamples)
     searchRadius = samplesPerChip;
+elseif options.SearchRadiusSamples < 0
+    error("lora_phy:InvalidGoldenSearchRadius", ...
+        "SearchRadiusSamples must be nonnegative");
 else
     searchRadius = round(options.SearchRadiusSamples);
 end
