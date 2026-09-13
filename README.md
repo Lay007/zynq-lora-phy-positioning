@@ -96,7 +96,17 @@ addpath apps
 app = lora_phy_inspector;
 ```
 
-![LoRa PHY Inspector](docs/images/lora-phy-inspector-verification.svg)
+![LoRa PHY Inspector on a real over-the-air SX1262 capture](docs/images/lora-phy-inspector-ota-sx1262.png)
+
+*The real Inspector window, exported from the application, on an over-the-air
+capture: a Heltec WiFi LoRa 32 V4.3 (SX1262) transmitting SF7 / BW 125 kHz at
+868.1 MHz, received by ZynqSDR/AD9361 at 1 MS/s tuned to 868.35 MHz
+([`sf7-bw125.cf32`](captures/reference/2026-08-03-heltec-v43-zynqsdr-mode-sweep/)).
+It reports SF7, a measured bandwidth of 125.0 kHz, a carrier at 868.100801 MHz
+(CFO +800.7 Hz against the nominal transmitter frequency) and 55.7 dB SNR from
+the no-signal intervals. The weaker band near +250 kHz, about 30 dB down and
+time-aligned with the bursts, is consistent with the receiver's I/Q mirror
+image.*
 
 See the **[LoRa PHY Inspector guide](docs/lora-phy-inspector.md)** for input
 formats, golden-verification thresholds, radio-profile matching, interpretation,
