@@ -2,7 +2,7 @@ name: HDL LoRa Signal CI
 
 on:
   push:
-    branches: [lora_cpp]
+    branches: [main, lora_cpp]  # Inspector and hdl/ sources live on main too
     paths:
       - "hdl/**"
       - "model/matlab/+lora_phy/**"
