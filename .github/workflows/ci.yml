@@ -190,14 +190,6 @@ jobs:
           vvp /tmp/lora_joint_chirp_grid_path_tb
           vvp /tmp/lora_joint_chirp_grid_path_tb +chips_to_boundary=1
           vvp /tmp/lora_joint_chirp_grid_path_tb +chips_to_boundary=2
-      - name: Compile and run joint grid completion testbench
-        run: |
-          iverilog -g2012 -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_grid_completion             -o /tmp/lora_joint_grid_completion_tb             fpga/generated/fft-correlator-fixed/lora_fft_correlator_gen/*.v             fpga/generated/blind-detector/lora_blind_detector_gen/lora_blind_BlindDetector.v             fpga/generated/toa-interpolator/lora_toa_interpolator_gen/lora_toa_ToaInterpolator.v             fpga/wrappers/fft_correlator_route_top.v             fpga/wrappers/lora_detector_timestamp_align.v             fpga/wrappers/lora_detector_timestamp_path.v             fpga/wrappers/lora_fft_detector_timestamp_path.v             fpga/wrappers/lora_iq_history_buffer.v             fpga/wrappers/lora_reference_chirp_rom.v             fpga/wrappers/lora_matched_filter_mac.v             fpga/wrappers/lora_peak_triplet_capture.v             fpga/wrappers/lora_matched_filter_search.v             fpga/wrappers/lora_joint_chirp_grid_controller.v             fpga/wrappers/lora_symbol_grid_resync.v             fpga/wrappers/lora_timestamp_metadata_join.v             fpga/wrappers/lora_axi_lite_status.v             fpga/wrappers/lora_packet_toa_receiver_top.v             fpga/tb/tb_lora_joint_grid_completion.sv
-          vvp /tmp/lora_joint_grid_completion_tb
-          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=296
-          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=512
-          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=700
-          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=1023
       - name: Compile and run asynchronous sample FIFO testbench
         run: |
           iverilog -g2012 -Wall -s tb_lora_async_sample_fifo \
@@ -255,6 +247,52 @@ jobs:
             fpga/wrappers/lora_receiver_control_wrapper.v \
             fpga/tb/tb_lora_receiver_control_wrapper.sv
           vvp /tmp/lora_receiver_control_wrapper_tb
+
+  joint-grid-completion:
+    # One leg per arrival phase. Each leg drives the full packet-rate receiver
+    # past its down-search window, roughly 100 s on a hosted runner (derived
+    # from the step timings of run 34460149677). Five in series pushed the RTL
+    # smoke job past its ten-minute budget and cancelled it, so they run in
+    # parallel here. Phases at and above half a symbol are the ones that
+    # regressed the ToA symbol origin, so none of them may be dropped.
+    name: Joint grid completion (grid_phase ${{ matrix.grid_phase }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        grid_phase: [0, 296, 512, 700, 1023]
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+      - name: Compile joint grid completion testbench
+        run: |
+          iverilog -g2012 -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_grid_completion \
+            -o /tmp/lora_joint_grid_completion_tb \
+            fpga/generated/fft-correlator-fixed/lora_fft_correlator_gen/*.v \
+            fpga/generated/blind-detector/lora_blind_detector_gen/lora_blind_BlindDetector.v \
+            fpga/generated/toa-interpolator/lora_toa_interpolator_gen/lora_toa_ToaInterpolator.v \
+            fpga/wrappers/fft_correlator_route_top.v \
+            fpga/wrappers/lora_detector_timestamp_align.v \
+            fpga/wrappers/lora_detector_timestamp_path.v \
+            fpga/wrappers/lora_fft_detector_timestamp_path.v \
+            fpga/wrappers/lora_iq_history_buffer.v \
+            fpga/wrappers/lora_reference_chirp_rom.v \
+            fpga/wrappers/lora_matched_filter_mac.v \
+            fpga/wrappers/lora_peak_triplet_capture.v \
+            fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
+            fpga/wrappers/lora_symbol_grid_resync.v \
+            fpga/wrappers/lora_timestamp_metadata_join.v \
+            fpga/wrappers/lora_axi_lite_status.v \
+            fpga/wrappers/lora_packet_toa_receiver_top.v \
+            fpga/tb/tb_lora_joint_grid_completion.sv
+      - name: Run joint grid completion at grid_phase ${{ matrix.grid_phase }}
+        run: vvp /tmp/lora_joint_grid_completion_tb +grid_phase=${{ matrix.grid_phase }}
 
   matlab:
     name: Authoritative MATLAB and Simulink tests
