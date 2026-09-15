@@ -139,7 +139,7 @@ jobs:
       - name: Run Inspector MATLAB unit tests
         uses: matlab-actions/run-command@v3
         with:
-          command: addpath('model/matlab'); results = [runtests('model/matlab/tests/TestIqInspector.m'); runtests('model/matlab/tests/TestTxCheckpointVerification.m')]; assertSuccess(results);
+          command: addpath('model/matlab'); iqResults = runtests('model/matlab/tests/TestIqInspector.m'); assertSuccess(iqResults); txResults = runtests('model/matlab/tests/TestTxCheckpointVerification.m'); assertSuccess(txResults);
 
       - name: Smoke-test hidden Inspector UI
         uses: matlab-actions/run-command@v3
