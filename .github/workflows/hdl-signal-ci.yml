@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   golden-regression:
-    name: SF7/L16 HDL signal golden regression
+    name: SF5/SF6/SF7 (L16) HDL signal golden regression
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -119,7 +119,7 @@ jobs:
           print("CI16 byte layout PASS:", actual.hex(" "))
           PY
 
-      - name: Verify all SF7 symbols against MATLAB golden convention
+      - name: Verify all SF5/SF6/SF7 symbols against MATLAB golden convention
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
             --assert-level=error --stop-time=10ms

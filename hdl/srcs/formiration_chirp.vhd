@@ -12,8 +12,26 @@ use ieee.numeric_std.all;
 -- 0110 -> SF11
 -- 0111 -> SF12
 --
--- На текущем этапе реализован только режим SF7 / BW=125 кГц / L=16,
--- то есть Fs=2 МГц. Для него один символ содержит 128*16=2048 отсчётов.
+-- Поддерживаемые коды BW. Samples-per-chip L зафиксирован (=16) для любого
+-- bw_in — конкретная Fs = BW*16 задаётся тактированием вне этого блока,
+-- сам блок оперирует только SF и L, поэтому bw_in лишь проверяется на
+-- принадлежность списку известных значений и не входит в арифметику:
+-- 000 -> BW 125  кГц (при L=16 соответствует Fs 2.000  МГц)
+-- 001 -> BW 250  кГц (Fs 4.000  МГц)
+-- 010 -> BW 500  кГц (Fs 8.000  МГц)
+-- 011 -> BW 1000 кГц (Fs 16.000 МГц)
+-- 100 -> BW 2000 кГц (Fs 32.000 МГц)
+-- 101..111 -> зарезервировано, не принимается
+--
+-- Реализованы SF5/SF6/SF7 (при любом из перечисленных выше bw_in). Это не
+-- прихоть: 16-битный аккумулятор фазы (phase_to_sample -> dds_sin_cos_only)
+-- при L=16 даёт целочисленный симметричный шаг частоты
+-- speed_change = 65536/(2^SF * L^2) только для SF<=7 (SF7 -> 2, SF6 -> 4,
+-- SF5 -> 8); при SF8 speed_change=1 не делится на симметричный ±диапазон
+-- без half-LSB, а при SF9..SF12 speed_change уже дробный. Коды SF8..SF12
+-- распознаются интерфейсом (см. таблицу выше), но пока не формируют выход —
+-- как и раньше для любой нереализованной комбинации; расширение потребует
+-- отдельного дробного аккумулятора частоты, а не просто параметров.
 
 entity formiration_chirp is
 Port (
@@ -51,6 +69,21 @@ architecture Behavioral of formiration_chirp is
 
     signal sample_data       : std_logic_vector(31 downto 0) := (others => '0');
     signal sample_valid      : std_logic := '0';
+
+    -- L = samples per chip зафиксирован для всех поддержанных BW-кодов.
+    constant SAMPLES_PER_CHIP : integer := 16;
+
+    -- bw_in не входит в арифметику (L фиксирован), но принимается только из
+    -- списка известных кодов BW — см. таблицу в шапке файла.
+    function bw_code_is_valid(bw_code : std_logic_vector(2 downto 0)) return boolean is
+    begin
+        case bw_code is
+            when b"000" | b"001" | b"010" | b"011" | b"100" =>
+                return true;
+            when others =>
+                return false;
+        end case;
+    end function;
 begin
     with current_state select
         ready_out <= '1' when LOAD_DATA,
@@ -65,8 +98,14 @@ begin
                       '0' when others;
 
     process(clk)
-        variable symbol_value : integer;
-        variable phase_value  : integer;
+        variable symbol_value      : integer;
+        variable phase_value       : integer;
+        variable symbol_count      : integer; -- N = 2^SF
+        variable speed_change_int  : integer;
+        variable up_frequency_int  : integer;
+        variable shift_multiplier  : integer; -- speed_change * SAMPLES_PER_CHIP
+        variable phase_multiplier  : integer; -- 2^(15-SF)
+        variable sf_supported      : boolean;
     begin
         if rising_edge(clk) then
             if rst = '1' then
@@ -87,28 +126,71 @@ begin
 
                     when LOAD_DATA =>
                         if valid_in = '1' then
-                            -- Пока поддержан только SF7/BW125 при Fs=2 МГц (L=16).
-                            if sf_in = b"0010" and bw_in = b"000" then
+                            sf_supported     := false;
+                            symbol_count     := 0;
+                            speed_change_int := 0;
+                            up_frequency_int := 0;
+                            shift_multiplier := 0;
+                            phase_multiplier := 0;
+
+                            -- Константы выведены из общей формулы для L=16
+                            -- (см. комментарий в шапке файла):
+                            --   speed_change = 65536/(2^SF * L^2)
+                            --   up_frequency = speed_change*(2^SF*L-1)/2
+                            --   shift_multiplier = speed_change * L
+                            --   phase_multiplier = 2^(15-SF)
+                            -- Точные целые только для SF5..SF7 при L=16.
+                            case sf_in is
+                                when b"0000" => -- SF5
+                                    symbol_count     := 32;
+                                    speed_change_int := 8;
+                                    up_frequency_int := 2044;
+                                    shift_multiplier := 128;
+                                    phase_multiplier := 1024;
+                                    sf_supported     := true;
+                                when b"0001" => -- SF6
+                                    symbol_count     := 64;
+                                    speed_change_int := 4;
+                                    up_frequency_int := 2046;
+                                    shift_multiplier := 64;
+                                    phase_multiplier := 512;
+                                    sf_supported     := true;
+                                when b"0010" => -- SF7
+                                    symbol_count     := 128;
+                                    speed_change_int := 2;
+                                    up_frequency_int := 2047;
+                                    shift_multiplier := 32;
+                                    phase_multiplier := 256;
+                                    sf_supported     := true;
+                                when others =>
+                                    -- SF8..SF12: см. комментарий в шапке файла.
+                                    sf_supported := false;
+                            end case;
+
+                            if sf_supported and bw_code_is_valid(bw_in) then
                                 symbol_value := to_integer(unsigned(h_in));
 
-                                if symbol_value >= 0 and symbol_value < 128 then
-                                    down_frequency <= to_signed(-2047, 16);
-                                    up_frequency   <= to_signed(2047, 16);
+                                if symbol_value >= 0 and symbol_value < symbol_count then
+                                    down_frequency <= to_signed(-up_frequency_int, 16);
+                                    up_frequency   <= to_signed(up_frequency_int, 16);
                                     if direction_in = '0' then
-                                        speed_change <= to_signed(2, 16);
+                                        speed_change <= to_signed(speed_change_int, 16);
                                     else
-                                        speed_change <= to_signed(-2, 16);
+                                        speed_change <= to_signed(-speed_change_int, 16);
                                     end if;
 
                                     current_sample <= (others => '0');
-                                    cnt_sample     <= to_unsigned(2047, 16);
-                                    shift_position <= to_signed(symbol_value * 32, 16);
+                                    cnt_sample     <= to_unsigned(
+                                        symbol_count * SAMPLES_PER_CHIP - 1, 16);
+                                    shift_position <= to_signed(
+                                        symbol_value * shift_multiplier, 16);
 
                                     -- MATLAB:
-                                    -- m = symbol * L = symbol * 16
-                                    -- phaseWord = 65536 * (0.5*m^2/(128*16^2) - 0.5*m/16)
-                                    --           = 256*symbol^2 - 32768*symbol  (mod 65536)
-                                    phase_value := (256 * symbol_value * symbol_value -
+                                    -- m = symbol * L
+                                    -- phaseWord = 65536 * (0.5*m^2/(N*L^2) - 0.5*m/L)
+                                    --           = phase_multiplier*symbol^2
+                                    --             - 32768*symbol  (mod 65536)
+                                    phase_value := (phase_multiplier * symbol_value * symbol_value -
                                                     32768 * symbol_value) mod 65536;
                                     if direction_in = '1' then
                                         phase_value := (-phase_value) mod 65536;
