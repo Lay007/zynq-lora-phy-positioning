@@ -94,7 +94,26 @@ classdef TestIqInspector < matlab.unittest.TestCase
             testCase.verifyLessThan(metrics.evmPercent, 1e-10);
             testCase.verifyGreaterThan(metrics.correlation, 1-1e-12);
             testCase.verifyLessThan(metrics.rmsPhaseErrorDegrees, 1e-10);
+            testCase.verifyEqual(metrics.medianPhaseIncrementErrorQ16Lsb, 0, "AbsTol", 1e-9);
             testCase.verifyTrue(metrics.passed);
+        end
+
+        function phaseStepDiagnosticFindsQ16Mismatch(testCase)
+            config = lora_phy.css_config(5, 16);
+            reference = lora_phy.modulate_symbol(0, config);
+            sampleIndex = (0:numel(reference)-1).';
+            phaseStepErrorQ16 = -4;
+            phaseRamp = exp(1j*2*pi*phaseStepErrorQ16*sampleIndex/65536);
+            iq = 0.5*reference.*phaseRamp;
+
+            metrics = lora_phy.compare_iq_to_golden( ...
+                iq, 8e6, 5, 500e3, StartIndex=1, Symbol=0, Direction="up", ...
+                SearchRadiusSamples=0);
+
+            testCase.verifyEqual(metrics.medianPhaseIncrementErrorQ16Lsb, ...
+                phaseStepErrorQ16, "AbsTol", 1e-9);
+            testCase.verifyGreaterThan(metrics.evmPercent, 1.0);
+            testCase.verifyFalse(metrics.passed);
         end
 
         function goldenComparisonAcceptsDefaultSearchRadius(testCase)
@@ -201,7 +220,6 @@ classdef TestIqInspector < matlab.unittest.TestCase
         function spectrogramDimensionsAreConsistent(testCase)
             iq = exp(2j*pi*0.1*(0:4095).');
             result = lora_phy.compute_spectrogram(iq, 1e6, 256, 40);
-
             testCase.verifySize(result.powerDb, ...
                 [numel(result.frequencyHz), numel(result.timeSeconds)]);
             testCase.verifyLessThanOrEqual(numel(result.timeSeconds), 40);
