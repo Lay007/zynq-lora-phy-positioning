@@ -2,7 +2,7 @@
 
 Этот каталог содержит VHDL-реализацию формирования LoRa/CSS chirp и пакетного потока, Xilinx IP, тесты и вспомогательные средства для сравнения HDL с эталонной MATLAB-моделью.
 
-Генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`) верифицирован bit-exact против MATLAB golden для SF5/SF6/SF7 при L=16 (см. «Поддержка SF/BW» ниже). Текущий контракт `formiration_package` (шесть автоматически вставляемых `h=0` upchirp, затем очередь пользовательских символов) верифицирован только для SF7/BW125. Это **не означает**, что уже реализован и проверен полный стандартный LoRa packet с SFD/header/coding/payload framing.
+Генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`) и текущий контракт `formiration_package` (шесть автоматически вставляемых `h=0` upchirp, затем очередь пользовательских символов) верифицированы bit-exact против MATLAB golden для SF5/SF6/SF7 при L=16 (см. «Поддержка SF/BW» ниже). `formiration_package.vhd` не потребовал изменений: он лишь передаёт `sf_in`/`bw_in` в уже обобщённый `formiration_chirp`. Это **не означает**, что уже реализован и проверен полный стандартный LoRa packet с SFD/header/coding/payload framing — только framing текущего production-контракта (преамбула + очередь).
 
 ## Структура
 
@@ -60,10 +60,30 @@ L=16 точный (bit-exact против MATLAB golden) целочисленн�
 любой нереализованной комбинации).
 
 Golden-регрессия SF5/SF6/SF7 (все символы, оба направления) —
-`hdl/tb/test_formiration_chirp_golden.vhd`, проверяется в CI. Контракт
-`formiration_package` (преамбула + очередь символов, см. ниже) верифицирован
-только для SF7/BW125 — другие комбинации для него не проверены, пока для них
-не появится собственный golden-тест.
+`hdl/tb/test_formiration_chirp_golden.vhd`, проверяется в CI.
+
+## Текущая проверенная конфигурация: пакетный контракт (`formiration_package`)
+
+Контракт (шесть автоматических `h=0` upchirp преамбулы, затем очередь
+пользовательских символов) проверен bit-exact для SF5/SF6/SF7 через
+`hdl/tb/test_formiration_package_golden.vhd` (в CI): каждая SF использует свою
+тестовую последовательность символов (маленький/средний/половина/максимум,
+масштабированные под диапазон конкретного SF), выходной CI16 — в
+`build/ghdl-lora/`.
+
+**Только SF7/BW125 совместим с MATLAB Inspector.**
+`lora_phy.verify_tx_checkpoint` (тег `package`, Stage 2) по-прежнему жёстко
+рассчитан на последовательность SF7 `[0×6, 5, 17, 64, 127]` и Fs=2.000 МГц —
+параметризация Stage 2 на стороне MATLAB это отдельная, не начатая задача (см.
+`docs/lora-phy-inspector.md`). Поэтому SF5/SF6 пакетные записи сознательно **не
+называются** по конвенции `hdl_sf<SF>_..._package.pcm` — чтобы не создавать
+впечатление, что Inspector их тоже проверяет:
+
+| SF | Файл (в `build/ghdl-lora/`) | Проверка Inspector |
+|---|---|---|
+| SF5 | `sf5_package_golden.pcm` | нет — только GHDL self-check |
+| SF6 | `sf6_package_golden.pcm` | нет — только GHDL self-check |
+| SF7 | `hdl_sf7_bw125k_fs2000k_package.pcm` | да (`run_hdl_inspector_regression`, в CI) |
 
 ## Формат HDL IQ-записи: CI16
 

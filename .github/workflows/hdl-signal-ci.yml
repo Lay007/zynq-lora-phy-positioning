@@ -124,12 +124,14 @@ jobs:
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
             --assert-level=error --stop-time=10ms
 
-      - name: Verify full package waveform and generate CI16 capture
+      - name: Verify SF5/SF6/SF7 package waveforms and generate CI16 captures
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_package_golden \
             --assert-level=error --stop-time=2ms
           test -s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
           test "$(stat -c%s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm)" -eq 81920
+          test "$(stat -c%s build/ghdl-lora/sf5_package_golden.pcm)" -eq 20480
+          test "$(stat -c%s build/ghdl-lora/sf6_package_golden.pcm)" -eq 40960
 
       - name: Set up MATLAB for Inspector end-to-end regression
         uses: matlab-actions/setup-matlab@v3
@@ -158,4 +160,6 @@ jobs:
           path: |
             build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
             build/ghdl-lora/hdl_inspector_regression.csv
+            build/ghdl-lora/sf5_package_golden.pcm
+            build/ghdl-lora/sf6_package_golden.pcm
           if-no-files-found: error
