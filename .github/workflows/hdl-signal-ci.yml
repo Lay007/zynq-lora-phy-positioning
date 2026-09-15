@@ -6,12 +6,18 @@ on:
     paths:
       - "hdl/**"
       - "model/matlab/+lora_phy/**"
+      - "model/matlab/apps/lora_phy_inspector.m"
+      - "model/matlab/tests/TestIqInspector.m"
+      - "model/matlab/tests/TestTxCheckpointVerification.m"
       - "model/matlab/run_hdl_inspector_regression.m"
       - ".github/workflows/hdl-signal-ci.yml"
   pull_request:
     paths:
       - "hdl/**"
       - "model/matlab/+lora_phy/**"
+      - "model/matlab/apps/lora_phy_inspector.m"
+      - "model/matlab/tests/TestIqInspector.m"
+      - "model/matlab/tests/TestTxCheckpointVerification.m"
       - "model/matlab/run_hdl_inspector_regression.m"
       - ".github/workflows/hdl-signal-ci.yml"
 
@@ -129,6 +135,16 @@ jobs:
         uses: matlab-actions/setup-matlab@v3
         with:
           release: R2025a
+
+      - name: Run Inspector MATLAB unit tests
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('model/matlab'); results = [runtests('model/matlab/tests/TestIqInspector.m'); runtests('model/matlab/tests/TestTxCheckpointVerification.m')]; assertSuccess(results);
+
+      - name: Smoke-test hidden Inspector UI
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('model/matlab'); addpath('model/matlab/apps'); app = lora_phy_inspector("off", Language="ru"); assert(isvalid(app.Figure)); close(app.Figure);
 
       - name: Inspect generated HDL CI16 capture
         uses: matlab-actions/run-command@v3
