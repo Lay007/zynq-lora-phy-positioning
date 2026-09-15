@@ -1,7 +1,7 @@
 function verification = verify_tx_checkpoint(iq, metadata, options)
 %VERIFY_TX_CHECKPOINT Verify one of five HDL TX-chain checkpoints.
 %
-% Stage 1: one LoRa/CSS chirp at 2.000 MS/s.
+% Stage 1: one LoRa/CSS chirp at parametrized Fs (integer Fs/BW).
 % Stage 2: current formiration_package stream at 2.000 MS/s.
 % Stage 3: output of the 24/25 resampler at 1.920 MS/s.
 % Stage 4: output of the CIC interpolator at 61.440 MS/s.
@@ -35,18 +35,21 @@ switch stage
     case 3
         verification.expectedSampleRateHz = 1.92e6;
         verification.sampleRatePassed = abs(metadata.sampleRateHz-verification.expectedSampleRateHz) <= 0.5;
+        verification.contractPassed = verification.sampleRatePassed;
         verification.verdict = "NOT VERIFIED";
-        verification.summary = "Stage 3 metadata is recognized; exact 24/25 FIR/resampler coefficients are not yet a repository golden reference.";
+        verification.summary = "Stage 3 contract is recognized; exact 24/25 FIR/resampler coefficients are not yet a repository golden reference.";
     case 4
         verification.expectedSampleRateHz = 61.44e6;
         verification.sampleRatePassed = abs(metadata.sampleRateHz-verification.expectedSampleRateHz) <= 0.5;
+        verification.contractPassed = verification.sampleRatePassed;
         verification.verdict = "NOT VERIFIED";
-        verification.summary = "Stage 4 metadata is recognized; exact production CIC transfer function is not yet a repository golden reference.";
+        verification.summary = "Stage 4 contract is recognized; exact production CIC transfer function is not yet a repository golden reference.";
     case 5
         verification.expectedSampleRateHz = 61.44e6;
         verification.sampleRatePassed = abs(metadata.sampleRateHz-verification.expectedSampleRateHz) <= 0.5;
+        verification.contractPassed = verification.sampleRatePassed;
         verification.verdict = "NOT VERIFIED";
-        verification.summary = "Stage 5 metadata is recognized; mixer/NCO frequency contract is not yet a repository golden reference.";
+        verification.summary = "Stage 5 contract is recognized; mixer/NCO frequency contract is not yet a repository golden reference.";
     otherwise
         error("lora_phy:InvalidTxCheckpoint", "TX checkpoint must be in the range 1..5");
 end
@@ -63,6 +66,9 @@ verification.expectedSampleCount = NaN;
 verification.sampleCountPassed = NaN;
 verification.expectedSampleRateHz = NaN;
 verification.sampleRatePassed = NaN;
+verification.contractPassed = NaN;
+verification.goldenPassed = NaN;
+verification.failureReasons = strings(0,1);
 verification.metrics = [];
 verification.meanEvmPercent = NaN;
 verification.worstEvmPercent = NaN;
@@ -79,8 +85,18 @@ function verification = verify_chirp(iq, metadata, verification, startIndex)
 expectedSamples = round(metadata.symbolSamples);
 verification.expectedSampleCount = expectedSamples;
 verification.sampleCountPassed = numel(iq) == expectedSamples;
-verification.expectedSampleRateHz = 2e6;
-verification.sampleRatePassed = abs(metadata.sampleRateHz-verification.expectedSampleRateHz) <= 0.5;
+verification.expectedSampleRateHz = NaN;
+verification.sampleRatePassed = metadata.integerSamplesPerChip;
+verification.contractPassed = verification.sampleCountPassed && verification.sampleRatePassed;
+
+if ~verification.sampleRatePassed
+    verification.verdict = "FAIL";
+    verification.failureReasons(end+1,1) = sprintf( ...
+        "Fs/BW must be integer for Stage 1 golden verification; got %.9g", ...
+        metadata.samplesPerChip);
+    verification.summary = sprintf("Stage 1 chirp: FAIL — %s", verification.failureReasons(1));
+    return
+end
 
 metrics = lora_phy.compare_iq_to_golden( ...
     iq, metadata.sampleRateHz, metadata.spreadingFactor, metadata.bandwidthHz, ...
@@ -95,17 +111,38 @@ verification.symbolCount = 1;
 verification.expectedSymbolCount = 1;
 verification.symbolsPassed = double(metrics.passed);
 verification.transitionsCovered = 0;
+verification.goldenPassed = metrics.passed;
 
-if ~verification.sampleCountPassed || ~verification.sampleRatePassed
-    verification.verdict = "FAIL";
-elseif metrics.passed
-    verification.verdict = "PASS";
-else
-    verification.verdict = "WARN";
+if ~verification.sampleCountPassed
+    verification.failureReasons(end+1,1) = sprintf( ...
+        "sample count %d != expected %d", numel(iq), expectedSamples);
 end
-verification.summary = sprintf( ...
-    "Stage 1 chirp: %s; EVM %.4f%%, corr %.8f, RMS phase %.4f deg", ...
-    verification.verdict, metrics.evmPercent, metrics.correlation, metrics.rmsPhaseErrorDegrees);
+if ~metrics.passed
+    if metrics.evmPercent > metrics.passThresholds.evmPercent
+        verification.failureReasons(end+1,1) = sprintf( ...
+            "EVM %.4f%% > %.4f%%", metrics.evmPercent, metrics.passThresholds.evmPercent);
+    end
+    if metrics.correlation < metrics.passThresholds.correlation
+        verification.failureReasons(end+1,1) = sprintf( ...
+            "correlation %.8f < %.8f", metrics.correlation, metrics.passThresholds.correlation);
+    end
+    if metrics.rmsPhaseErrorDegrees > metrics.passThresholds.rmsPhaseErrorDegrees
+        verification.failureReasons(end+1,1) = sprintf( ...
+            "RMS phase %.4f deg > %.4f deg", metrics.rmsPhaseErrorDegrees, ...
+            metrics.passThresholds.rmsPhaseErrorDegrees);
+    end
+end
+
+if verification.contractPassed && verification.goldenPassed
+    verification.verdict = "PASS";
+    verification.summary = sprintf( ...
+        "Stage 1 chirp: PASS; EVM %.4f%%, corr %.8f, RMS phase %.4f deg", ...
+        metrics.evmPercent, metrics.correlation, metrics.rmsPhaseErrorDegrees);
+else
+    verification.verdict = "FAIL";
+    verification.summary = sprintf("Stage 1 chirp: FAIL — %s", ...
+        strjoin(verification.failureReasons, "; "));
+end
 end
 
 function verification = verify_package(iq, metadata, verification)
@@ -128,6 +165,8 @@ verification.sampleRatePassed = abs(metadata.sampleRateHz-verification.expectedS
 verification.symbolCount = floor(numel(iq)/symbolSamples);
 verification.expectedSymbolCount = numel(symbols);
 verification.transitionsCovered = numel(symbols)-1;
+verification.contractPassed = verification.sampleCountPassed && verification.sampleRatePassed && ...
+    verification.symbolCount >= verification.expectedSymbolCount;
 
 reference = complex(zeros(expectedSamples,1));
 perSymbol = repmat(struct('symbol',0,'direction',"up",'passed',false, ...
@@ -182,22 +221,37 @@ else
 end
 
 allSymbolsPassed = usableSymbols == numel(symbols) && all([perSymbol.passed]);
-if ~verification.sampleCountPassed || ~verification.sampleRatePassed || usableSymbols ~= numel(symbols)
-    verification.verdict = "FAIL";
-elseif allSymbolsPassed && wholePassed
+verification.goldenPassed = allSymbolsPassed && wholePassed;
+if ~verification.sampleCountPassed
+    verification.failureReasons(end+1,1) = sprintf( ...
+        "sample count %d != expected %d", numel(iq), expectedSamples);
+end
+if ~verification.sampleRatePassed
+    verification.failureReasons(end+1,1) = sprintf( ...
+        "sample rate %.6f MHz != 2.000000 MHz", metadata.sampleRateHz/1e6);
+end
+if verification.contractPassed && verification.goldenPassed
     verification.verdict = "PASS";
 else
-    verification.verdict = "WARN";
+    verification.verdict = "FAIL";
+    if ~verification.goldenPassed
+        verification.failureReasons(end+1,1) = sprintf( ...
+            "golden symbols %d/%d or full-stream thresholds failed", ...
+            verification.symbolsPassed, numel(symbols));
+    end
 end
 verification.summary = sprintf( ...
     "Stage 2 package: %s; symbols %d/%d, worst EVM %.4f%%, worst corr %.8f", ...
     verification.verdict, verification.symbolsPassed, numel(symbols), ...
     verification.worstEvmPercent, verification.worstCorrelation);
+if verification.verdict == "FAIL" && ~isempty(verification.failureReasons)
+    verification.summary = verification.summary + " — " + strjoin(verification.failureReasons, "; ");
+end
 end
 
 function name = stage_name(stage)
 names = [ ...
-    "1 - Chirp / 2.000 MS/s"; ...
+    "1 - Chirp / parametrized Fs"; ...
     "2 - Package / 2.000 MS/s"; ...
     "3 - Resampler 24/25 / 1.920 MS/s"; ...
     "4 - CIC x32 / 61.440 MS/s"; ...
