@@ -5,14 +5,18 @@ function metadata = parse_hdl_recording_name(filePath)
 %   hdl_sf<SF>_bw<BW_KHZ>k_fs<FS_KHZ>k_<TAG>.pcm
 %
 % Supported tags and TX checkpoints:
-%   chirp-h<SYMBOL>-up/down  -> stage 1, one chirp at 2.000 MS/s
+%   chirp-h<SYMBOL>-up/down  -> stage 1, one chirp at parametrized Fs
 %   package                  -> stage 2, current package stream at 2.000 MS/s
 %   resampler                -> stage 3, after 24/25 resampler at 1.920 MS/s
 %   cic                      -> stage 4, after CIC x32 at 61.440 MS/s
 %   mixer                    -> stage 5, after frequency shift at 61.440 MS/s
 %
+% Stage 1 has no fixed sample-rate contract. Its Fs is encoded in the file
+% name and is valid for golden verification when Fs/BW is an integer.
+%
 % Examples:
 %   hdl_sf7_bw125k_fs2000k_chirp-h17-up.pcm
+%   hdl_sf5_bw500k_fs8000k_chirp-h0-up.pcm
 %   hdl_sf7_bw125k_fs2000k_package.pcm
 %   hdl_sf7_bw125k_fs1920k_resampler.pcm
 %   hdl_sf7_bw125k_fs61440k_cic.pcm
@@ -59,6 +63,7 @@ metadata.referenceDescription = "first preamble h=0 upchirp";
 metadata.stageNumber = NaN;
 metadata.stageName = "";
 metadata.expectedSampleRateHz = NaN;
+metadata.sampleRatePolicy = "fixed";
 
 if metadata.tag == "package"
     metadata.stageNumber = 2;
@@ -95,15 +100,20 @@ else
     end
     metadata.stageNumber = 1;
     metadata.stageName = "Chirp";
-    metadata.expectedSampleRateHz = 2e6;
+    metadata.expectedSampleRateHz = NaN;
+    metadata.sampleRatePolicy = "integer-fs-over-bw";
     metadata.referenceSymbol = str2double(chirpTag.symbol);
     metadata.referenceDirection = string(chirpTag.direction);
     metadata.referenceDescription = sprintf("h=%d %schirp", ...
         metadata.referenceSymbol, metadata.referenceDirection);
 end
 
-metadata.sampleRateMatchesStage = ...
-    abs(metadata.sampleRateHz-metadata.expectedSampleRateHz) <= 0.5;
+if metadata.sampleRatePolicy == "integer-fs-over-bw"
+    metadata.sampleRateMatchesStage = metadata.integerSamplesPerChip;
+else
+    metadata.sampleRateMatchesStage = ...
+        abs(metadata.sampleRateHz-metadata.expectedSampleRateHz) <= 0.5;
+end
 
 if metadata.stageNumber == 1 && ...
         metadata.referenceSymbol >= 2^metadata.spreadingFactor
