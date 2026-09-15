@@ -188,8 +188,13 @@ app.Language = options.Language;
             statusLabel.Text = sprintf("%s: %s, TX stage %d %s", ...
                 L.doneText, upper(fileInfo.format), ...
                 verification.stageNumber, verification.verdict);
-            overallLabel.Text = sprintf("%s: %s — STAGE %d", ...
-                L.overallPrefix, verification.verdict, verification.stageNumber);
+            if verification.verdict == "FAIL" && ~isempty(verification.failureReasons)
+                overallLabel.Text = sprintf("%s: FAIL — %s", ...
+                    L.overallPrefix, verification.failureReasons(1));
+            else
+                overallLabel.Text = sprintf("%s: %s — STAGE %d", ...
+                    L.overallPrefix, verification.verdict, verification.stageNumber);
+            end
         end
     end
 
@@ -245,11 +250,18 @@ app.Language = options.Language;
         xline(spectrumAxes, carrierKhz+halfBwKhz, "--");
         hold(spectrumAxes, "off");
 
-        imagesc(dechirpAxes, 0:2^profile.spreadingFactor-1, ...
-            1:result.analyzedSymbolCount, result.dechirpedFftPowerDb, [-35 0]);
-        axis(dechirpAxes, "xy"); colorbar(dechirpAxes);
-        xlabel(dechirpAxes, S.labFftBin);
-        ylabel(dechirpAxes, S.labSymbolIndex);
+        cla(dechirpAxes);
+        if ~isempty(verification) && verification.stageNumber == 1 && ...
+                ~isempty(verification.metrics)
+            render_stage1_dechirp(iq, verification, metadata);
+        else
+            imagesc(dechirpAxes, 0:2^profile.spreadingFactor-1, ...
+                1:result.analyzedSymbolCount, result.dechirpedFftPowerDb, [-35 0]);
+            axis(dechirpAxes, "xy"); colorbar(dechirpAxes);
+            title(dechirpAxes, S.axDechirp);
+            xlabel(dechirpAxes, S.labFftBin);
+            ylabel(dechirpAxes, S.labSymbolIndex);
+        end
 
         absoluteCarrier = centreField.Value+result.estimatedCarrierOffsetHz;
         if expectedField.Value == 0
@@ -297,18 +309,57 @@ app.Language = options.Language;
                 string(sprintf("%s: %s", L.overallPrefix, verification.verdict)); ...
                 string(sprintf("TX stage: %d", verification.stageNumber)); ...
                 string(verification.stageName); ...
-                string(verification.summary); ...
-                ""; ...
-                binsHeader; ...
-                symbolLines];
+                string(verification.summary)];
+            if verification.stageNumber == 1 && ~isempty(verification.metrics)
+                textLines = [textLines; ...
+                    string(sprintf(L.phaseStepDiagnostic, ...
+                        verification.metrics.medianPhaseIncrementErrorQ16Lsb, ...
+                        verification.metrics.rmsPhaseIncrementErrorDegrees))];
+            end
+            if ~isempty(verification.failureReasons)
+                textLines = [textLines; ""; string(L.failureHeader); verification.failureReasons];
+            end
+            textLines = [textLines; ""; binsHeader; symbolLines];
         end
         symbolArea.Value = textLines;
+    end
+
+    function render_stage1_dechirp(iq, v, metadata)
+        m = v.metrics;
+        symbolSamples = m.symbolSamples;
+        range = m.bestStartIndex+(0:symbolSamples-1);
+        if range(end) > numel(iq) || abs(m.complexGain) < eps
+            title(dechirpAxes, L.stage1DechirpTitle);
+            text(dechirpAxes, 0.5, 0.5, L.stage1DechirpUnavailable, ...
+                "HorizontalAlignment", "center", "Units", "normalized");
+            return
+        end
+        config = lora_phy.css_config(metadata.spreadingFactor, round(metadata.samplesPerChip));
+        reference = lora_phy.modulate_symbol(metadata.referenceSymbol, config);
+        if metadata.referenceDirection == "down"
+            reference = conj(reference);
+        end
+        normalized = iq(range)/m.complexGain;
+        dechirped = normalized(:).*conj(reference(:));
+        spectrum = lora_phy.polyphase_spectrum(dechirped, config.samplesPerChip);
+        spectrumDb = 10*log10(spectrum/max(max(spectrum), eps)+eps);
+        plot(dechirpAxes, 0:config.symbolCount-1, spectrumDb, "LineWidth", 1);
+        grid(dechirpAxes, "on");
+        xlim(dechirpAxes, [0 max(config.symbolCount-1, 1)]);
+        ylim(dechirpAxes, [-80 5]);
+        title(dechirpAxes, L.stage1DechirpTitle);
+        xlabel(dechirpAxes, S.labFftBin);
+        ylabel(dechirpAxes, L.stage1DechirpY);
     end
 
     function rows = checkpoint_rows(v, metadata)
         rateNote = L.notChecked;
         if isfinite(v.sampleRatePassed)
-            rateNote = pass_text(v.sampleRatePassed);
+            if v.stageNumber == 1
+                rateNote = sprintf("%s; L=%.6g", pass_text(v.sampleRatePassed), metadata.samplesPerChip);
+            else
+                rateNote = pass_text(v.sampleRatePassed);
+            end
         end
         countText = "—";
         countNote = L.notChecked;
@@ -316,9 +367,22 @@ app.Language = options.Language;
             countText = sprintf("%d / %d", v.sampleCount, v.expectedSampleCount);
             countNote = pass_text(v.sampleCountPassed);
         end
+        contractText = L.notChecked;
+        if isfinite(v.contractPassed)
+            contractText = pass_text(v.contractPassed);
+        end
+        goldenText = L.notChecked;
+        if isfinite(v.goldenPassed)
+            goldenText = pass_text(v.goldenPassed);
+        elseif v.verdict == "NOT VERIFIED"
+            goldenText = "NOT VERIFIED";
+        end
 
         rows = {
             L.rowOverall, v.verdict, v.summary;
+            L.rowInput, "PASS", L.inputParsed;
+            L.rowContract, contractText, L.contractNote;
+            L.rowGolden, goldenText, L.goldenNote;
             L.rowStage, sprintf("%d", v.stageNumber), v.stageName;
             L.rowReference, lora_phy.describe_reference(metadata, S), L.repositoryGolden;
             L.rowSampleRate, sprintf("%.6f MHz", metadata.sampleRateHz/1e6), rateNote;
@@ -330,7 +394,10 @@ app.Language = options.Language;
                 S.rowGoldenEvm, sprintf(S.valueGoldenEvm, m.evmPercent), sprintf(S.noteGoldenEvm, v.verdict, m.passThresholds.evmPercent);
                 S.rowGoldenCorrelation, sprintf("%.8f", m.correlation), sprintf(S.noteGoldenCorrelation, m.passThresholds.correlation);
                 S.rowRmsPhase, sprintf(S.valueRmsPhase, m.rmsPhaseErrorDegrees), sprintf(S.noteRmsPhase, m.maxPhaseErrorDegrees);
-                S.rowPeakError, sprintf("%.6g", m.maxNormalizedSampleError), sprintf(S.notePeakError, m.gainDb)}];
+                S.rowPeakError, sprintf("%.6g", m.maxNormalizedSampleError), sprintf(S.notePeakError, m.gainDb);
+                L.rowPhaseStepQ16, sprintf("%+.4f LSB/sample", m.medianPhaseIncrementErrorQ16Lsb), L.phaseStepQ16Note;
+                L.rowPhaseStepRms, sprintf("%.6f deg/sample", m.rmsPhaseIncrementErrorDegrees), L.phaseStepRmsNote;
+                L.rowAlignment, sprintf("%+d samples", m.startAdjustmentSamples), L.alignmentNote}];
         elseif v.stageNumber == 2
             rows = [rows; {
                 L.rowSymbols, sprintf("%d / %d", v.symbolsPassed, v.expectedSymbolCount), L.currentPackageContract;
@@ -366,7 +433,7 @@ end
 function L = local_labels(language)
 if language == "ru"
     L.stageLabel = "Контрольная точка TX";
-    L.stageItems = ["Авто по имени", "1 — Чирп 2.000 MS/s", "2 — Пакет 2.000 MS/s", ...
+    L.stageItems = ["Авто по имени", "1 — Чирп / параметрическая Fs", "2 — Пакет 2.000 MS/s", ...
         "3 — Ресемплер 1.920 MS/s", "4 — CIC 61.440 MS/s", "5 — Перенос 61.440 MS/s"];
     L.stageTooltip = "Авто определяет точку по тегу имени HDL PCM; ручной выбор переопределяет только номер точки.";
     L.overallInitial = "ИТОГ: анализ не запускался";
@@ -376,10 +443,16 @@ if language == "ru"
     L.overallPrefix = "ИТОГ";
     L.doneText = "Готово";
     L.rowOverall = "Совокупный результат";
+    L.rowInput = "Входные данные";
+    L.rowContract = "Контракт точки";
+    L.rowGolden = "MATLAB golden";
     L.rowStage = "Контрольная точка TX";
     L.rowReference = "Эталон точки";
     L.rowSampleRate = "Частота дискретизации точки";
     L.rowSampleCount = "Число отсчётов";
+    L.rowPhaseStepQ16 = "Ошибка шага фазы Q16";
+    L.rowPhaseStepRms = "СКЗ ошибки шага фазы";
+    L.rowAlignment = "Поправка границы символа";
     L.rowSymbols = "Символы package";
     L.rowMeanEvm = "Средний EVM символов";
     L.rowWorstEvm = "Худший EVM символа";
@@ -390,15 +463,26 @@ if language == "ru"
     L.rowFullStreamCorrelation = "Корреляция всей последовательности";
     L.rowVerificationState = "Состояние golden-проверки";
     L.repositoryGolden = "Исполняемый MATLAB golden из репозитория";
+    L.inputParsed = "CI16 загружен; метаданные SF/BW/Fs/stage разобраны из имени";
+    L.contractNote = "Геометрия Fs/BW и длина проверяются отдельно от качества golden";
+    L.goldenNote = "Строгая цифровая проверка: EVM/correlation/RMS phase";
+    L.phaseStepQ16Note = "Медианная signed-ошибка приращения фазы; систематические ±LSB указывают на DDS/RTL";
+    L.phaseStepRmsNote = "Ошибка приращения после удаления постоянной комплексной амплитуды/фазы";
+    L.alignmentNote = "Сдвиг лучшей границы относительно запрошенной";
     L.currentPackageContract = "Текущий HDL-контракт: 6×h=0, затем h=5,17,64↓,127; это ещё не полный стандартный LoRa packet";
     L.perSymbolMetric = "Посимвольная проверка";
     L.fullStreamCoversTransitions = "Полная waveform-проверка включает границы между символами";
     L.fullStreamMetric = "Одна комплексная нормировка на всю последовательность";
     L.missingReference = "Архитектура точки поддержана, но точный production reference ещё не зафиксирован в репозитории";
     L.notChecked = "не проверено";
+    L.failureHeader = "Причины FAIL:";
+    L.phaseStepDiagnostic = "HDL phase-step: median %+.4f Q16 LSB/sample; RMS %.6f deg/sample";
+    L.stage1DechirpTitle = "Stage 1: БПФ остатка после дечирпа MATLAB golden";
+    L.stage1DechirpY = "Относительная мощность, дБ";
+    L.stage1DechirpUnavailable = "Недостаточно данных для Stage 1 dechirp";
 else
     L.stageLabel = "TX checkpoint";
-    L.stageItems = ["Auto from filename", "1 — Chirp 2.000 MS/s", "2 — Package 2.000 MS/s", ...
+    L.stageItems = ["Auto from filename", "1 — Chirp / parametrized Fs", "2 — Package 2.000 MS/s", ...
         "3 — Resampler 1.920 MS/s", "4 — CIC 61.440 MS/s", "5 — Shift 61.440 MS/s"];
     L.stageTooltip = "Auto infers the checkpoint from the HDL PCM tag; manual selection overrides only the stage number.";
     L.overallInitial = "OVERALL: analysis not run";
@@ -408,10 +492,16 @@ else
     L.overallPrefix = "OVERALL";
     L.doneText = "Done";
     L.rowOverall = "Overall result";
+    L.rowInput = "Input";
+    L.rowContract = "Checkpoint contract";
+    L.rowGolden = "MATLAB golden";
     L.rowStage = "TX checkpoint";
     L.rowReference = "Checkpoint reference";
     L.rowSampleRate = "Checkpoint sample rate";
     L.rowSampleCount = "Sample count";
+    L.rowPhaseStepQ16 = "Q16 phase-step error";
+    L.rowPhaseStepRms = "RMS phase-step error";
+    L.rowAlignment = "Symbol-boundary adjustment";
     L.rowSymbols = "Package symbols";
     L.rowMeanEvm = "Mean symbol EVM";
     L.rowWorstEvm = "Worst symbol EVM";
@@ -422,11 +512,22 @@ else
     L.rowFullStreamCorrelation = "Full-stream correlation";
     L.rowVerificationState = "Golden verification state";
     L.repositoryGolden = "Executable MATLAB golden in the repository";
+    L.inputParsed = "CI16 loaded; SF/BW/Fs/stage metadata parsed from filename";
+    L.contractNote = "Fs/BW geometry and length are checked separately from golden quality";
+    L.goldenNote = "Strict digital check: EVM/correlation/RMS phase";
+    L.phaseStepQ16Note = "Median signed phase-increment error; systematic ±LSB points to DDS/RTL";
+    L.phaseStepRmsNote = "Increment error after removing one constant complex gain/phase";
+    L.alignmentNote = "Best boundary shift relative to the requested start";
     L.currentPackageContract = "Current HDL contract: 6×h=0 then h=5,17,64 down,127; not yet a complete standard LoRa packet";
     L.perSymbolMetric = "Per-symbol verification";
     L.fullStreamCoversTransitions = "Full waveform verification covers symbol boundaries";
     L.fullStreamMetric = "One complex normalization for the whole stream";
     L.missingReference = "Checkpoint architecture is recognized, but the exact production reference is not yet fixed in the repository";
     L.notChecked = "not checked";
+    L.failureHeader = "FAIL reasons:";
+    L.phaseStepDiagnostic = "HDL phase-step: median %+.4f Q16 LSB/sample; RMS %.6f deg/sample";
+    L.stage1DechirpTitle = "Stage 1: residual FFT after MATLAB-golden dechirp";
+    L.stage1DechirpY = "Relative power, dB";
+    L.stage1DechirpUnavailable = "Not enough data for Stage 1 dechirp";
 end
 end
