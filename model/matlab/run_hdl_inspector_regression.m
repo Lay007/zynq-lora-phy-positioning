@@ -2,8 +2,8 @@ function report = run_hdl_inspector_regression(filePath, options)
 %RUN_HDL_INSPECTOR_REGRESSION End-to-end check of a GHDL CI16 capture.
 %
 % The same file produced by the self-checking HDL package testbench is read
-% through the Inspector loader, analysed by inspect_iq_capture, and compared
-% sample-by-sample with the MATLAB golden chirp.
+% through the Inspector loader, analysed by inspect_iq_capture, checked against
+% the TX-checkpoint contract and compared sample-by-sample with MATLAB golden.
 
 arguments
     filePath (1,1) string
@@ -43,6 +43,14 @@ assert(golden.passed, ...
     "MATLAB golden comparison failed: EVM %.6f%%, corr %.9f, phase %.6f deg", ...
     golden.evmPercent, golden.correlation, golden.rmsPhaseErrorDegrees);
 
+checkpoint = lora_phy.verify_tx_checkpoint(iq, metadata);
+assert(checkpoint.contractPassed, ...
+    "TX checkpoint contract failed: %s", checkpoint.summary);
+assert(checkpoint.goldenPassed, ...
+    "TX checkpoint golden verification failed: %s", checkpoint.summary);
+assert(checkpoint.verdict == "PASS", ...
+    "TX checkpoint did not return PASS: %s", checkpoint.summary);
+
 profile = lora_phy.match_lora_profile( ...
     inspection.estimatedSpreadingFactor, inspection.estimatedBandwidthHz, 0);
 assert(profile.projectReferenceCompatible, ...
@@ -52,6 +60,10 @@ report = struct;
 report.fileName = metadata.fileName;
 report.format = loadInfo.format;
 report.sampleCount = loadInfo.sampleCount;
+report.txStage = checkpoint.stageNumber;
+report.txContractPassed = checkpoint.contractPassed;
+report.txGoldenPassed = checkpoint.goldenPassed;
+report.txVerdict = checkpoint.verdict;
 report.spreadingFactor = inspection.estimatedSpreadingFactor;
 report.bandwidthHz = inspection.estimatedBandwidthHz;
 report.measuredOccupiedBandwidthHz = inspection.measuredOccupiedBandwidthHz;
@@ -63,6 +75,8 @@ report.goldenCorrelation = golden.correlation;
 report.goldenRmsPhaseErrorDegrees = golden.rmsPhaseErrorDegrees;
 report.goldenMaxPhaseErrorDegrees = golden.maxPhaseErrorDegrees;
 report.goldenMaxNormalizedSampleError = golden.maxNormalizedSampleError;
+report.goldenMedianPhaseIncrementErrorQ16Lsb = golden.medianPhaseIncrementErrorQ16Lsb;
+report.goldenRmsPhaseIncrementErrorDegrees = golden.rmsPhaseIncrementErrorDegrees;
 report.goldenPassed = golden.passed;
 report.mode = string(profile.modeSummary);
 report.projectReferenceRadio = profile.projectReferenceRadio;
@@ -72,6 +86,8 @@ report.compatibleRadios = string(profile.compatibilitySummary);
 fprintf("HDL Inspector end-to-end regression PASS\n");
 fprintf("  file: %s\n", char(report.fileName));
 fprintf("  samples: %d complex CI16\n", report.sampleCount);
+fprintf("  TX stage: %d; contract=%d; golden=%d; verdict=%s\n", ...
+    report.txStage, report.txContractPassed, report.txGoldenPassed, char(report.txVerdict));
 fprintf("  detected: SF%d / BW %.0f kHz\n", ...
     report.spreadingFactor, report.bandwidthHz/1e3);
 fprintf("  occupied BW: %.3f kHz\n", report.measuredOccupiedBandwidthHz/1e3);
@@ -80,6 +96,8 @@ fprintf("  residual CFO: %+.3f Hz\n", report.residualCfoHz);
 fprintf("  golden EVM: %.6f %%\n", report.goldenEvmPercent);
 fprintf("  golden correlation: %.9f\n", report.goldenCorrelation);
 fprintf("  RMS phase error: %.6f deg\n", report.goldenRmsPhaseErrorDegrees);
+fprintf("  median phase-step error: %+.6f Q16 LSB/sample\n", ...
+    report.goldenMedianPhaseIncrementErrorQ16Lsb);
 fprintf("  radio profile: %s; SX1262 compatible=%d\n", ...
     char(report.mode), report.projectReferenceCompatible);
 
