@@ -8,12 +8,16 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
                 "hdl_sf7_bw125k_fs61440k_cic.pcm", ...
                 "hdl_sf7_bw125k_fs61440k_mixer.pcm"];
             expectedStages = 1:5;
-            expectedRates = [2e6 2e6 1.92e6 61.44e6 61.44e6];
+            expectedRates = [NaN 2e6 1.92e6 61.44e6 61.44e6];
 
             for k = 1:numel(names)
                 metadata = lora_phy.parse_hdl_recording_name(names(k));
                 testCase.verifyEqual(metadata.stageNumber, expectedStages(k));
-                testCase.verifyEqual(metadata.expectedSampleRateHz, expectedRates(k));
+                if isnan(expectedRates(k))
+                    testCase.verifyTrue(isnan(metadata.expectedSampleRateHz));
+                else
+                    testCase.verifyEqual(metadata.expectedSampleRateHz, expectedRates(k));
+                end
                 testCase.verifyTrue(metadata.sampleRateMatchesStage);
             end
         end
@@ -29,9 +33,42 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
             testCase.verifyEqual(verification.stageNumber, 1);
             testCase.verifyEqual(verification.verdict, "PASS");
             testCase.verifyTrue(verification.sampleCountPassed);
+            testCase.verifyTrue(verification.sampleRatePassed);
+            testCase.verifyTrue(verification.contractPassed);
+            testCase.verifyTrue(verification.goldenPassed);
             testCase.verifyEqual(verification.expectedSampleCount, 2048);
             testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
             testCase.verifyGreaterThan(verification.worstCorrelation, 1-1e-12);
+        end
+
+        function sf5Bw500Fs8MStage1Passes(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf5_bw500k_fs8000k_chirp-h0-up.pcm");
+            config = lora_phy.css_config(5, 16);
+            iq = 0.5*lora_phy.modulate_symbol(0, config);
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(metadata.samplesPerChip, 16);
+            testCase.verifyEqual(verification.expectedSampleCount, 512);
+            testCase.verifyTrue(verification.sampleRatePassed);
+            testCase.verifyTrue(verification.contractPassed);
+            testCase.verifyTrue(verification.goldenPassed);
+            testCase.verifyEqual(verification.verdict, "PASS");
+        end
+
+        function stage1RejectsNonIntegerFsOverBw(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf5_bw500k_fs7900k_chirp-h0-up.pcm");
+            iq = complex(ones(round(metadata.symbolSamples),1));
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyFalse(metadata.integerSamplesPerChip);
+            testCase.verifyFalse(verification.sampleRatePassed);
+            testCase.verifyFalse(verification.contractPassed);
+            testCase.verifyEqual(verification.verdict, "FAIL");
+            testCase.verifyTrue(contains(verification.summary, "Fs/BW"));
         end
 
         function stage1RejectsWrongLength(testCase)
@@ -45,6 +82,7 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
 
             testCase.verifyEqual(verification.verdict, "FAIL");
             testCase.verifyFalse(verification.sampleCountPassed);
+            testCase.verifyFalse(verification.contractPassed);
         end
 
         function exactCurrentPackagePasses(testCase)
@@ -68,6 +106,8 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
             testCase.verifyEqual(verification.stageNumber, 2);
             testCase.verifyEqual(verification.verdict, "PASS");
             testCase.verifyTrue(verification.sampleCountPassed);
+            testCase.verifyTrue(verification.contractPassed);
+            testCase.verifyTrue(verification.goldenPassed);
             testCase.verifyEqual(verification.symbolsPassed, 10);
             testCase.verifyEqual(verification.transitionsCovered, 9);
             testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
@@ -85,6 +125,8 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
                 verification = lora_phy.verify_tx_checkpoint(complex(ones(512,1)), metadata);
                 testCase.verifyEqual(verification.verdict, "NOT VERIFIED");
                 testCase.verifyTrue(verification.sampleRatePassed);
+                testCase.verifyTrue(verification.contractPassed);
+                testCase.verifyTrue(isnan(verification.goldenPassed));
             end
         end
     end
