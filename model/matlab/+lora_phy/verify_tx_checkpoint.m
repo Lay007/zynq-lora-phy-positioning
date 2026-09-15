@@ -152,10 +152,7 @@ if abs(metadata.samplesPerChip-round(metadata.samplesPerChip)) > 1e-9
         "Stage 2 package verification requires integer Fs/BW");
 end
 
-% Current production contract of formiration_package, not a complete
-% standard LoRa PHY frame.
-symbols = [0 0 0 0 0 0 5 17 64 127];
-directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+[symbols, directions] = package_test_sequence(metadata.spreadingFactor);
 symbolSamples = config.samplesPerSymbol;
 expectedSamples = numel(symbols)*symbolSamples;
 verification.expectedSampleCount = expectedSamples;
@@ -247,6 +244,28 @@ verification.summary = sprintf( ...
 if verification.verdict == "FAIL" && ~isempty(verification.failureReasons)
     verification.summary = verification.summary + " — " + strjoin(verification.failureReasons, "; ");
 end
+end
+
+function [symbols, directions] = package_test_sequence(spreadingFactor)
+% Current production contract of formiration_package, not a complete
+% standard LoRa PHY frame: six auto-inserted h=0 upchirp preamble symbols,
+% then four test symbols (small, small-mid, half, max) scaled to each SF's
+% valid range. Must match hdl/tb/test_formiration_package_golden.vhd
+% exactly -- both are golden checks against the same VHDL production
+% contract, just from different tools.
+switch spreadingFactor
+    case 5
+        symbols = [0 0 0 0 0 0 1 5 16 31];
+    case 6
+        symbols = [0 0 0 0 0 0 2 9 32 63];
+    case 7
+        symbols = [0 0 0 0 0 0 5 17 64 127];
+    otherwise
+        error("lora_phy:UnsupportedPackageSpreadingFactor", ...
+            "Stage 2 package golden sequence is only defined for SF5..SF7; got SF%d", ...
+            spreadingFactor);
+end
+directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
 end
 
 function name = stage_name(stage)

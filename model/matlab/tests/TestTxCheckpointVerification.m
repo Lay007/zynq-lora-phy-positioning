@@ -115,6 +115,62 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
             testCase.verifyLessThan(verification.fullStreamEvmPercent, 1e-10);
         end
 
+        function sf5PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf5_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(5, 16);
+            symbols = [0 0 0 0 0 0 1 5 16 31];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function sf6PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf6_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(6, 16);
+            symbols = [0 0 0 0 0 0 2 9 32 63];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function packageRejectsUnsupportedSpreadingFactor(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf8_bw125k_fs2000k_package.pcm");
+            iq = complex(ones(10*2^8*16,1));
+            testCase.verifyError(@() lora_phy.verify_tx_checkpoint(iq, metadata), ...
+                "lora_phy:UnsupportedPackageSpreadingFactor");
+        end
+
         function unreferencedStagesNeverClaimPass(testCase)
             cases = [ ...
                 "hdl_sf7_bw125k_fs1920k_resampler.pcm", ...

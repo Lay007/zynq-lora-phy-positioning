@@ -28,12 +28,10 @@ architecture Behavioral of test_formiration_package_golden is
     -- SF5/SF6 analogues (small, small-mid, half, max), scaled to each SF's
     -- valid symbol range. formiration_package.vhd itself needed no changes
     -- for these -- it only forwards h_in/sf_in/bw_in to the now-generalized
-    -- formiration_chirp -- so this is RTL-level (GHDL, self-checked) golden
-    -- coverage only. lora_phy.verify_tx_checkpoint's "package" stage golden
-    -- model is still hardcoded to the SF7 sequence above (see
-    -- hdl/README.md); these captures are intentionally NOT named with the
-    -- hdl_sf<SF>_..._package.pcm convention so they are not mistaken for
-    -- Inspector-verified captures.
+    -- formiration_chirp. lora_phy.verify_tx_checkpoint's "package" stage
+    -- golden model (package_test_sequence in verify_tx_checkpoint.m) must
+    -- match these exactly -- both are golden checks against the same VHDL
+    -- production contract, just from different tools.
     constant SF5_SYMBOLS    : integer_array_t(0 to 9) :=
         (0, 0, 0, 0, 0, 0, 1, 5, 16, 31);
     constant SF5_DIRECTIONS : std_logic_vector(0 to 9) := "0000000010";
@@ -128,8 +126,8 @@ begin
         variable expected_re, expected_im : signed(15 downto 0);
         variable actual_re, actual_im     : signed(15 downto 0);
 
-        file capture_sf5 : byte_file open write_mode is "build/ghdl-lora/sf5_package_golden.pcm";
-        file capture_sf6 : byte_file open write_mode is "build/ghdl-lora/sf6_package_golden.pcm";
+        file capture_sf5 : byte_file open write_mode is "build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm";
+        file capture_sf6 : byte_file open write_mode is "build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm";
         file capture_sf7 : byte_file open write_mode is "build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm";
     begin
         if rising_edge(clk) then

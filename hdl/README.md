@@ -71,18 +71,19 @@ Golden-регрессия SF5/SF6/SF7 (все символы, оба напра�
 масштабированные под диапазон конкретного SF), выходной CI16 — в
 `build/ghdl-lora/`.
 
-**Только SF7/BW125 совместим с MATLAB Inspector.**
-`lora_phy.verify_tx_checkpoint` (тег `package`, Stage 2) по-прежнему жёстко
-рассчитан на последовательность SF7 `[0×6, 5, 17, 64, 127]` и Fs=2.000 МГц —
-параметризация Stage 2 на стороне MATLAB это отдельная, не начатая задача (см.
-`docs/lora-phy-inspector.md`). Поэтому SF5/SF6 пакетные записи сознательно **не
-называются** по конвенции `hdl_sf<SF>_..._package.pcm` — чтобы не создавать
-впечатление, что Inspector их тоже проверяет:
+**MATLAB Inspector теперь тоже проверяет SF5/SF6/SF7.**
+`lora_phy.verify_tx_checkpoint` (тег `package`, Stage 2) выбирает
+golden-последовательность символов по SF из имени файла
+(`package_test_sequence` в `verify_tx_checkpoint.m`) — она обязана совпадать
+с последовательностью в `test_formiration_package_golden.vhd` для каждого SF.
+Остальные SF (8–12) дают понятную ошибку
+(`lora_phy:UnsupportedPackageSpreadingFactor`), а не тихое несовпадение.
+Fs=2.000 МГц остаётся общим для всех трёх SF (везде BW=125 кГц, L=16):
 
 | SF | Файл (в `build/ghdl-lora/`) | Проверка Inspector |
 |---|---|---|
-| SF5 | `sf5_package_golden.pcm` | нет — только GHDL self-check |
-| SF6 | `sf6_package_golden.pcm` | нет — только GHDL self-check |
+| SF5 | `hdl_sf5_bw125k_fs2000k_package.pcm` | да |
+| SF6 | `hdl_sf6_bw125k_fs2000k_package.pcm` | да |
 | SF7 | `hdl_sf7_bw125k_fs2000k_package.pcm` | да (`run_hdl_inspector_regression`, в CI) |
 
 ## Формат HDL IQ-записи: CI16
