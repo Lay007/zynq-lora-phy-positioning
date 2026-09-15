@@ -2,7 +2,10 @@ function metrics = compare_iq_to_golden(iq, sampleRateHz, spreadingFactor, bandw
 %COMPARE_IQ_TO_GOLDEN Compare one CSS symbol against the MATLAB reference.
 %
 % The comparison removes one complex scalar gain/phase term, then reports
-% normalized EVM, correlation, phase error, and the best sample alignment.
+% normalized EVM, correlation, phase error, phase-increment error and the
+% best sample alignment. Phase-increment diagnostics are expressed both in
+% degrees/sample and in Q16 phase-word LSB/sample to make DDS/HDL errors easy
+% to relate back to the implementation.
 
 arguments
     iq (:,1) {mustBeNumeric}
@@ -80,6 +83,9 @@ for startIndex = firstStart:lastStart
 end
 
 phaseError = angle(best.received .* conj(best.fitted));
+receivedStep = best.received(2:end).*conj(best.received(1:end-1));
+fittedStep = best.fitted(2:end).*conj(best.fitted(1:end-1));
+phaseIncrementError = angle(receivedStep.*conj(fittedStep));
 correlation = abs(reference' * best.received) / ...
     sqrt(referenceEnergy * sum(abs(best.received).^2));
 normalizedReceived = best.received / best.complexGain;
@@ -100,6 +106,12 @@ metrics.correlation = correlation;
 metrics.rmsPhaseErrorDegrees = rad2deg(sqrt(mean(phaseError.^2)));
 metrics.maxPhaseErrorDegrees = rad2deg(max(abs(phaseError)));
 metrics.maxNormalizedSampleError = max(abs(normalizedReceived-reference));
+metrics.phaseErrorDegrees = rad2deg(phaseError);
+metrics.phaseIncrementErrorDegrees = rad2deg(phaseIncrementError);
+metrics.medianPhaseIncrementErrorDegrees = rad2deg(median(phaseIncrementError));
+metrics.rmsPhaseIncrementErrorDegrees = rad2deg(sqrt(mean(phaseIncrementError.^2)));
+metrics.phaseIncrementErrorQ16Lsb = phaseIncrementError * 65536/(2*pi);
+metrics.medianPhaseIncrementErrorQ16Lsb = median(metrics.phaseIncrementErrorQ16Lsb);
 metrics.passThresholds = struct( ...
     'evmPercent', 1.0, ...
     'correlation', 0.999, ...
