@@ -153,16 +153,10 @@ jobs:
         with:
           command: addpath('model/matlab'); report = run_hdl_inspector_regression("build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm", ReportPath="build/ghdl-lora/hdl_inspector_regression.csv"); assert(report.goldenPassed);
 
-      - name: Verify Stage 2 golden checkpoint for SF5/SF6 packages
-        # run_hdl_inspector_regression is intentionally not used here: its
-        # blind SF/BW estimator (inspect_iq_capture) misdetects the SF6
-        # package as SF5, a pre-existing estimator accuracy limit unrelated
-        # to the Stage 2 golden contract checked below, which uses the SF
-        # declared by the filename/acquisition metadata, not a blind guess.
-        # Tracked as a separate follow-up.
+      - name: Inspect generated HDL CI16 captures for SF5/SF6 packages
         uses: matlab-actions/run-command@v3
         with:
-          command: addpath('model/matlab'); files = ["build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm"]; for f = files, metadata = lora_phy.parse_hdl_recording_name(f); [iq, ~] = lora_phy.load_iq_capture(f, "ci16"); checkpoint = lora_phy.verify_tx_checkpoint(iq, metadata); assert(checkpoint.verdict == "PASS", "Stage 2 checkpoint failed for %s -- %s", f, checkpoint.summary); fprintf("%s -- %s\n", f, checkpoint.summary); end
+          command: addpath('model/matlab'); files = ["build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm"]; for f = files, report = run_hdl_inspector_regression(f); assert(report.goldenPassed); end
 
       - name: Upload HDL Inspector evidence
         uses: actions/upload-artifact@v7

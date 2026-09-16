@@ -128,9 +128,18 @@ edges = diff([false, active, false]);
 runStarts = find(edges == 1);
 runEnds = find(edges == -1)-1;
 if isempty(runStarts)
-    [~, peakBlock] = max(blockPowerDb);
-    runStarts = max(1, peakBlock-2);
-    runEnds = min(blockCount, peakBlock+2);
+    % No block cleared the noise-relative threshold: either there is no
+    % real burst, or the whole capture has near-uniform power with no
+    % genuine noise floor to measure against (e.g. a synthetic back-to-back
+    % test capture with no silence and no added noise, where robustSpread
+    % collapses to ~0 and the threshold becomes unreachable). In both cases
+    % there is no basis to exclude any part of the capture, so use all of
+    % it rather than an arbitrary window around whichever block happens to
+    % be numerically largest by sub-dB quantization noise -- that window
+    % can land entirely on non-periodic content and break the downstream
+    % autocorrelation-based SF estimate, which needs the repeated preamble.
+    runStarts = 1;
+    runEnds = blockCount;
 end
 % A run that touches a capture boundary may be only a packet fragment.  If
 % at least one complete interior run exists, rank only the complete runs.

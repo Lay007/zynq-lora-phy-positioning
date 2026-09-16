@@ -225,6 +225,39 @@ classdef TestIqInspector < matlab.unittest.TestCase
             testCase.verifyLessThanOrEqual(numel(result.timeSeconds), 40);
         end
 
+        function noiselessUniformPowerCaptureStillFindsSf(testCase)
+            % A synthetic back-to-back capture (no silence, no added noise,
+            % as GHDL testbenches produce) has near-zero power variance
+            % across blocks, so the noise-relative activity threshold in
+            % detect_strongest_burst is unreachable and no block clears it.
+            % The fallback must analyze the whole capture rather than an
+            % arbitrary window around whichever block is numerically
+            % largest by sub-dB quantization noise -- that window can land
+            % on non-repeating payload symbols and break the
+            % autocorrelation-based SF estimate, which needs the repeated
+            % preamble to be present in the analyzed region.
+            config = lora_phy.css_config(6, 16);
+            symbols = [0 0 0 0 0 0 2 9 32 63];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(numel(symbols)*config.samplesPerSymbol, 1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            result = lora_phy.inspect_iq_capture(iq, 2e6);
+
+            testCase.verifyEqual(result.estimatedSpreadingFactor, 6);
+            testCase.verifyEqual(result.packetStartIndex, 1);
+            % Block-quantized: burst end rounds down to a whole block
+            % (blockLength=1000 at Fs=2MHz), not necessarily numel(iq).
+            testCase.verifyGreaterThanOrEqual(result.packetEndIndex, numel(iq)-1000);
+        end
+
         function completeBurstIsPreferredOverBoundaryFragment(testCase)
             config = lora_phy.css_config(7, 4);
             frame = lora_phy.build_css_frame([3; 17; 64], config, 8, 2);
