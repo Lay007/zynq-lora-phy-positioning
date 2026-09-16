@@ -110,6 +110,15 @@ module lora_clg400_gpreg_bridge #(
     wire signed [31:0] joint_up_offset_samples;
     wire signed [31:0] joint_timing_correction_samples;
     wire joint_timing_valid;
+    // Split, unconflated joint-controller outcomes (see
+    // lora_packet_toa_receiver_top.v): distinguish an up-search abort from a
+    // down-search abort from an out-of-range rejection, plus a positive
+    // "the precise correction was actually applied" flag that timing_valid
+    // alone cannot give (it also pulses on a rejected estimate).
+    wire joint_up_search_abort_error;
+    wire joint_down_search_abort_error;
+    wire joint_timing_range_error;
+    wire joint_precise_correction_applied;
 
     wire unused_awready;
     wire unused_wready;
@@ -168,6 +177,10 @@ module lora_clg400_gpreg_bridge #(
         .joint_up_offset_samples(joint_up_offset_samples),
         .joint_timing_correction_samples(joint_timing_correction_samples),
         .joint_timing_valid(joint_timing_valid),
+        .joint_up_search_abort_error(joint_up_search_abort_error),
+        .joint_down_search_abort_error(joint_down_search_abort_error),
+        .joint_timing_range_error(joint_timing_range_error),
+        .joint_precise_correction_applied(joint_precise_correction_applied),
         .packet_start_count(packet_start_count),
         .packet_start_valid(packet_start_valid),
         .toa_search_busy(toa_search_busy),
@@ -280,6 +293,18 @@ module lora_clg400_gpreg_bridge #(
     reg [15:0] joint_chips_sample;
     reg [15:0] joint_preamble_bin_sample;
     reg        joint_seen_sample;
+    // Sticky per-outcome bits, one per silent path plus one for genuine
+    // success. Unlike joint_seen_sample (which only means "an estimate
+    // completed", true for both an applied and a rejected correction) and
+    // unlike joint_timing_valid (a one-cycle pulse that never fires at all
+    // on an abort), these let software tell all four outcomes apart after
+    // the fact from a single frozen read. Cleared only by stream_reset, like
+    // the rest of this page, so an abort earlier in the same stream is still
+    // visible even if a later packet's estimate succeeds.
+    reg        joint_up_abort_sticky_sample;
+    reg        joint_down_abort_sticky_sample;
+    reg        joint_range_error_sticky_sample;
+    reg        joint_precise_applied_sticky_sample;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -290,16 +315,35 @@ module lora_clg400_gpreg_bridge #(
             joint_chips_sample        <= 16'd0;
             joint_preamble_bin_sample <= 16'd0;
             joint_seen_sample         <= 1'b0;
+            joint_up_abort_sticky_sample        <= 1'b0;
+            joint_down_abort_sticky_sample      <= 1'b0;
+            joint_range_error_sticky_sample     <= 1'b0;
+            joint_precise_applied_sticky_sample <= 1'b0;
         end else if (stream_reset) begin
             joint_seen_sample         <= 1'b0;
-        end else if (joint_timing_valid) begin
-            joint_correction_sample   <= joint_timing_correction_samples;
-            joint_up_offset_sample    <= joint_up_offset_samples;
-            joint_up_coarse_sample    <= joint_up_coarse_start[31:0];
-            joint_packet_start_sample <= packet_start_count[31:0];
-            joint_chips_sample        <= chips_to_boundary;
-            joint_preamble_bin_sample <= preamble_bin;
-            joint_seen_sample         <= 1'b1;
+            joint_up_abort_sticky_sample        <= 1'b0;
+            joint_down_abort_sticky_sample      <= 1'b0;
+            joint_range_error_sticky_sample     <= 1'b0;
+            joint_precise_applied_sticky_sample <= 1'b0;
+        end else begin
+            if (joint_up_search_abort_error)
+                joint_up_abort_sticky_sample <= 1'b1;
+            if (joint_down_search_abort_error)
+                joint_down_abort_sticky_sample <= 1'b1;
+            if (joint_timing_range_error)
+                joint_range_error_sticky_sample <= 1'b1;
+            if (joint_precise_correction_applied)
+                joint_precise_applied_sticky_sample <= 1'b1;
+
+            if (joint_timing_valid) begin
+                joint_correction_sample   <= joint_timing_correction_samples;
+                joint_up_offset_sample    <= joint_up_offset_samples;
+                joint_up_coarse_sample    <= joint_up_coarse_start[31:0];
+                joint_packet_start_sample <= packet_start_count[31:0];
+                joint_chips_sample        <= chips_to_boundary;
+                joint_preamble_bin_sample <= preamble_bin;
+                joint_seen_sample         <= 1'b1;
+            end
         end
     end
 
@@ -395,6 +439,10 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg [31:0] diag_search_sync;
     (* ASYNC_REG = "TRUE" *) reg joint_seen_meta;
     (* ASYNC_REG = "TRUE" *) reg joint_seen_sync;
+    // {precise_applied, range_error, down_abort, up_abort}: see
+    // joint_*_sticky_sample above.
+    (* ASYNC_REG = "TRUE" *) reg [3:0] joint_sticky_meta;
+    (* ASYNC_REG = "TRUE" *) reg [3:0] joint_sticky_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_b_meta;
@@ -496,6 +544,8 @@ module lora_clg400_gpreg_bridge #(
             diag_misc_sync     <= 32'd0;
             joint_seen_meta    <= 1'b0;
             joint_seen_sync    <= 1'b0;
+            joint_sticky_meta  <= 4'd0;
+            joint_sticky_sync  <= 4'd0;
             joint_a_meta       <= 32'd0;
             joint_a_sync       <= 32'd0;
             joint_b_meta       <= 32'd0;
@@ -541,6 +591,13 @@ module lora_clg400_gpreg_bridge #(
             diag_misc_sync     <= diag_misc_meta;
             joint_seen_meta <= joint_seen_sample;
             joint_seen_sync <= joint_seen_meta;
+            joint_sticky_meta <= {
+                joint_precise_applied_sticky_sample,
+                joint_range_error_sticky_sample,
+                joint_down_abort_sticky_sample,
+                joint_up_abort_sticky_sample
+            };
+            joint_sticky_sync <= joint_sticky_meta;
             joint_a_meta <= joint_correction_sample;
             joint_a_sync <= joint_a_meta;
             joint_b_meta <= joint_up_offset_sample;
@@ -580,9 +637,17 @@ module lora_clg400_gpreg_bridge #(
     wire joint_page_selected = gp_ctrl[18];
     wire symbol_page_selected =
         gp_ctrl[16] && !gp_ctrl[17] && !joint_page_selected;
+    // bit 0: an estimate completed (applied or declined) -- unchanged, for
+    // compatibility with already-saved captures and tools/read_clg400_symbol_trace.py.
+    // bit 1: up-search aborted at least once since stream_reset.
+    // bit 2: down-search aborted at least once since stream_reset.
+    // bit 3: an estimate was rejected as outside +/-FINE_GUARD_SAMPLES.
+    // bit 4: a precise correction was actually applied to the grid.
+    // bits 31:5 are reserved, zero.
     wire [31:0] joint_status = {
         16'h4a54, // "JT": joint estimator ABI marker
-        15'd0,
+        11'd0,
+        joint_sticky_sync,
         joint_seen_sync
     };
     // A third page reports what the receiver clock actually is, in the

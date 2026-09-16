@@ -311,6 +311,64 @@ module tb_lora_clg400_gpreg_bridge;
         expect32(gp_coarse_lo, 32'h5060_7080,
                  "timestamp snapshot after joint page read");
 
+        // Sticky joint-controller outcome bits (joint_status bits 4:1): each
+        // used to be indistinguishable from the others, and from the plain
+        // single-search's own restart/boundary errors, once folded into
+        // toa_search_restart_error / toa_peak_boundary_error upstream. Pulse
+        // all four causes at once and confirm each lands in its own bit.
+        @(negedge sample_clk);
+        force dut.joint_up_search_abort_error = 1'b1;
+        force dut.joint_down_search_abort_error = 1'b1;
+        force dut.joint_timing_range_error = 1'b1;
+        force dut.joint_precise_correction_applied = 1'b1;
+        @(negedge sample_clk);
+        force dut.joint_up_search_abort_error = 1'b0;
+        force dut.joint_down_search_abort_error = 1'b0;
+        force dut.joint_timing_range_error = 1'b0;
+        force dut.joint_precise_correction_applied = 1'b0;
+        repeat (4) @(posedge sample_clk);
+
+        gp_ctrl = 32'h0004_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[4:0] !== 5'b11111) begin
+            $display("FAIL joint sticky bits after pulse status=0x%08x (want bits 4:0 all set)",
+                     gp_status);
+            $fatal(1);
+        end
+        $display("PASS joint sticky bits set: status=0x%08x", gp_status);
+
+        // Sticky means sticky: switching away to another page and back must
+        // not clear them (only a stream reset may).
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+        gp_ctrl = 32'h0004_1201;
+        repeat (2) @(posedge ctrl_clk);
+        if (gp_status[4:0] !== 5'b11111) begin
+            $display("FAIL joint sticky bits did not survive a page switch: status=0x%08x",
+                     gp_status);
+            $fatal(1);
+        end
+        $display("PASS joint sticky bits survive a page switch");
+
+        // A stream reset (control bit 1, the same pulse already used above to
+        // re-arm the symbol trace) must clear every sticky bit on this page,
+        // including the pre-existing "estimate seen" bit 0.
+        gp_ctrl = 32'h0000_1203;
+        repeat (3) @(posedge sample_clk);
+        gp_ctrl = 32'h0000_1201;
+        repeat (3) @(posedge sample_clk);
+        gp_ctrl = 32'h0004_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[4:0] !== 5'b00000) begin
+            $display("FAIL joint sticky bits survived a stream reset: status=0x%08x",
+                     gp_status);
+            $fatal(1);
+        end
+        $display("PASS joint sticky bits cleared by stream reset");
+
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+
         $display("PASS tb_lora_clg400_gpreg_bridge");
         $finish;
     end

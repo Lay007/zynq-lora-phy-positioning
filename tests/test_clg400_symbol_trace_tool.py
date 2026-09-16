@@ -256,9 +256,20 @@ def _joint_page(
     chips: int = 31,
     bin_: int = 97,
     seen: bool = True,
+    up_search_aborted: bool = False,
+    down_search_aborted: bool = False,
+    timing_rejected_out_of_range: bool = False,
+    precise_correction_applied: bool = False,
     marker: int = 0x4A54,
 ) -> str:
-    status = (marker << 16) | (1 if seen else 0)
+    status = (
+        (marker << 16)
+        | (1 if seen else 0)
+        | (2 if up_search_aborted else 0)
+        | (4 if down_search_aborted else 0)
+        | (8 if timing_rejected_out_of_range else 0)
+        | (16 if precise_correction_applied else 0)
+    )
     packed = (chips << 16) | bin_
     return (
         f"JOINT 0x{status:08x} 0x{correction & 0xffffffff:08x} "
@@ -281,6 +292,47 @@ def test_joint_page_reports_signed_values() -> None:
     assert trace.joint.chips_to_boundary == 31
     assert trace.joint.preamble_bin == 97
     assert trace.joint.seen
+    assert not trace.joint.up_search_aborted
+    assert not trace.joint.down_search_aborted
+    assert not trace.joint.timing_rejected_out_of_range
+    assert not trace.joint.precise_correction_applied
+
+
+def test_joint_page_reports_sticky_outcome_bits_independently() -> None:
+    """Each of the four sticky bits (STATUS 4:1) must decode on its own.
+
+    Before these existed, an abort never set `seen` (the controller's
+    timing_valid never pulses on an abort), so a failed estimate and "no
+    packet yet" were indistinguishable on this page -- and up/down aborts
+    shared one bit further upstream.
+    """
+
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\n"
+        + _joint_page(
+            seen=False,
+            up_search_aborted=True,
+            down_search_aborted=False,
+            timing_rejected_out_of_range=False,
+            precise_correction_applied=False,
+        ),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.joint is not None
+    assert not trace.joint.seen
+    assert trace.joint.up_search_aborted
+    assert not trace.joint.down_search_aborted
+    assert not trace.joint.timing_rejected_out_of_range
+    assert not trace.joint.precise_correction_applied
+
+    summary = _joint_summary(trace.joint)
+    assert summary is not None
+    assert summary["up_search_aborted"] is True
+    assert summary["down_search_aborted"] is False
+    assert summary["estimate_seen"] is False
 
 
 def test_joint_summary_recomputes_the_controllers_origin() -> None:
@@ -300,6 +352,10 @@ def test_joint_summary_recomputes_the_controllers_origin() -> None:
             chips_to_boundary=31,
             preamble_bin=97,
             seen=True,
+            up_search_aborted=False,
+            down_search_aborted=False,
+            timing_rejected_out_of_range=False,
+            precise_correction_applied=True,
         )
     )
 

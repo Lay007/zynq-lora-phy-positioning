@@ -116,7 +116,17 @@ module lora_packet_toa_receiver_top #(
     output wire [63:0]        joint_up_coarse_start,
     output wire signed [31:0] joint_up_offset_samples,
     output wire signed [31:0] joint_timing_correction_samples,
-    output wire               joint_timing_valid
+    output wire               joint_timing_valid,
+    // Split, unconflated joint-controller outcomes. Previously these three
+    // were OR'd into the single-search's own toa_search_restart_error /
+    // toa_peak_boundary_error bits (see the removed comment below this
+    // module's joint controller instance), which meant an abort of either
+    // joint search, an out-of-range rejection, and the plain single-search's
+    // own restart/boundary conditions were indistinguishable from software.
+    output wire               joint_up_search_abort_error,
+    output wire               joint_down_search_abort_error,
+    output wire               joint_timing_range_error,
+    output wire               joint_precise_correction_applied
 );
 
     wire gated_valid_in = valid_in && receiver_enable;
@@ -263,7 +273,9 @@ module lora_packet_toa_receiver_top #(
     wire joint_grid_busy;
     wire joint_grid_restart_error;
     wire joint_grid_timing_range_error;
-    wire joint_grid_search_abort_error;
+    wire joint_grid_up_search_abort_error;
+    wire joint_grid_down_search_abort_error;
+    wire joint_grid_precise_correction_applied;
     wire joint_search_start;
     wire [63:0] joint_search_coarse_start;
     wire signed [31:0] joint_timing_correction_unused;
@@ -323,7 +335,9 @@ module lora_packet_toa_receiver_top #(
                 .timing_valid(joint_timing_valid_unused),
                 .restart_error(joint_grid_restart_error),
                 .timing_range_error(joint_grid_timing_range_error),
-                .search_abort_error(joint_grid_search_abort_error)
+                .up_search_abort_error(joint_grid_up_search_abort_error),
+                .down_search_abort_error(joint_grid_down_search_abort_error),
+                .precise_correction_applied(joint_grid_precise_correction_applied)
             );
         end else begin : g_legacy_toa_search
             assign joint_search_start = packet_start_valid && receiver_enable;
@@ -338,22 +352,30 @@ module lora_packet_toa_receiver_top #(
             assign joint_timing_valid_unused = 1'b0;
             assign joint_grid_restart_error = 1'b0;
             assign joint_grid_timing_range_error = 1'b0;
-            assign joint_grid_search_abort_error = 1'b0;
+            assign joint_grid_up_search_abort_error = 1'b0;
+            assign joint_grid_down_search_abort_error = 1'b0;
+            assign joint_grid_precise_correction_applied = 1'b0;
         end
     endgenerate
 
     assign toa_search_busy = joint_grid_busy;
     assign joint_timing_correction_samples = joint_timing_correction_unused;
     assign joint_timing_valid = joint_timing_valid_unused;
+    assign joint_up_search_abort_error = joint_grid_up_search_abort_error;
+    assign joint_down_search_abort_error = joint_grid_down_search_abort_error;
+    assign joint_timing_range_error = joint_grid_timing_range_error;
+    assign joint_precise_correction_applied = joint_grid_precise_correction_applied;
 
     assign peak_triplet_valid = raw_peak_triplet_valid && !reference_down;
-    assign toa_search_restart_error =
-        raw_search_restart_error || joint_grid_restart_error;
-    // A timing estimate outside the bounded search is operationally the same
-    // as a peak at its boundary: neither is safe to apply to the live grid.
-    assign toa_peak_boundary_error =
-        raw_peak_boundary_error || joint_grid_timing_range_error
-        || joint_grid_search_abort_error;
+    // Unconflated: these used to also carry the joint controller's restart,
+    // out-of-range, and abort conditions (see joint_up_search_abort_error /
+    // joint_down_search_abort_error / joint_timing_range_error above), which
+    // meant a joint-search failure looked identical to a plain single-search
+    // restart or boundary condition to software. joint_grid_restart_error
+    // (a new packet arriving while the joint pair is still in flight) has no
+    // dedicated port yet and is intentionally not folded in here either.
+    assign toa_search_restart_error = raw_search_restart_error;
+    assign toa_peak_boundary_error = raw_peak_boundary_error;
 
     lora_matched_filter_search #(
         .REF_SAMPLES(REF_SAMPLES),

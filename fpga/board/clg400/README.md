@@ -204,15 +204,35 @@ directly compares nothing.
 
 | Register | Meaning |
 |---|---|
-| `STATUS` | `0x4a54` (`JT`) marker in bits 31:16, estimate-seen flag in bit 0 |
+| `STATUS` | `0x4a54` (`JT`) marker in bits 31:16; sticky outcome bits 4:0, see below |
 | `SEQUENCE` | `timing_correction_samples`, signed |
 | `SYMBOL` | `up_offset_samples`, signed: how far the up peak was from the coarse start |
 | `SAMPLE_LO` | `up_coarse_start[31:0]`: where the up search was told to look |
 | `SAMPLE_HI` | `packet_start_count[31:0]` |
 | `METRICS` | `{chips_to_boundary[15:0], preamble_bin[15:0]}` |
 
-The values are frozen when the estimate completes and hold until the next
-stream reset. The remaining quantities follow from them:
+`STATUS` bits 4:0 (added because the controller has three silent paths back
+to idle without a correction, plus a distinct success case, none of which
+used to reach software in a distinguishable form -- they were folded into
+the plain single-search's own `toa_search_restart_error` /
+`toa_peak_boundary_error` sticky bits, or not exposed at all):
+
+| Bit | Meaning |
+|---:|---|
+| 0 | an estimate completed, applied or declined (unchanged, for compatibility with saved captures) |
+| 1 | the up-search aborted at least once |
+| 2 | the down-search aborted at least once |
+| 3 | an estimate was rejected as outside `+/-FINE_GUARD_SAMPLES` |
+| 4 | a precise correction was actually applied to the grid |
+
+Bits 1-4 are sticky and independent of each other and of bit 0: an abort
+never pulses bit 0's underlying `joint_timing_valid`, so before this it left
+this whole page indistinguishable from "no packet has arrived yet". `SEQUENCE`
+through `METRICS` are frozen only when the estimate completes (bit 0/4 case);
+on an abort or rejection they keep whichever values an earlier successful
+estimate left, if any -- bits 1:3 are what say that happened. All of `STATUS`
+bits 4:0 hold until the next stream reset. The remaining quantities of a
+completed estimate follow from `SEQUENCE`/`SYMBOL`:
 `down_coarse_start = up_coarse_start + 10240` and
 `down_offset = 2 * timing_correction_samples - up_offset_samples`.
 

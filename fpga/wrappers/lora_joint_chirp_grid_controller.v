@@ -64,10 +64,18 @@ module lora_joint_chirp_grid_controller #(
 
     output reg                restart_error,
     output reg                timing_range_error,
-    // Asserted for one cycle when a search abort forced the
-    // correction to be declined. Without it a trace cannot tell
-    // "the estimator never ran" from "it ran and was rejected".
-    output reg                search_abort_error
+    // Asserted for one cycle when a search abort forced the correction to
+    // be declined, split by which of the two searches aborted. Without
+    // this split a trace cannot tell "the estimator never ran" from "it
+    // ran and was rejected", nor tell the up-search failing from the
+    // down-search failing -- both used to share one search_abort_error bit.
+    output reg                up_search_abort_error,
+    output reg                down_search_abort_error,
+    // Asserted for one cycle exactly when a correction both completed and
+    // fell inside +/-FINE_GUARD_SAMPLES, i.e. was actually applied to the
+    // grid. timing_valid alone does not say this: it also pulses when the
+    // estimate was computed and then declined by timing_range_error.
+    output reg                precise_correction_applied
 );
 
     localparam [2:0] STATE_IDLE           = 3'd0;
@@ -151,14 +159,18 @@ module lora_joint_chirp_grid_controller #(
             timing_valid              <= 1'b0;
             restart_error             <= 1'b0;
             timing_range_error        <= 1'b0;
-            search_abort_error        <= 1'b0;
+            up_search_abort_error     <= 1'b0;
+            down_search_abort_error   <= 1'b0;
+            precise_correction_applied<= 1'b0;
         end else begin
             search_start       <= 1'b0;
             fine_resync_valid  <= 1'b0;
             timing_valid       <= 1'b0;
             restart_error      <= 1'b0;
             timing_range_error <= 1'b0;
-            search_abort_error <= 1'b0;
+            up_search_abort_error      <= 1'b0;
+            down_search_abort_error    <= 1'b0;
+            precise_correction_applied <= 1'b0;
 
             if (packet_start_valid && busy)
                 restart_error <= 1'b1;
@@ -194,7 +206,7 @@ module lora_joint_chirp_grid_controller #(
                         // correction and degrade to the coarse-only grid.
                         fine_skip <= FINE_GUARD_U64[31:0];
                         fine_resync_valid <= 1'b1;
-                        search_abort_error <= 1'b1;
+                        up_search_abort_error <= 1'b1;
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
@@ -222,7 +234,7 @@ module lora_joint_chirp_grid_controller #(
                     if (search_failed) begin
                         fine_skip <= FINE_GUARD_U64[31:0];
                         fine_resync_valid <= 1'b1;
-                        search_abort_error <= 1'b1;
+                        down_search_abort_error <= 1'b1;
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
@@ -233,6 +245,7 @@ module lora_joint_chirp_grid_controller #(
                         if (timing_in_range) begin
                             fine_skip <= guarded_skip[31:0];
                             fine_resync_valid <= 1'b1;
+                            precise_correction_applied <= 1'b1;
                         end else begin
                             // Same rule for a rejected out-of-range estimate:
                             // decline the correction, but still hand back the

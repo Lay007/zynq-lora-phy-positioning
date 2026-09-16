@@ -822,3 +822,28 @@ campaign. It does **not** establish packet error rate, sensitivity,
 acquisition probability, timestamp repeatability, or calibrated ToA. Twelve
 packets at one power level is a decision defect measurement, not a link
 measurement, and must be reported as such.
+
+## The prerequisite from "Where to look next", closed in simulation — 2026-09-16
+
+The observability gap this document asked for -- "an observable 'fine
+correction applied' flag beside `DEBUG` bit 8, plus a sticky bit per abort
+reason" -- is built. `lora_joint_chirp_grid_controller` now reports
+`up_search_abort_error`, `down_search_abort_error`, `timing_range_error`, and
+`precise_correction_applied` as four separate signals instead of one
+`search_abort_error` shared between the up and down legs. They are no longer
+folded into the plain single-search's own `toa_search_restart_error` /
+`toa_peak_boundary_error` (see `lora_packet_toa_receiver_top.v`), and
+`lora_clg400_gpreg_bridge` latches each sticky until the next stream reset as
+joint-page `STATUS` bits 4:1, next to the existing bit 0 "estimate seen" --
+see `fpga/board/clg400/README.md` for the bit table. Bit 8 of the symbol-trace
+`DEBUG` register itself was not touched: it has no free neighbouring bit (see
+that file), and the new flags belong to the joint estimator's own page, which
+already had 31 unused bits and nowhere else worth being.
+
+This closes the instrumentation gap only. It has been verified in simulation
+(`tb_lora_joint_chirp_grid_controller`, `tb_lora_clg400_gpreg_bridge`) against
+all three failure paths plus the success path, including that the sticky bits
+survive a page switch and clear only on stream reset. It has **not** been run
+on hardware yet, and it does not by itself explain why the search still fails
+at non-zero arrival phase if it does -- it is the tool the next bench run
+needs to find out, not the finding itself.

@@ -75,6 +75,15 @@ class JointEstimate:
     chips_to_boundary: int
     preamble_bin: int
     seen: bool
+    # Sticky since the last stream reset (STATUS bits 4:1). An abort never
+    # pulses the controller's timing_valid, so before these existed a failed
+    # estimate and "no packet yet" looked identical on this page -- `seen`
+    # alone cannot tell them apart, and up/down aborts used to share one
+    # bit upstream too.
+    up_search_aborted: bool
+    down_search_aborted: bool
+    timing_rejected_out_of_range: bool
+    precise_correction_applied: bool
 
 
 @dataclass(frozen=True)
@@ -248,6 +257,10 @@ def parse_trace(text: str) -> SymbolTrace:
                 chips_to_boundary=(values[5] >> 16) & 0xFFFF,
                 preamble_bin=values[5] & 0xFFFF,
                 seen=bool(values[0] & 1),
+                up_search_aborted=bool(values[0] & 2),
+                down_search_aborted=bool(values[0] & 4),
+                timing_rejected_out_of_range=bool(values[0] & 8),
+                precise_correction_applied=bool(values[0] & 16),
             )
         elif fields[0] == "CLOCK" and len(fields) == 6:
             values = [int(value, 0) for value in fields[1:]]
@@ -403,6 +416,14 @@ def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:
             joint.packet_start_count + joint.chips_to_boundary * 8
         ),
         "estimate_seen": joint.seen,
+        # Sticky since the last stream reset. An abort never sets
+        # estimate_seen (the controller's timing_valid does not pulse), so
+        # these are what tell "no packet yet" apart from "it ran and one of
+        # the three silent paths back to idle fired" -- and from each other.
+        "up_search_aborted": joint.up_search_aborted,
+        "down_search_aborted": joint.down_search_aborted,
+        "timing_rejected_out_of_range": joint.timing_rejected_out_of_range,
+        "precise_correction_applied": joint.precise_correction_applied,
     }
 
 

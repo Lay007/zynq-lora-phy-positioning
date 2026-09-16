@@ -29,6 +29,9 @@ module tb_lora_joint_chirp_grid_controller;
     wire timing_valid;
     wire restart_error;
     wire timing_range_error;
+    wire up_search_abort_error;
+    wire down_search_abort_error;
+    wire precise_correction_applied;
 
     integer errors = 0;
 
@@ -63,7 +66,10 @@ module tb_lora_joint_chirp_grid_controller;
         .timing_correction_samples(timing_correction_samples),
         .fine_skip(fine_skip), .fine_resync_valid(fine_resync_valid),
         .timing_valid(timing_valid), .restart_error(restart_error),
-        .timing_range_error(timing_range_error)
+        .timing_range_error(timing_range_error),
+        .up_search_abort_error(up_search_abort_error),
+        .down_search_abort_error(down_search_abort_error),
+        .precise_correction_applied(precise_correction_applied)
     );
 
     task automatic pulse_packet(input [63:0] start_count, input [15:0] chips);
@@ -113,11 +119,31 @@ module tb_lora_joint_chirp_grid_controller;
             while (!timing_valid) @(negedge clk);
             if (timing_correction_samples !== expected_correction ||
                 fine_skip !== expected_skip || !fine_resync_valid ||
-                timing_range_error) begin
+                timing_range_error || !precise_correction_applied) begin
                 errors = errors + 1;
-                $display("FAIL result correction=%0d skip=%0d fine=%0d range=%0d",
+                $display("FAIL result correction=%0d skip=%0d fine=%0d range=%0d precise=%0d",
                          timing_correction_samples, fine_skip,
-                         fine_resync_valid, timing_range_error);
+                         fine_resync_valid, timing_range_error,
+                         precise_correction_applied);
+            end
+            @(negedge clk);
+        end
+    endtask
+
+    // A completed estimate outside +/-FINE_GUARD_SAMPLES: timing_valid still
+    // pulses, but the correction is declined -- precise_correction_applied
+    // must stay clear and timing_range_error must fire instead.
+    task automatic expect_rejected_result(
+        input [31:0] expected_skip
+    );
+        begin
+            while (!timing_valid) @(negedge clk);
+            if (fine_skip !== expected_skip || !fine_resync_valid ||
+                !timing_range_error || precise_correction_applied) begin
+                errors = errors + 1;
+                $display("FAIL rejected result skip=%0d fine=%0d range=%0d precise=%0d",
+                         fine_skip, fine_resync_valid, timing_range_error,
+                         precise_correction_applied);
             end
             @(negedge clk);
         end
@@ -213,17 +239,60 @@ module tb_lora_joint_chirp_grid_controller;
         expect_result(32'sd0, 32'd16);
 
         // A failed bounded search releases the controller for the next packet.
+        // This exercises path 1 (up-search abort): up_search_abort_error must
+        // fire and down_search_abort_error must not, distinguishing the two
+        // paths that used to share one search_abort_error bit.
         pulse_packet(64'd120000, 16'd0);
         wait_search(1'b0, 64'd120000);
         search_busy <= 1'b0;
         search_failed <= 1'b1;
         @(negedge clk);
+        // up_search_abort_error is a one-cycle pulse: sample it here, before
+        // it clears on the next edge, not after the settle delay below.
+        if (!up_search_abort_error || down_search_abort_error) begin
+            errors = errors + 1;
+            $display("FAIL up-search abort did not set up_search_abort_error alone: up=%0d down=%0d",
+                     up_search_abort_error, down_search_abort_error);
+        end
         search_failed <= 1'b0;
         repeat (2) @(negedge clk);
         if (busy) begin
             errors = errors + 1;
             $display("FAIL failed search left controller busy");
         end
+
+        // Path 2: the down search aborts instead. down_search_abort_error
+        // must fire and up_search_abort_error must not (it belongs to the
+        // up-search leg only, and that leg already completed here).
+        pulse_packet(64'd140000, 16'd0);
+        wait_search(1'b0, 64'd140000);
+        return_peak(64'd140000);
+        wait_search(1'b1, 64'd150240);
+        search_busy <= 1'b0;
+        search_failed <= 1'b1;
+        @(negedge clk);
+        if (!down_search_abort_error || up_search_abort_error) begin
+            errors = errors + 1;
+            $display("FAIL down-search abort did not set down_search_abort_error alone: up=%0d down=%0d",
+                     up_search_abort_error, down_search_abort_error);
+        end
+        search_failed <= 1'b0;
+        repeat (2) @(negedge clk);
+        if (busy) begin
+            errors = errors + 1;
+            $display("FAIL down-search failure left controller busy");
+        end
+
+        // Path 3: both searches complete but the rounded half-sum falls
+        // outside +/-FINE_GUARD_SAMPLES (16 here). timing_valid must still
+        // pulse (an estimate was computed), but as a decline: precise
+        // correction not applied, timing_range_error set instead.
+        pulse_packet(64'd160000, 16'd0);
+        wait_search(1'b0, 64'd160000);
+        return_peak(64'd160040);
+        wait_search(1'b1, 64'd170240);
+        return_peak(64'd170280);
+        expect_rejected_result(32'd16);
 
         if (errors) begin
             $display("FAIL tb_lora_joint_chirp_grid_controller (%0d errors)", errors);
