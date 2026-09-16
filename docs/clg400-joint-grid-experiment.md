@@ -847,3 +847,62 @@ survive a page switch and clear only on stream reset. It has **not** been run
 on hardware yet, and it does not by itself explain why the search still fails
 at non-zero arrival phase if it does -- it is the tool the next bench run
 needs to find out, not the finding itself.
+
+## First board run with the new bits -- 2026-09-17
+
+The rebuilt bitstream (Vivado 2021.1, post-route WNS +0.139 ns / WHS +0.032 ns,
+zero routing errors) was deployed to board B by the same atomic-swap procedure
+as the 2026-09-03 session: active `system_top.bit` backed up and
+checksum-verified in place, the new file streamed to a temporary name on the
+same `/mnt/mmcblk0p1` mount, checksum-compared against the local build, renamed
+atomically, synced, and re-verified before the cold boot. The page-0 smoke test
+(`verify_board_b_cold_boot.sh`) read back the identical `status=0x00011243` on
+both the old and new image, confirming the unfold in
+`lora_packet_toa_receiver_top.v` did not disturb the existing single-search
+ABI.
+
+This run used the Heltec V4/SX1262 transmitter and board B RX1 on antennas
+roughly 1 m apart, not the documented 30 dB conducted path -- the stand was not
+available. An initial attempt at the RX hardware gain historically used
+*with* that conducted path (50 dB) was first turned down to 20 dB out of
+caution about ADC clipping over the air; raw-IQ inspection showed this was the
+wrong direction entirely (peak `|I|`/`|Q|` of 3 codes out of 32767, burst-to-noise
+ratio 3.2 against several hundred for a real packet -- the ADC was starved into
+its own quantization noise, not anywhere near clipping). Gain was returned to
+50 dB and every subsequent send was detected.
+
+Of twelve commanded transmissions, eight landed inside the 1.5 s recording
+window and one earlier single-packet check makes nine total joint-controller
+captures with the new bits read back:
+
+| tx seq | CRC | correction (samples) | up abort | down abort | range reject | precise applied |
+|---:|:---:|---:|:---:|:---:|:---:|:---:|
+| 12 | pass | +4 | no | no | no | yes |
+| 13 | pass | 0  | no | no | no | yes |
+| 14 | pass | +4 | no | no | no | yes |
+| 15 | pass | +6 | no | no | no | yes |
+| 16 | fail | +4 | no | no | no | yes |
+| 17 | fail | +6 | no | no | no | yes |
+| 19 | pass | -4 | no | no | no | yes |
+| 22 | fail | +7 | no | no | no | yes |
+| 23 | pass | -3 | no | no | no | yes |
+
+The four attempts that produced no capture (peak-to-median power 1.5-1.7,
+indistinguishable from noise) all show the same signature in the Heltec serial
+log: a 3-4 s gap between issuing `send` and the transmitter's own
+acknowledgement, against roughly 0.1 s on every attempt that *did* land in the
+window. That delay sits on the transmitter/harness side, not in the receiver
+this document is about, and is not further investigated here.
+
+On this link, the joint controller never took the up-abort, down-abort, or
+out-of-range path -- `precise_correction_applied` was `true` every time, with
+a small (-4..+7 sample) correction each time. That is exactly the evidence the
+new bits are readable and correct end to end, and it is also informative
+about what it does *not* show: three of nine packets still failed CRC
+(6 of 9 pass, the same order of magnitude as the 2026-09-10 baseline) while
+`precise_correction_applied` read `true` and no abort/reject bit was set on
+any of them. At this link geometry the occasional CRC failure is demonstrably
+not one of the three silent joint-search failure paths this instrumentation
+was built to catch. It does not identify what it is instead; nine packets at
+one distance and one power level is, per the evidence-boundary note above, a
+decision-defect-adjacent measurement, not a link characterization.
