@@ -124,14 +124,18 @@ jobs:
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
             --assert-level=error --stop-time=100ms
 
-      - name: Verify SF5/SF6/SF7 package waveforms and generate CI16 captures
+      - name: Verify SF5..SF12 package waveforms and generate CI16 captures
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_package_golden \
-            --assert-level=error --stop-time=2ms
-          test -s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
-          test "$(stat -c%s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm)" -eq 81920
+            --assert-level=error --stop-time=50ms
           test "$(stat -c%s build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm)" -eq 20480
           test "$(stat -c%s build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm)" -eq 40960
+          test "$(stat -c%s build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm)" -eq 81920
+          test "$(stat -c%s build/ghdl-lora/hdl_sf8_bw125k_fs2000k_package.pcm)" -eq 163840
+          test "$(stat -c%s build/ghdl-lora/hdl_sf9_bw125k_fs2000k_package.pcm)" -eq 327680
+          test "$(stat -c%s build/ghdl-lora/hdl_sf10_bw125k_fs2000k_package.pcm)" -eq 655360
+          test "$(stat -c%s build/ghdl-lora/hdl_sf11_bw125k_fs2000k_package.pcm)" -eq 1310720
+          test "$(stat -c%s build/ghdl-lora/hdl_sf12_bw125k_fs2000k_package.pcm)" -eq 2621440
 
       - name: Set up MATLAB for Inspector end-to-end regression
         uses: matlab-actions/setup-matlab@v3
@@ -153,18 +157,23 @@ jobs:
         with:
           command: addpath('model/matlab'); report = run_hdl_inspector_regression("build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm", ReportPath="build/ghdl-lora/hdl_inspector_regression.csv"); assert(report.goldenPassed);
 
-      - name: Inspect generated HDL CI16 captures for SF5/SF6 packages
+      - name: Inspect generated HDL CI16 captures for SF5/SF6/SF8..SF12 packages
         uses: matlab-actions/run-command@v3
         with:
-          command: addpath('model/matlab'); files = ["build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm"]; for f = files, report = run_hdl_inspector_regression(f); assert(report.goldenPassed); end
+          command: addpath('model/matlab'); files = ["build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf8_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf9_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf10_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf11_bw125k_fs2000k_package.pcm", "build/ghdl-lora/hdl_sf12_bw125k_fs2000k_package.pcm"]; for f = files, report = run_hdl_inspector_regression(f); assert(report.goldenPassed); end
 
       - name: Upload HDL Inspector evidence
         uses: actions/upload-artifact@v7
         with:
           name: hdl-inspector-end-to-end
           path: |
-            build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
-            build/ghdl-lora/hdl_inspector_regression.csv
             build/ghdl-lora/hdl_sf5_bw125k_fs2000k_package.pcm
             build/ghdl-lora/hdl_sf6_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf7_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf8_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf9_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf10_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf11_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_sf12_bw125k_fs2000k_package.pcm
+            build/ghdl-lora/hdl_inspector_regression.csv
           if-no-files-found: error

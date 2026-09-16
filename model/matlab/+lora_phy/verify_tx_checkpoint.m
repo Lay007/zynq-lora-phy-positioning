@@ -260,9 +260,19 @@ switch spreadingFactor
         symbols = [0 0 0 0 0 0 2 9 32 63];
     case 7
         symbols = [0 0 0 0 0 0 5 17 64 127];
+    case 8
+        symbols = [0 0 0 0 0 0 8 34 128 255];
+    case 9
+        symbols = [0 0 0 0 0 0 16 68 256 511];
+    case 10
+        symbols = [0 0 0 0 0 0 32 136 512 1023];
+    case 11
+        symbols = [0 0 0 0 0 0 64 272 1024 2047];
+    case 12
+        symbols = [0 0 0 0 0 0 128 544 2048 4095];
     otherwise
         error("lora_phy:UnsupportedPackageSpreadingFactor", ...
-            "Stage 2 package golden sequence is only defined for SF5..SF7; got SF%d", ...
+            "Stage 2 package golden sequence is only defined for SF5..SF12; got SF%d", ...
             spreadingFactor);
 end
 directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];

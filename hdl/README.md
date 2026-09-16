@@ -2,7 +2,7 @@
 
 Этот каталог содержит VHDL-реализацию формирования LoRa/CSS chirp и пакетного потока, Xilinx IP, тесты и вспомогательные средства для сравнения HDL с эталонной MATLAB-моделью.
 
-Генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`) верифицирован против MATLAB golden для **SF5..SF12** при L=16 (см. «Поддержка SF/BW» ниже) — bit-exact для SF5..SF8, с малой (<0.005%, физически неустранимой) остаточной EVM для SF9..SF12. Текущий контракт `formiration_package` (шесть автоматически вставляемых `h=0` upchirp, затем очередь пользовательских символов) верифицирован bit-exact для SF5/SF6/SF7. `formiration_package.vhd` не потребовал изменений: он лишь передаёт `sf_in`/`bw_in` в уже обобщённый `formiration_chirp`. Это **не означает**, что уже реализован и проверен полный стандартный LoRa packet с SFD/header/coding/payload framing — только framing текущего production-контракта (преамбула + очередь).
+Генератор отдельного CSS-символа (`formiration_chirp` + `phase_to_sample`) и текущий контракт `formiration_package` (шесть автоматически вставляемых `h=0` upchirp, затем очередь пользовательских символов) верифицированы против MATLAB golden для **SF5..SF12** при L=16 (см. «Поддержка SF/BW» ниже) — bit-exact для SF5..SF8, с малой (<0.005%, физически неустранимой) остаточной EVM для SF9..SF12. `formiration_package.vhd` не потребовал изменений: он лишь передаёт `sf_in`/`bw_in` в уже обобщённый `formiration_chirp`. Это **не означает**, что уже реализован и проверен полный стандартный LoRa packet с SFD/header/coding/payload framing — только framing текущего production-контракта (преамбула + очередь).
 
 ## Структура
 
@@ -80,26 +80,33 @@ PCM (`hdl/tb/test_formiration_chirp_dump.vhd`, символ h=17), не толь
 ## Текущая проверенная конфигурация: пакетный контракт (`formiration_package`)
 
 Контракт (шесть автоматических `h=0` upchirp преамбулы, затем очередь
-пользовательских символов) проверен bit-exact для SF5/SF6/SF7 через
-`hdl/tb/test_formiration_package_golden.vhd` (в CI): каждая SF использует свою
-тестовую последовательность символов (маленький/средний/половина/максимум,
-масштабированные под диапазон конкретного SF), выходной CI16 — в
-`build/ghdl-lora/`.
+пользовательских символов) проверен для **SF5..SF12** через
+`hdl/tb/test_formiration_package_golden.vhd` (в CI, bit-exact против
+независимой Q(16.5)-модели того же вида, что и в `test_formiration_chirp_golden.vhd`
+— см. его комментарий про переполнение 32-битного integer при замкнутой
+формуле): каждая SF использует свою тестовую последовательность символов
+(маленький/средний/половина/максимум, масштабированные под диапазон
+конкретного SF), выходной CI16 — в `build/ghdl-lora/`.
 
-**MATLAB Inspector теперь тоже проверяет SF5/SF6/SF7.**
+**MATLAB Inspector проверяет все SF5..SF12.**
 `lora_phy.verify_tx_checkpoint` (тег `package`, Stage 2) выбирает
 golden-последовательность символов по SF из имени файла
 (`package_test_sequence` в `verify_tx_checkpoint.m`) — она обязана совпадать
 с последовательностью в `test_formiration_package_golden.vhd` для каждого SF.
-Остальные SF (8–12) дают понятную ошибку
-(`lora_phy:UnsupportedPackageSpreadingFactor`), а не тихое несовпадение.
-Fs=2.000 МГц остаётся общим для всех трёх SF (везде BW=125 кГц, L=16):
+Fs=2.000 МГц остаётся общим для всех восьми SF (везде BW=125 кГц, L=16).
+Реальные EVM измерены через полную сквозную проверку
+(`run_hdl_inspector_regression`, включая слепую оценку SF/BW):
 
-| SF | Файл (в `build/ghdl-lora/`) | Проверка Inspector |
-|---|---|---|
-| SF5 | `hdl_sf5_bw125k_fs2000k_package.pcm` | да |
-| SF6 | `hdl_sf6_bw125k_fs2000k_package.pcm` | да |
-| SF7 | `hdl_sf7_bw125k_fs2000k_package.pcm` | да (`run_hdl_inspector_regression`, в CI) |
+| SF | Файл (в `build/ghdl-lora/`) | Проверка Inspector | EVM |
+|---|---|---|---:|
+| SF5 | `hdl_sf5_bw125k_fs2000k_package.pcm` | да | 0.0033% |
+| SF6 | `hdl_sf6_bw125k_fs2000k_package.pcm` | да | 0.0033% |
+| SF7 | `hdl_sf7_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0033% |
+| SF8 | `hdl_sf8_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0041% |
+| SF9 | `hdl_sf9_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0035% |
+| SF10 | `hdl_sf10_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0038% |
+| SF11 | `hdl_sf11_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0039% |
+| SF12 | `hdl_sf12_bw125k_fs2000k_package.pcm` | да (в CI) | 0.0042% |
 
 ## Формат HDL IQ-записи: CI16
 

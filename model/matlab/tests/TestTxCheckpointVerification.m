@@ -163,12 +163,124 @@ classdef TestTxCheckpointVerification < matlab.unittest.TestCase
             testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
         end
 
-        function packageRejectsUnsupportedSpreadingFactor(testCase)
+        function sf8PackagePasses(testCase)
             metadata = lora_phy.parse_hdl_recording_name( ...
                 "hdl_sf8_bw125k_fs2000k_package.pcm");
-            iq = complex(ones(10*2^8*16,1));
-            testCase.verifyError(@() lora_phy.verify_tx_checkpoint(iq, metadata), ...
-                "lora_phy:UnsupportedPackageSpreadingFactor");
+            config = lora_phy.css_config(8, 16);
+            symbols = [0 0 0 0 0 0 8 34 128 255];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function sf9PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf9_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(9, 16);
+            symbols = [0 0 0 0 0 0 16 68 256 511];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function sf10PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf10_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(10, 16);
+            symbols = [0 0 0 0 0 0 32 136 512 1023];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function sf11PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf11_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(11, 16);
+            symbols = [0 0 0 0 0 0 64 272 1024 2047];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
+        end
+
+        function sf12PackagePasses(testCase)
+            metadata = lora_phy.parse_hdl_recording_name( ...
+                "hdl_sf12_bw125k_fs2000k_package.pcm");
+            config = lora_phy.css_config(12, 16);
+            symbols = [0 0 0 0 0 0 128 544 2048 4095];
+            directions = ["up" "up" "up" "up" "up" "up" "up" "up" "down" "up"];
+            iq = complex(zeros(10*config.samplesPerSymbol,1));
+            for k = 1:numel(symbols)
+                chirp = lora_phy.modulate_symbol(symbols(k), config);
+                if directions(k) == "down"
+                    chirp = conj(chirp);
+                end
+                range = (k-1)*config.samplesPerSymbol + (1:config.samplesPerSymbol);
+                iq(range) = 0.5*chirp;
+            end
+
+            verification = lora_phy.verify_tx_checkpoint(iq, metadata);
+
+            testCase.verifyEqual(verification.stageNumber, 2);
+            testCase.verifyEqual(verification.verdict, "PASS");
+            testCase.verifyEqual(verification.symbolsPassed, 10);
+            testCase.verifyLessThan(verification.worstEvmPercent, 1e-10);
         end
 
         function unreferencedStagesNeverClaimPass(testCase)
