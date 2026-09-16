@@ -119,10 +119,10 @@ jobs:
           print("CI16 byte layout PASS:", actual.hex(" "))
           PY
 
-      - name: Verify all SF5/SF6/SF7 symbols against MATLAB golden convention
+      - name: Verify SF5..SF12 symbols against MATLAB golden convention
         run: |
           ghdl -r --std=08 --workdir=build/ghdl-lora test_formiration_chirp_golden \
-            --assert-level=error --stop-time=10ms
+            --assert-level=error --stop-time=100ms
 
       - name: Verify SF5/SF6/SF7 package waveforms and generate CI16 captures
         run: |

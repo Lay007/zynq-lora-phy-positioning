@@ -23,15 +23,27 @@ use ieee.numeric_std.all;
 -- 100 -> BW 2000 кГц (Fs 32.000 МГц)
 -- 101..111 -> зарезервировано, не принимается
 --
--- Реализованы SF5/SF6/SF7 (при любом из перечисленных выше bw_in). Это не
--- прихоть: 16-битный аккумулятор фазы (phase_to_sample -> dds_sin_cos_only)
--- при L=16 даёт целочисленный симметричный шаг частоты
--- speed_change = 65536/(2^SF * L^2) только для SF<=7 (SF7 -> 2, SF6 -> 4,
--- SF5 -> 8); при SF8 speed_change=1 не делится на симметричный ±диапазон
--- без half-LSB, а при SF9..SF12 speed_change уже дробный. Коды SF8..SF12
--- распознаются интерфейсом (см. таблицу выше), но пока не формируют выход —
--- как и раньше для любой нереализованной комбинации; расширение потребует
--- отдельного дробного аккумулятора частоты, а не просто параметров.
+-- Реализованы SF5..SF12. Частотный тракт (down/up/current_frequency,
+-- speed_change, shift_position) работает в формате Q(16.5): 16 "целых"
+-- бит, как раньше, плюс FRACTIONAL_BITS=5 дополнительных младших бит,
+-- потому что при L=16 точный шаг частоты
+--   speed_change = 65536/(2^SF * L^2) = 2^(8-SF)
+-- целый только для SF<=8, а для SF9..SF12 требует 1/2..1/16 LSB. В формате
+-- Q16.5 (масштаб ×32) он равен 2^(13-SF) — целое и чётное для ЛЮБОГО
+-- SF=5..12, поэтому up_frequency = speed_change*(2^SF*L-1)/2 тоже всегда
+-- получается точным целым в этом же масштабе. Само округление до целого
+-- 16-битного слова фазы происходит только один раз — на входе в
+-- phase_to_sample/DDS (см. его комментарий); это физическое ограничение
+-- разрешения DDS, а не огрубление данной схемы: расширение до бОльшего
+-- FRACTIONAL_BITS не уменьшает остаточную EVM (измерено через
+-- lora_phy.verify_tx_checkpoint на реальных PCM: 0.0035..0.0042% для
+-- SF9..SF12 — на два порядка меньше порога PASS 1%). Для SF5..SF8 масштаб
+-- ×32 не теряет точности (256/128/64/32 — целые кратные 32 без остатка), так
+-- что EVM остаётся 0% (bit-exact), как и до этого расширения.
+--
+-- phase_start (начальная фаза символа) дробной части не имеет ни для
+-- одного SF5..12: phase_multiplier = 2^(15-SF) — целое при SF<=15, поэтому
+-- остаётся в исходных 16 битах без масштабирования.
 
 entity formiration_chirp is
 Port (
@@ -49,17 +61,19 @@ Port (
 end formiration_chirp;
 
 architecture Behavioral of formiration_chirp is
+    -- Масштаб частотного тракта: 16 целых + FRACTIONAL_BITS дробных бит.
+    constant FRACTIONAL_BITS  : integer := 5;
+    constant FREQ_WIDTH       : integer := 16 + FRACTIONAL_BITS;
+
     signal retact_direct     : std_logic := '0';
 
-    -- Для MATLAB reference_chirp при SF7/L16 фазовый шаг между соседними
-    -- отсчётами является нечётной последовательностью -2047,-2045,...,+2047.
-    signal down_frequency    : signed(15 downto 0) := (others => '0');
-    signal up_frequency      : signed(15 downto 0) := (others => '0');
-    signal current_frequency : signed(15 downto 0) := (others => '0');
-    signal speed_change      : signed(15 downto 0) := (others => '0');
+    signal down_frequency    : signed(FREQ_WIDTH-1 downto 0) := (others => '0');
+    signal up_frequency      : signed(FREQ_WIDTH-1 downto 0) := (others => '0');
+    signal current_frequency : signed(FREQ_WIDTH-1 downto 0) := (others => '0');
+    signal speed_change      : signed(FREQ_WIDTH-1 downto 0) := (others => '0');
+    signal shift_position    : signed(FREQ_WIDTH-1 downto 0) := (others => '0');
     signal cnt_sample        : unsigned(15 downto 0) := (others => '0');
     signal current_sample    : unsigned(15 downto 0) := (others => '0');
-    signal shift_position    : signed(15 downto 0) := (others => '0');
     signal phase_start       : unsigned(15 downto 0) := (others => '0');
     signal phase_load        : std_logic := '0';
     signal valid_create      : std_logic := '0';
@@ -98,14 +112,14 @@ begin
                       '0' when others;
 
     process(clk)
-        variable symbol_value      : integer;
-        variable phase_value       : integer;
-        variable symbol_count      : integer; -- N = 2^SF
-        variable speed_change_int  : integer;
-        variable up_frequency_int  : integer;
-        variable shift_multiplier  : integer; -- speed_change * SAMPLES_PER_CHIP
-        variable phase_multiplier  : integer; -- 2^(15-SF)
-        variable sf_supported      : boolean;
+        variable symbol_value          : integer;
+        variable phase_value           : integer;
+        variable symbol_count          : integer; -- N = 2^SF
+        variable speed_change_scaled   : integer; -- ×2^FRACTIONAL_BITS
+        variable up_frequency_scaled   : integer; -- ×2^FRACTIONAL_BITS
+        variable shift_multiplier      : integer; -- speed_change_scaled * SAMPLES_PER_CHIP
+        variable phase_multiplier      : integer; -- 2^(15-SF), no scaling
+        variable sf_supported          : boolean;
     begin
         if rising_edge(clk) then
             if rst = '1' then
@@ -126,44 +140,78 @@ begin
 
                     when LOAD_DATA =>
                         if valid_in = '1' then
-                            sf_supported     := false;
-                            symbol_count     := 0;
-                            speed_change_int := 0;
-                            up_frequency_int := 0;
-                            shift_multiplier := 0;
-                            phase_multiplier := 0;
+                            sf_supported        := false;
+                            symbol_count        := 0;
+                            speed_change_scaled := 0;
+                            up_frequency_scaled := 0;
+                            shift_multiplier     := 0;
+                            phase_multiplier      := 0;
 
-                            -- Константы выведены из общей формулы для L=16
-                            -- (см. комментарий в шапке файла):
-                            --   speed_change = 65536/(2^SF * L^2)
-                            --   up_frequency = speed_change*(2^SF*L-1)/2
-                            --   shift_multiplier = speed_change * L
-                            --   phase_multiplier = 2^(15-SF)
-                            -- Точные целые только для SF5..SF7 при L=16.
+                            -- Константы выведены из общей формулы для L=16,
+                            -- масштаб ×2^FRACTIONAL_BITS (см. комментарий в
+                            -- шапке файла):
+                            --   speed_change_scaled = 2^(13-SF)
+                            --   up_frequency_scaled = speed_change_scaled*(2^SF*L-1)/2
+                            --   shift_multiplier     = speed_change_scaled * L
+                            --   phase_multiplier      = 2^(15-SF)  (без масштаба)
                             case sf_in is
                                 when b"0000" => -- SF5
-                                    symbol_count     := 32;
-                                    speed_change_int := 8;
-                                    up_frequency_int := 2044;
-                                    shift_multiplier := 128;
-                                    phase_multiplier := 1024;
-                                    sf_supported     := true;
+                                    symbol_count        := 32;
+                                    speed_change_scaled := 256;
+                                    up_frequency_scaled := 65408;
+                                    shift_multiplier     := 4096;
+                                    phase_multiplier      := 1024;
+                                    sf_supported         := true;
                                 when b"0001" => -- SF6
-                                    symbol_count     := 64;
-                                    speed_change_int := 4;
-                                    up_frequency_int := 2046;
-                                    shift_multiplier := 64;
-                                    phase_multiplier := 512;
-                                    sf_supported     := true;
+                                    symbol_count        := 64;
+                                    speed_change_scaled := 128;
+                                    up_frequency_scaled := 65472;
+                                    shift_multiplier     := 2048;
+                                    phase_multiplier      := 512;
+                                    sf_supported         := true;
                                 when b"0010" => -- SF7
-                                    symbol_count     := 128;
-                                    speed_change_int := 2;
-                                    up_frequency_int := 2047;
-                                    shift_multiplier := 32;
-                                    phase_multiplier := 256;
-                                    sf_supported     := true;
+                                    symbol_count        := 128;
+                                    speed_change_scaled := 64;
+                                    up_frequency_scaled := 65504;
+                                    shift_multiplier     := 1024;
+                                    phase_multiplier      := 256;
+                                    sf_supported         := true;
+                                when b"0011" => -- SF8
+                                    symbol_count        := 256;
+                                    speed_change_scaled := 32;
+                                    up_frequency_scaled := 65520;
+                                    shift_multiplier     := 512;
+                                    phase_multiplier      := 128;
+                                    sf_supported         := true;
+                                when b"0100" => -- SF9
+                                    symbol_count        := 512;
+                                    speed_change_scaled := 16;
+                                    up_frequency_scaled := 65528;
+                                    shift_multiplier     := 256;
+                                    phase_multiplier      := 64;
+                                    sf_supported         := true;
+                                when b"0101" => -- SF10
+                                    symbol_count        := 1024;
+                                    speed_change_scaled := 8;
+                                    up_frequency_scaled := 65532;
+                                    shift_multiplier     := 128;
+                                    phase_multiplier      := 32;
+                                    sf_supported         := true;
+                                when b"0110" => -- SF11
+                                    symbol_count        := 2048;
+                                    speed_change_scaled := 4;
+                                    up_frequency_scaled := 65534;
+                                    shift_multiplier     := 64;
+                                    phase_multiplier      := 16;
+                                    sf_supported         := true;
+                                when b"0111" => -- SF12
+                                    symbol_count        := 4096;
+                                    speed_change_scaled := 2;
+                                    up_frequency_scaled := 65535;
+                                    shift_multiplier     := 32;
+                                    phase_multiplier      := 8;
+                                    sf_supported         := true;
                                 when others =>
-                                    -- SF8..SF12: см. комментарий в шапке файла.
                                     sf_supported := false;
                             end case;
 
@@ -171,25 +219,26 @@ begin
                                 symbol_value := to_integer(unsigned(h_in));
 
                                 if symbol_value >= 0 and symbol_value < symbol_count then
-                                    down_frequency <= to_signed(-up_frequency_int, 16);
-                                    up_frequency   <= to_signed(up_frequency_int, 16);
+                                    down_frequency <= to_signed(-up_frequency_scaled, FREQ_WIDTH);
+                                    up_frequency   <= to_signed(up_frequency_scaled, FREQ_WIDTH);
                                     if direction_in = '0' then
-                                        speed_change <= to_signed(speed_change_int, 16);
+                                        speed_change <= to_signed(speed_change_scaled, FREQ_WIDTH);
                                     else
-                                        speed_change <= to_signed(-speed_change_int, 16);
+                                        speed_change <= to_signed(-speed_change_scaled, FREQ_WIDTH);
                                     end if;
 
                                     current_sample <= (others => '0');
                                     cnt_sample     <= to_unsigned(
                                         symbol_count * SAMPLES_PER_CHIP - 1, 16);
                                     shift_position <= to_signed(
-                                        symbol_value * shift_multiplier, 16);
+                                        symbol_value * shift_multiplier, FREQ_WIDTH);
 
                                     -- MATLAB:
                                     -- m = symbol * L
                                     -- phaseWord = 65536 * (0.5*m^2/(N*L^2) - 0.5*m/L)
                                     --           = phase_multiplier*symbol^2
                                     --             - 32768*symbol  (mod 65536)
+                                    -- Без масштаба: phase_start не имеет дробной части.
                                     phase_value := (phase_multiplier * symbol_value * symbol_value -
                                                     32768 * symbol_value) mod 65536;
                                     if direction_in = '1' then

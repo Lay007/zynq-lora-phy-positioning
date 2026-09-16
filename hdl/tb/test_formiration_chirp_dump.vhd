@@ -101,6 +101,18 @@ begin
         dump_symbol(3, 512, "build/ghdl-lora/hdl_sf5_bw500k_fs8000k_chirp-h3-up.pcm");
         dump_symbol(4, 512, "build/ghdl-lora/hdl_sf5_bw500k_fs8000k_chirp-h4-up.pcm");
 
+        -- SF8..SF12 (Q(16.5) fractional-accumulator path): one representative
+        -- cyclically-shifted symbol each, BW125k/Fs2000k label (L=16), so
+        -- they can be opened directly in Inspector to see real EVM numbers
+        -- for the fractional chirp rate, not just the VHDL-internal
+        -- bit-exact self-check in test_formiration_chirp_golden.vhd.
+        bw_in <= b"000";
+        sf_in <= b"0011"; dump_symbol(17, 256*16, "build/ghdl-lora/hdl_sf8_bw125k_fs2000k_chirp-h17-up.pcm");
+        sf_in <= b"0100"; dump_symbol(17, 512*16, "build/ghdl-lora/hdl_sf9_bw125k_fs2000k_chirp-h17-up.pcm");
+        sf_in <= b"0101"; dump_symbol(17, 1024*16, "build/ghdl-lora/hdl_sf10_bw125k_fs2000k_chirp-h17-up.pcm");
+        sf_in <= b"0110"; dump_symbol(17, 2048*16, "build/ghdl-lora/hdl_sf11_bw125k_fs2000k_chirp-h17-up.pcm");
+        sf_in <= b"0111"; dump_symbol(17, 4096*16, "build/ghdl-lora/hdl_sf12_bw125k_fs2000k_chirp-h17-up.pcm");
+
         report "HDL LoRa SF5 chirp dump complete" severity note;
         finish;
         wait;
