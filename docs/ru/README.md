@@ -6,6 +6,7 @@
 
 - [Архитектура системы](architecture.md)
 - [Дорожная карта и критерии готовности](roadmap.md)
+- [Аппаратный timestamping и синхронизация приёмников](hardware-timestamping.md)
 - [Завершённая приёмка floating-point MATLAB M1](matlab-m1-acceptance.md)
 - [MATLAB-модель](matlab-model.md)
 - [Simulink и генерация Verilog](simulink.md)
