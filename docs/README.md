@@ -7,6 +7,7 @@ This directory contains the engineering documentation for the LoRa PHY and posit
 - [Architecture](architecture.md)
 - [Roadmap](roadmap.md)
 - [Hardware timestamping and receiver synchronization decision](architecture-decisions/0005-hardware-timestamping-and-receiver-synchronization.md)
+- [Hardware timestamping and synchronized receiver timing](hardware-timestamping.md)
 - [PL coarse sample counter](coarse-sample-counter.md)
 - [LoRa PHY coding](lora-phy-coding.md)
 - [LoRa PHY inspector](lora-phy-inspector.md)
