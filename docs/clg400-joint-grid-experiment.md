@@ -906,3 +906,52 @@ not one of the three silent joint-search failure paths this instrumentation
 was built to catch. It does not identify what it is instead; nine packets at
 one distance and one power level is, per the evidence-boundary note above, a
 decision-defect-adjacent measurement, not a link characterization.
+
+## A larger pooled sample narrows it further -- 2026-09-17, same session
+
+Two more batches on the same stand (30 commanded transmissions each, 27 and
+29 landed inside the recording window) push the total for this link to 56
+captures. The headline numbers hold and sharpen rather than shift:
+
+- `up_search_aborted`, `down_search_aborted`, and `timing_rejected_out_of_range`
+  are `false` on all 56, and `precise_correction_applied` is `true` on all 56.
+  Zero exceptions across three independently-run batches is as clean a
+  negative result as this instrumentation can give for this link: whatever is
+  behind the CRC failures below, it is not one of the three paths these bits
+  exist to catch.
+- CRC passed on 22 of 56 (39%), down from the smaller first batch's 6 of 9
+  (67%) -- consistent with the first batch simply being too small to see the
+  true rate, not with anything changing about the link (the antennas were not
+  touched between the two 2026-09-17 batches).
+
+`correction_samples` -- the signed sample count the joint estimator actually
+applied, still ranging roughly -8..+12 -- splits the CRC outcome in a way SNR
+does not:
+
+| `correction_samples` | CRC pass rate | n |
+|---:|---:|---:|
+| negative | 67% | 12 |
+| zero or positive | 32% | 44 |
+
+Mean `iq_burst_ratio` is 439 for the negative group against 448 for the
+zero-or-positive group (comparable spread, ~35-55), which rules out the
+obvious confound: this is not a case of the better-corrected packets simply
+having a stronger recorded signal. A second candidate split from the smaller
+batch, `symbol_offset`, did not survive the larger sample (33% pass at
+offset 1, n=9, against 40% at offset 2, n=47 -- indistinguishable given the
+n=9 group). `up_offset_samples` tracks `correction_samples` almost exactly
+(`correction_samples` is very close to `up_offset_samples + 4` throughout the
+pooled data), so the two are not independent evidence of anything; there is
+one real split here, not two.
+
+This says nothing about mechanism. It says where the next question is: not
+in the three failure paths this instrumentation targets, not in received
+signal strength, and apparently tied to the sign of the correction the joint
+estimator computes rather than merely whether it fires. Whether that traces
+back to an up/down asymmetry in how the estimator combines its two legs, to
+a rounding or sign convention at zero, or to something about this specific
+stand's residual clock offset is exactly what a next, purpose-built
+experiment -- not a retrospective read of a convenience sample -- would need
+to isolate. 56 packets at one distance, one power level, and one antenna
+placement remain, per the evidence-boundary note above, well short of a link
+characterization.
