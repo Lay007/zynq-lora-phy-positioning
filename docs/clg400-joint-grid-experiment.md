@@ -1046,3 +1046,61 @@ path -- confidence alone may not be the right signal for whatever this is --
 or a new experiment built to force the coarse-to-fine gap wider and watch
 what happens to it directly, rather than another pass over a sample this
 document has now read three different ways.
+
+## The mechanism, found against ground truth -- 2026-09-17
+
+Two more checks against the same pool, both against evidence the earlier
+ones did not use: the actual transmitted symbols, not just what the PL
+reports about itself.
+
+`src/zynq_lora_phy/lora_packet.py`'s `decode_lora_symbol_trace` searches up to
+nine bin-adjustment hypotheses times nine symbol offsets and returns whichever
+succeeds first, or the closest-distance header-valid candidate otherwise.
+That search could in principle manufacture a spurious failure by missing the
+right hypothesis. It does not: every one of the 56 packets, pass and fail
+alike, resolves to `bin_adjustment=0` and `symbol_offset` of 1 or 2, well
+inside the searched range and structurally the same regardless of outcome.
+The decoder is not the defect.
+
+`tools/export_stage_differential.py` already existed for exactly this next
+step: it rebuilds the deterministic `ZLP1` counter payload from the
+transmitter's own serial log -- ground truth that never touches the received
+IQ -- and, with `--grid-sweep`, reports where the PL's sample grid actually
+sat against that truth, independent of how the PL's own diagnostics describe
+their own correction. Run with a sweep radius of 20 across all 56 captures:
+
+| `pl_grid_error_samples` | CRC pass rate | n |
+|---:|---:|---:|
+| 0 | 88% | 25 |
+| &plusmn;1 | 0% | 31 |
+
+Not one exception in either direction: every packet whose final grid landed
+exactly on the transmitted symbols passed CRC unless something else also
+went wrong (3 of 25 still failed -- ordinary noise, not this mechanism), and
+every packet off by even one sample failed outright. One sample at
+`SAMPLES_PER_CHIP=8` is an eighth of a chip; this receiver's payload
+demodulation has essentially zero tolerance for it.
+
+And the sign of that one-sample error lines up with `correction_samples`
+exactly as the earlier, weaker sign-based split suggested:
+
+| `correction_samples` | `pl_grid_error_samples` distribution |
+|---|---|
+| negative (n=12) | 0 in 9, -1 in 3, never +1 |
+| zero/positive (n=44) | +1 in 28, 0 in 16, never -1 |
+
+This is the mechanism the last several sections were reaching for: not "the
+sign of the correction" as a cause in itself, but a systematic one-sample
+error in how the final corrected grid lands, whose direction tracks the sign
+of the correction that was needed. It was only visible once the comparison
+point stopped being the PL's own account of itself and became the
+independently-known transmitted symbols.
+
+It is not yet fixed, and the exact line responsible is not yet identified.
+The stage-differential tool itself warns why the obvious next check --
+comparing `correction_samples` directly against the sweep's best-fit offset
+-- does not resolve it: "the two are measured from different origins," so a
+raw difference between them is not interpretable without first reconciling
+what each origin actually is. That reconciliation, done carefully against
+the RTL's own sample-count bookkeeping rather than against another
+convenience read of this pool, is the next concrete step.
