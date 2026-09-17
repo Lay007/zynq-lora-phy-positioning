@@ -1104,3 +1104,46 @@ raw difference between them is not interpretable without first reconciling
 what each origin actually is. That reconciliation, done carefully against
 the RTL's own sample-count bookkeeping rather than against another
 convenience read of this pool, is the next concrete step.
+
+## Root cause, located -- 2026-09-17
+
+`analyze()` calls `estimate_joint_chirp_timing` from `src/zynq_lora_phy/toa.py`
+on the same raw IQ, in the same coordinate system it already uses for
+`best_offset_against_transmitted`, so the two are directly comparable (unlike
+the PL's own `correction_samples`, which is not). Across the same 56-packet
+pool, the reference estimate matches ground truth in 38 of 50 evaluable
+packets and is off by exactly **+1, never -1**, in the other 12. That is a
+smaller, one-sided version of the same defect the PL shows -- present even in
+the trusted reference implementation.
+
+The reason is visible in `estimate_toa` (`src/zynq_lora_phy/toa.py:39`): it
+locates the integer correlation peak and then applies **parabolic
+interpolation** across the peak and its two neighbours to refine the
+estimate to sub-sample precision before `estimate_joint_chirp_timing` rounds
+the averaged up/down offset to an integer. `lora_joint_chirp_grid_controller.v`
+does no such thing. Its entire input from the search is `search_triplet_valid`
+and `search_peak_sample_count` -- a bare integer index. It has no port for
+the peak magnitude or its neighbours, so it cannot interpolate even in
+principle; `timing_correction_samples` rounds the *unrefined* integer peak.
+
+That the hardware is missing exactly the refinement step the reference model
+uses is not a guess: `lora_peak_triplet_capture.v`, the block that already
+computes `magnitude_before` / `magnitude_peak` / `magnitude_after` for
+each search, documents its own purpose as "the hardware-shaped bridge between
+a future sample-rate correlation stream and **the already-generated
+packet-rate ToA interpolator**." That interpolator exists and is instantiated
+-- in `lora_packet_timestamp_axi_path.v` and `lora_packet_toa_receiver_top.v`,
+for the legacy single-search fractional-ToA path. It was never wired to the
+joint chirp grid controller. The triplet magnitudes the interpolation would
+need are computed, on every search, and then dropped on the floor before they
+reach the module that rounds to `timing_correction_samples`.
+
+This closes the causal chain the last four sections traced without reaching:
+CRC failure <- one-sample PL grid error <- unrefined integer-only peak in
+`lora_joint_chirp_grid_controller.v` <- the triplet-capture-to-interpolator
+bridge its own neighbouring module already documents existing for, not
+connected here. Confirming it end to end -- wiring the triplet magnitudes
+into the joint controller, adding interpolation before rounding, and
+re-running this same 56-packet-style comparison against ground truth -- is
+an RTL change, not a documentation exercise, and belongs in its own
+simulated-then-hardware pass, not this session's closing note.
