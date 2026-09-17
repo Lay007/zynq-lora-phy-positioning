@@ -178,7 +178,7 @@ jobs:
           vvp /tmp/lora_joint_chirp_grid_controller_tb
       - name: Compile and run joint chirp grid path timing testbench
         run: |
-          iverilog -g2012 -Wall -s tb_lora_joint_chirp_grid_path \
+          iverilog -g2012 -Wall -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_chirp_grid_path \
             -o /tmp/lora_joint_chirp_grid_path_tb \
             fpga/wrappers/lora_iq_history_buffer.v \
             fpga/wrappers/lora_reference_chirp_rom.v \
@@ -186,6 +186,7 @@ jobs:
             fpga/wrappers/lora_peak_triplet_capture.v \
             fpga/wrappers/lora_matched_filter_search.v \
             fpga/wrappers/lora_joint_chirp_grid_controller.v \
+            fpga/generated/toa-interpolator/lora_toa_interpolator_gen/lora_toa_ToaInterpolator.v \
             fpga/tb/tb_lora_joint_chirp_grid_path.sv
           vvp /tmp/lora_joint_chirp_grid_path_tb
           vvp /tmp/lora_joint_chirp_grid_path_tb +chips_to_boundary=1

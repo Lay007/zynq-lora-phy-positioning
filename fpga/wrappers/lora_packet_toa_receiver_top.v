@@ -323,6 +323,8 @@ module lora_packet_toa_receiver_top #(
                 .search_failed(raw_search_failure),
                 .search_triplet_valid(raw_peak_triplet_valid),
                 .search_peak_sample_count(peak_sample_count),
+                .search_offset_q12(toa_offset_q12[15:0]),
+                .search_offset_valid(toa_offset_valid),
                 .search_start(joint_search_start),
                 .search_coarse_start(joint_search_coarse_start),
                 .reference_down(reference_down),
@@ -419,6 +421,15 @@ module lora_packet_toa_receiver_top #(
         .peak_restart_error(toa_peak_restart_error)
     );
 
+    // Both joint-grid legs share this one interpolator instance, sequenced by
+    // the joint controller itself (down never launches until up's own wait
+    // states have consumed its triplet), so ungating the trigger here is safe.
+    // raw_peak_triplet_valid == peak_triplet_valid whenever reference_down is
+    // tied low, which is always true in the g_legacy_toa_search branch, so
+    // this is a no-op for that mode and only changes behaviour when the joint
+    // controller is active. u_metadata_join below stays on peak_triplet_valid
+    // (up leg only) so the legacy single-search metadata semantics are
+    // untouched.
     `LORA_TOA_INTERPOLATOR_MODULE u_toa_interpolator (
         .clk(clk),
         .reset(toa_reset_reg),
@@ -426,11 +437,24 @@ module lora_packet_toa_receiver_top #(
         .magnitudeBefore(magnitude_before),
         .magnitudePeak(magnitude_peak),
         .magnitudeAfter(magnitude_after),
-        .tripletValid(peak_triplet_valid),
+        .tripletValid(raw_peak_triplet_valid),
         .offsetSamples(toa_offset_q12),
         .offsetValid(toa_offset_valid),
         .logPeak(toa_log_peak_q12)
     );
+
+    // The interpolator above now runs for both joint-grid legs (up and down),
+    // so its offsetValid pulses twice per packet in joint mode. coarse_valid
+    // still only pulses once (up leg). Gate fractional_valid the same way
+    // coarse_valid already is, or the down leg's unmatched fractional
+    // fragment sits in lora_timestamp_metadata_join waiting for a coarse
+    // fragment that never comes, and can wrongly pair with the NEXT packet's
+    // coarse count instead. reference_down is guaranteed stable low for the
+    // entire up-leg interpolation window and stable high for the entire
+    // down-leg one -- the joint controller does not start the down search
+    // until its own wait state has consumed the up leg's offsetValid -- so
+    // sampling it here reliably attributes each pulse to its leg.
+    wire toa_offset_valid_up = toa_offset_valid && !reference_down;
 
     lora_timestamp_metadata_join u_metadata_join (
         .clk(clk),
@@ -438,7 +462,7 @@ module lora_packet_toa_receiver_top #(
         .coarse_sample_count(peak_sample_count),
         .coarse_valid(peak_triplet_valid),
         .fractional_toa_q12(toa_offset_q12),
-        .fractional_valid(toa_offset_valid),
+        .fractional_valid(toa_offset_valid_up),
         .timestamp_coarse(metadata_coarse),
         .timestamp_fractional_q12(metadata_fractional_q12),
         .timestamp_valid(metadata_valid),

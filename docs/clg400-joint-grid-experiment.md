@@ -1147,3 +1147,72 @@ into the joint controller, adding interpolation before rounding, and
 re-running this same 56-packet-style comparison against ground truth -- is
 an RTL change, not a documentation exercise, and belongs in its own
 simulated-then-hardware pass, not this session's closing note.
+
+## The fix, implemented and verified in simulation -- 2026-09-17 (M5)
+
+`lora_matched_filter_search.v` already exposed `magnitude_before/peak/after`
+at its top level; nothing there needed to change. Two things did:
+
+- **`lora_packet_toa_receiver_top.v`**: the already-instantiated
+  `lora_toa_ToaInterpolator` (previously used only by the legacy single-search
+  path) now receives `tripletValid` from `raw_peak_triplet_valid` instead of
+  the `!reference_down`-gated `peak_triplet_valid`, so it now interpolates
+  both joint-grid legs, sequentially, on the same instance. This is a no-op
+  for the legacy path (`reference_down` is tied low there, so the two signals
+  are identical) and only changes joint-mode behaviour. One consequence had
+  to be corrected in the same change: `lora_timestamp_metadata_join` expects
+  exactly one `fractional_valid` per `coarse_valid`, and `coarse_valid` still
+  only fires for the up leg -- so `fractional_valid` needed the same
+  `!reference_down` gate, or the down leg's now-unmatched fractional fragment
+  would sit waiting and could wrongly pair with the *next* packet's coarse
+  count. Caught by reasoning through the timing before running anything, not
+  by a failing test.
+- **`lora_joint_chirp_grid_controller.v`**: two new states,
+  `STATE_WAIT_UP_FRAC` and `STATE_WAIT_DOWN_FRAC`, each waiting for one
+  `search_offset_valid` pulse (fixed 38-cycle latency, 6 for a flat triplet,
+  no failure path) after its leg's `search_triplet_valid`. The up leg's
+  fraction is registered (`up_offset_frac_q12`) because it must survive until
+  the down leg finishes, many cycles later; the down leg's fraction is read
+  live off `search_offset_q12` in the same cycle it arrives, since registering
+  it first and reading it in the same always-block would see last cycle's
+  stale value. The existing round-away-from-zero formula
+  (`(offset_sum_abs + 1) >>> 1`, for a divide-by-2) generalises to Q12 fixed
+  point as `(offset_sum_q12_abs + 4096) >>> 13` (divide-by-8192, since
+  `offset_sum_q12` carries `2*timing*4096`) -- checked algebraically before
+  implementing: with both fractions zero this collapses exactly back to the
+  original formula. A first draft of this comment used the wrong divisor
+  (4096/shift-12); rederiving it from the actual units caught the error
+  before it reached the RTL. A new diagnostic, `diag_up_offset_frac_q12`,
+  exposes the captured up-leg fraction, so a future stage-differential
+  comparison does not rediscover this same invisibility gap.
+
+Verified against the same criteria used to find the defect, not just "compiles
+and runs":
+
+- `tb_lora_joint_chirp_grid_controller.sv`: every pre-existing case now calls
+  `return_peak` with a defaulted zero fraction and is unchanged -- a direct
+  regression check that the Q12 generalisation reduces to the old integer
+  arithmetic. Two new cases added: up=2.5/down=2.5 samples (both with a
+  Q12 +0.5 fraction) gives correction +3, where the old integer-only
+  arithmetic would have given +2 -- the exact class of error this
+  investigation traced CRC failures to; and the precise rounding tie
+  up=0.5/down=0.5, timing exactly 0.5, correctly rounding away from zero to
+  +1. All pass.
+- `tb_lora_joint_chirp_grid_path.sv` (all three `chips_to_boundary` sweep
+  values): the interpolator is now in this testbench's chain too. The
+  existing closed-form `expected_timing = 11 - 8*chips` was checked
+  empirically rather than assumed, and holds unchanged -- the clean synthetic
+  chirp's true peak sits on an exact sample, so the interpolator correctly
+  returns ~0. Total search duration rose from 135443 to 135519 cycles (+76 =
+  2*38, exactly the two legs' interpolation latency) -- negligible against
+  the 145152-cycle SFD budget.
+- `tb_lora_packet_toa_receiver_top.sv` and `tb_lora_clg400_gpreg_bridge.sv`:
+  both already built the interpolator (for the legacy path) and both still
+  pass unchanged after the wiring change, including the `metadata_join`
+  gating fix above.
+
+All four rebuilt from a clean directory with the same `iverilog`/`vvp`
+commands CI uses. This is simulation-only. It has not been run on hardware:
+the board was disconnected before this fix was written, and re-running the
+same 56-packet-style capture against the rebuilt bitstream is the natural
+next step, but a separate one.

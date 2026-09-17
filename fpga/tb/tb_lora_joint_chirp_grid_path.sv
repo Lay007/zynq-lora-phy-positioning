@@ -1,5 +1,11 @@
 `timescale 1ns/1ps
 
+`ifdef LORA_NAMESPACED_GENERATED
+`define LORA_TOA_INTERPOLATOR_MODULE lora_toa_ToaInterpolator
+`else
+`define LORA_TOA_INTERPOLATOR_MODULE ToaInterpolator
+`endif
+
 module tb_lora_joint_chirp_grid_path;
     localparam integer M = 1024;
     localparam integer SEARCH_RADIUS = 16;
@@ -69,6 +75,9 @@ module tb_lora_joint_chirp_grid_path;
     wire [15:0] peak_index;
     wire [63:0] peak_sample_count;
     wire triplet_valid;
+    wire signed [31:0] toa_offset_q12;
+    wire toa_offset_valid;
+    wire signed [31:0] toa_log_peak_q12_unused;
     wire signed [31:0] timing_correction_samples;
     wire [31:0] fine_skip;
     wire fine_resync_valid;
@@ -159,6 +168,22 @@ module tb_lora_joint_chirp_grid_path;
         .peak_restart_error(peak_restart_error)
     );
 
+    // Same generated interpolator the legacy single-search path uses,
+    // reused here for both joint-grid legs sequentially -- see the wiring
+    // note in lora_packet_toa_receiver_top.v that this mirrors.
+    `LORA_TOA_INTERPOLATOR_MODULE u_toa_interpolator (
+        .clk(clk),
+        .reset(~resetn),
+        .enb(1'b1),
+        .magnitudeBefore(magnitude_before),
+        .magnitudePeak(magnitude_peak),
+        .magnitudeAfter(magnitude_after),
+        .tripletValid(triplet_valid),
+        .offsetSamples(toa_offset_q12),
+        .offsetValid(toa_offset_valid),
+        .logPeak(toa_log_peak_q12_unused)
+    );
+
     lora_joint_chirp_grid_controller #(
         .SAMPLES_PER_CHIP(8), .SYMBOL_SAMPLES(M),
         .SEARCH_RADIUS(SEARCH_RADIUS), .FINE_GUARD_SAMPLES(16),
@@ -172,6 +197,8 @@ module tb_lora_joint_chirp_grid_path;
         .search_busy(search_busy), .search_failed(search_failed),
         .search_triplet_valid(triplet_valid),
         .search_peak_sample_count(peak_sample_count),
+        .search_offset_q12(toa_offset_q12[15:0]),
+        .search_offset_valid(toa_offset_valid),
         .search_start(search_start),
         .search_coarse_start(search_coarse_start),
         .reference_down(reference_down), .busy(controller_busy),

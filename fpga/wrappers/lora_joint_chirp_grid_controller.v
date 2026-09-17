@@ -45,6 +45,14 @@ module lora_joint_chirp_grid_controller #(
     input  wire               search_failed,
     input  wire               search_triplet_valid,
     input  wire [63:0]        search_peak_sample_count,
+    // Sub-sample refinement for the integer peak above, from the same
+    // generated ToA interpolator the legacy single-search path already uses.
+    // Q12 (1/4096 sample), range +/-2048 (+/-0.5 sample); one search_offset_valid
+    // pulse follows each search_triplet_valid, on its own fixed latency, never
+    // concurrently with the next search's peak (the states below wait for it
+    // before either leg is allowed to proceed).
+    input  wire signed [15:0] search_offset_q12,
+    input  wire               search_offset_valid,
 
     output reg                search_start,
     output reg  [63:0]        search_coarse_start,
@@ -58,6 +66,13 @@ module lora_joint_chirp_grid_controller #(
     // up search was told to look, and how far from there its peak was.
     output wire [63:0]        diag_up_coarse_start,
     output wire signed [31:0] diag_up_offset_samples,
+    // The sub-sample refinement actually captured for the up leg, in the
+    // same Q12 units as search_offset_q12. Without this, the fractional
+    // correction the board applies would again be invisible to any future
+    // stage-differential comparison, exactly the gap that made this fix hard
+    // to find in the first place. The down leg has no equivalent diagnostic
+    // today and this does not add one.
+    output wire signed [15:0] diag_up_offset_frac_q12,
     output reg  [31:0]        fine_skip,
     output reg                fine_resync_valid,
     output reg                timing_valid,
@@ -84,18 +99,26 @@ module lora_joint_chirp_grid_controller #(
     localparam [2:0] STATE_WAIT_DOWN_DATA = 3'd3;
     localparam [2:0] STATE_LAUNCH_DOWN    = 3'd4;
     localparam [2:0] STATE_WAIT_DOWN      = 3'd5;
+    localparam [2:0] STATE_WAIT_UP_FRAC   = 3'd6;
+    localparam [2:0] STATE_WAIT_DOWN_FRAC = 3'd7;
 
     localparam [63:0] SYMBOL_SAMPLES_U64 = SYMBOL_SAMPLES;
     localparam [63:0] SEARCH_RADIUS_U64 = SEARCH_RADIUS;
     localparam [63:0] FINE_GUARD_U64 = FINE_GUARD_SAMPLES;
+    // Half the Q12-of-two-samples divisor used to round timing to the
+    // nearest integer sample below (see the comment at rounded_abs).
+    localparam signed [65:0] TIMING_ROUND_BIAS_Q12x2 = 66'sd4096;
 
     reg [2:0] state;
     reg [63:0] up_coarse_start;
     reg [63:0] down_coarse_start;
-    reg signed [64:0] up_offset;
+    reg signed [64:0] up_offset_int;
+    reg signed [15:0] up_offset_frac_q12;
+    reg signed [64:0] down_offset_int;
 
     assign diag_up_coarse_start = up_coarse_start;
-    assign diag_up_offset_samples = up_offset[31:0];
+    assign diag_up_offset_samples = up_offset_int[31:0];
+    assign diag_up_offset_frac_q12 = up_offset_frac_q12;
 
     wire [63:0] coarse_chip_advance = chips_to_boundary * SAMPLES_PER_CHIP;
     wire signed [64:0] coarse_phase_samples =
@@ -117,15 +140,39 @@ module lora_joint_chirp_grid_controller #(
         + SYMBOL_SAMPLES_U64 + SEARCH_RADIUS_U64;
     wire signed [64:0] peak_signed = {1'b0, search_peak_sample_count};
     wire signed [64:0] down_coarse_signed = {1'b0, down_coarse_start};
-    wire signed [64:0] down_offset_now = peak_signed - down_coarse_signed;
-    wire signed [65:0] offset_sum =
-        {{1{up_offset[64]}}, up_offset}
-        + {{1{down_offset_now[64]}}, down_offset_now};
-    wire signed [65:0] offset_sum_abs =
-        offset_sum < 0 ? -offset_sum : offset_sum;
-    wire signed [65:0] rounded_abs = (offset_sum_abs + 1) >>> 1;
+
+    // Q12 fixed-point combination: each leg's offset is its captured integer
+    // sample count, scaled to Q12, plus the interpolator's sub-sample
+    // refinement in the same units. The up leg's refinement was captured
+    // earlier into up_offset_frac_q12 (STATE_WAIT_UP_FRAC); the down leg's is
+    // only ever needed in the same cycle it arrives (STATE_WAIT_DOWN_FRAC),
+    // so it is read live off search_offset_q12 here rather than registered
+    // first -- reading a register the same cycle it is written would see
+    // last cycle's stale value, not the one just captured.
+    wire signed [64:0] up_offset_q12 =
+        (up_offset_int <<< 12)
+        + {{49{up_offset_frac_q12[15]}}, up_offset_frac_q12};
+    wire signed [64:0] down_offset_q12 =
+        (down_offset_int <<< 12)
+        + {{49{search_offset_q12[15]}}, search_offset_q12};
+    wire signed [65:0] offset_sum_q12 =
+        {{1{up_offset_q12[64]}}, up_offset_q12}
+        + {{1{down_offset_q12[64]}}, down_offset_q12};
+    wire signed [65:0] offset_sum_q12_abs =
+        offset_sum_q12 < 0 ? -offset_sum_q12 : offset_sum_q12;
+    // offset_sum_q12 is (up_offset + down_offset) in units of 1/4096 sample,
+    // i.e. 2*timing*4096 = timing*8192. Round timing to the nearest whole
+    // sample, ties away from zero, by adding half of that 8192 divisor before
+    // truncating -- the same bias-before-shift trick the pre-interpolation
+    // code used for its plain divide-by-2 (bias 1, shift 1), generalised to
+    // this divisor (bias 4096, shift 13). Confirmed equivalent to the old
+    // formula when both fractional parts are zero: with offset_sum_q12 =
+    // 4096*offset_sum_old, (4096*offset_sum_old + 4096) >>> 13 collapses to
+    // (offset_sum_old + 1) >>> 1.
+    wire signed [65:0] rounded_abs =
+        (offset_sum_q12_abs + TIMING_ROUND_BIAS_Q12x2) >>> 13;
     wire signed [65:0] rounded_timing =
-        offset_sum < 0 ? -rounded_abs : rounded_abs;
+        offset_sum_q12 < 0 ? -rounded_abs : rounded_abs;
     wire timing_in_range =
         (rounded_timing >= -$signed(FINE_GUARD_U64))
         && (rounded_timing <= $signed(FINE_GUARD_U64));
@@ -148,7 +195,9 @@ module lora_joint_chirp_grid_controller #(
             state                     <= STATE_IDLE;
             up_coarse_start           <= 64'd0;
             down_coarse_start         <= 64'd0;
-            up_offset                 <= 65'sd0;
+            up_offset_int             <= 65'sd0;
+            up_offset_frac_q12        <= 16'sd0;
+            down_offset_int           <= 65'sd0;
             search_start              <= 1'b0;
             search_coarse_start       <= 64'd0;
             reference_down            <= 1'b0;
@@ -210,7 +259,17 @@ module lora_joint_chirp_grid_controller #(
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
-                        up_offset <= peak_signed - $signed({1'b0, up_coarse_start});
+                        up_offset_int <= peak_signed - $signed({1'b0, up_coarse_start});
+                        state <= STATE_WAIT_UP_FRAC;
+                    end
+                end
+
+                STATE_WAIT_UP_FRAC: begin
+                    // The interpolator has no failure path and a fixed
+                    // latency (38 cycles, 6 for a flat triplet): this pulse
+                    // is guaranteed to arrive, nothing to abort here.
+                    if (search_offset_valid) begin
+                        up_offset_frac_q12 <= search_offset_q12;
                         state <= STATE_WAIT_DOWN_DATA;
                     end
                 end
@@ -238,6 +297,17 @@ module lora_joint_chirp_grid_controller #(
                         busy <= 1'b0;
                         state <= STATE_IDLE;
                     end else if (search_triplet_valid) begin
+                        down_offset_int <= peak_signed - down_coarse_signed;
+                        state <= STATE_WAIT_DOWN_FRAC;
+                    end
+                end
+
+                STATE_WAIT_DOWN_FRAC: begin
+                    // rounded_timing/timing_in_range/guarded_skip already
+                    // reflect this cycle's live search_offset_q12 through
+                    // down_offset_q12, so they are correct to latch the
+                    // instant this pulses -- no extra cycle of delay needed.
+                    if (search_offset_valid) begin
                         timing_correction_samples <= rounded_timing[31:0];
                         timing_valid <= 1'b1;
                         busy <= 1'b0;

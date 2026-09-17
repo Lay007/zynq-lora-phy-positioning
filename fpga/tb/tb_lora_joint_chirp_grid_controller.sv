@@ -18,6 +18,8 @@ module tb_lora_joint_chirp_grid_controller;
     reg search_failed = 1'b0;
     reg search_triplet_valid = 1'b0;
     reg [63:0] search_peak_sample_count = 64'd0;
+    reg signed [15:0] search_offset_q12 = 16'sd0;
+    reg search_offset_valid = 1'b0;
 
     wire search_start;
     wire [63:0] search_coarse_start;
@@ -32,6 +34,7 @@ module tb_lora_joint_chirp_grid_controller;
     wire up_search_abort_error;
     wire down_search_abort_error;
     wire precise_correction_applied;
+    wire signed [15:0] diag_up_offset_frac_q12;
 
     integer errors = 0;
 
@@ -60,10 +63,13 @@ module tb_lora_joint_chirp_grid_controller;
         .search_failed(search_failed),
         .search_triplet_valid(search_triplet_valid),
         .search_peak_sample_count(search_peak_sample_count),
+        .search_offset_q12(search_offset_q12),
+        .search_offset_valid(search_offset_valid),
         .search_start(search_start),
         .search_coarse_start(search_coarse_start),
         .reference_down(reference_down), .busy(busy),
         .timing_correction_samples(timing_correction_samples),
+        .diag_up_offset_frac_q12(diag_up_offset_frac_q12),
         .fine_skip(fine_skip), .fine_resync_valid(fine_resync_valid),
         .timing_valid(timing_valid), .restart_error(restart_error),
         .timing_range_error(timing_range_error),
@@ -101,13 +107,29 @@ module tb_lora_joint_chirp_grid_controller;
         end
     endtask
 
-    task automatic return_peak(input [63:0] count);
+    // frac_q12 defaults to 0 so every pre-existing call site is unaffected:
+    // with a zero interpolated fraction on both legs, the new Q12 arithmetic
+    // in the DUT collapses back to the original integer-only formula exactly
+    // (see the comment above rounded_abs in the DUT). Only the two new test
+    // cases below pass a nonzero fraction. search_offset_valid is driven one
+    // cycle after search_triplet_valid, matching the DUT's real dependency
+    // (the interpolator's result always follows its triplet) without trying
+    // to model the actual 38-cycle hardware latency, which the DUT does not
+    // time out on.
+    task automatic return_peak(
+        input [63:0] count,
+        input signed [15:0] frac_q12 = 16'sd0
+    );
         begin
             search_busy <= 1'b0;
             search_peak_sample_count <= count;
             search_triplet_valid <= 1'b1;
             @(negedge clk);
             search_triplet_valid <= 1'b0;
+            search_offset_q12 <= frac_q12;
+            search_offset_valid <= 1'b1;
+            @(negedge clk);
+            search_offset_valid <= 1'b0;
         end
     endtask
 
@@ -293,6 +315,38 @@ module tb_lora_joint_chirp_grid_controller;
         wait_search(1'b1, 64'd170240);
         return_peak(64'd170280);
         expect_rejected_result(32'd16);
+
+        history_next_sample_count <= 64'd300000;
+
+        // Sub-sample interpolation: up=2 int + 0.5 frac (Q12 2048), down=2 int
+        // + 0.5 frac -> up=2.5, down=2.5, timing=2.5, correction=+3. The old
+        // integer-only arithmetic (ignoring both fractions) would have summed
+        // 2+2=4, timing=2.0, correction=+2 -- a different, wrong answer. This
+        // is the class of one-sample error the whole investigation traced
+        // CRC failures to; the fix must produce +3, not +2, here.
+        pulse_packet(64'd180000, 16'd0);
+        wait_search(1'b0, 64'd180000);
+        return_peak(64'd180002, 16'sd2048);
+        if (diag_up_offset_frac_q12 !== 16'sd2048) begin
+            errors = errors + 1;
+            $display("FAIL diag_up_offset_frac_q12=%0d expected 2048",
+                     diag_up_offset_frac_q12);
+        end
+        wait_search(1'b1, 64'd190240);
+        return_peak(64'd190242, 16'sd2048);
+        expect_result(32'sd3, 32'd19);
+
+        // The exact rounding tie this investigation started from: up=0 int +
+        // 0.5 frac, down=0 int + 0.5 frac -> up=0.5, down=0.5, sum=1.0,
+        // timing=0.5 exactly. Ties-away-from-zero must round this to +1, not
+        // to 0 -- the boundary case where a rounding-convention mismatch
+        // would first show up.
+        pulse_packet(64'd200000, 16'd0);
+        wait_search(1'b0, 64'd200000);
+        return_peak(64'd200000, 16'sd2048);
+        wait_search(1'b1, 64'd210240);
+        return_peak(64'd210240, 16'sd2048);
+        expect_result(32'sd1, 32'd17);
 
         if (errors) begin
             $display("FAIL tb_lora_joint_chirp_grid_controller (%0d errors)", errors);
