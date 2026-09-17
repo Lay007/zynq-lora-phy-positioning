@@ -434,6 +434,21 @@ module tb_lora_joint_grid_completion;
             errors = errors + 1;
             $display("FAIL history read miss during the joint search");
         end
+        // The down leg's own interpolation now runs too (M5), sharing the
+        // interpolator instance the legacy single-search metadata path uses.
+        // Its offsetValid must not reach lora_timestamp_metadata_join: that
+        // module pairs exactly one fractional fragment per coarse fragment,
+        // coarse_valid only ever fires for the up leg, and an unmatched
+        // fractional fragment left pending here would sit waiting to wrongly
+        // pair with the NEXT packet's own coarse count instead of overflowing
+        // visibly. By this point the down leg's search and its interpolation
+        // (a fixed <=38 cycles after its own triplet) have both long since
+        // finished, so any leak would already be latched.
+        if (dut.u_metadata_join.fractional_pending !== 1'b0) begin
+            errors = errors + 1;
+            $display("FAIL down leg's fractional offset leaked into lora_timestamp_metadata_join (fractional_pending=%0d)",
+                     dut.u_metadata_join.fractional_pending);
+        end
 
         if (errors == 0)
             $display("PASS tb_lora_joint_grid_completion grid_phase=%0d metadata_coarse=%0d chips_to_boundary=%0d searches=%0d aborted=%0d timing_valid=%0d fine_skip=%0d",
