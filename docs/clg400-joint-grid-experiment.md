@@ -1002,3 +1002,47 @@ and the possibility that "correction sign" is a marker for some other,
 not-yet-identified population split rather than a cause in its own right
 (for instance, however `chips_to_boundary` itself gets quantized upstream).
 Both need more than a re-read of this pool to settle.
+
+## A structural asymmetry that reads plausible and does not check out
+
+Re-reading `lora_symbol_grid_resync.v` and the joint controller's own header
+comment together surfaces something neither module's arithmetic shows in
+isolation: the coarse skip always lands `FINE_GUARD_SAMPLES` short of its
+target -- a fixed, one-sided undershoot, by construction, on every packet,
+regardless of what the fine estimate will turn out to be. Between that coarse
+landing and the later fine skip, the grid sits at an error of
+`-(FINE_GUARD_SAMPLES + correction_samples)` relative to the true position:
+smaller in magnitude when `correction_samples` is negative, larger when it is
+positive (up to roughly 28 samples at the +12 end of this pool against 11 at
+the -5 end). If any symbol gets decoded during that window before the fine
+skip lands, a structural, sign-dependent asymmetry in how badly it is
+decoded falls straight out of an otherwise perfectly symmetric pair of
+formulas -- no branch, no bug, just which side of a fixed one-sided offset a
+given packet happens to land on.
+
+That is a coherent story. It is not a confirmed one. Checked against the same
+pool, using the per-symbol `confidence_q15` already in every trace:
+
+- Mean confidence over the first eight decoded symbols (indices 2-9, right
+  after the two zero-confidence preamble entries) is 22903 for negative
+  corrections against 22032 for zero/positive -- a small difference in the
+  hypothesized direction, not the kind of split the CRC numbers show.
+- The single worst-confidence symbol in each packet is essentially identical
+  in magnitude between the two groups (17977 vs 18052) -- no evidence the
+  correlator is struggling harder in one direction.
+- A different, real pattern turned up instead: the worst symbol sits earlier
+  in the trace for CRC failures (index 10.4 on average) than for passes
+  (index 18.0). That is a genuine, unexplained regularity worth keeping, but
+  splitting it further by correction sign shows CRC outcome dominating the
+  position, not sign explaining it (fail/negative 12.5, fail/positive 10.1,
+  pass/negative 15.2, pass/positive 19.5) -- sign is not doing the work in
+  this view either.
+
+So: a structurally plausible asymmetry, derived from the RTL's own stated
+policy rather than assumed, does not show up cleanly in the confidence trace
+this pool provides. Settling it needs either a read of the generated
+FFT/matched-filter correlator's and the Python decoder's own FEC/Hamming
+path -- confidence alone may not be the right signal for whatever this is --
+or a new experiment built to force the coarse-to-fine gap wider and watch
+what happens to it directly, rather than another pass over a sample this
+document has now read three different ways.
