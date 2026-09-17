@@ -1216,3 +1216,75 @@ commands CI uses. This is simulation-only. It has not been run on hardware:
 the board was disconnected before this fix was written, and re-running the
 same 56-packet-style capture against the rebuilt bitstream is the natural
 next step, but a separate one.
+
+## A coverage gap in the fix's own verification, closed -- 2026-09-18
+
+None of the four testbenches above actually let the down leg's own
+interpolation run to completion and then checked for the specific failure
+mode the `lora_packet_toa_receiver_top.v` `!reference_down` gate on
+`fractional_valid` prevents. `tb_lora_joint_chirp_grid_path.sv` has no
+`lora_timestamp_metadata_join` in its chain at all. `tb_lora_packet_toa_receiver_top.sv`
+stops driving samples before the down-search window arrives (its own
+long-standing, documented limitation -- see `tb_lora_joint_grid_completion.sv`'s
+header comment). `tb_lora_clg400_gpreg_bridge.sv` exercises the sticky bits by
+`force`-driving the controller's own outputs directly, bypassing the search
+and interpolator entirely.
+
+`tb_lora_joint_grid_completion.sv` is the one CI job that does drive the down
+leg to completion (that is its whole purpose), and it was not run during the
+M5 pass -- an oversight, caught by re-reading the CI job list rather than by
+a failure. Run separately once fixed: all five `grid_phase` legs pass with
+the M5 changes as committed. A new check was added to it,
+`dut.u_metadata_join.fractional_pending === 1'b0` once both legs have long
+since finished interpolating, and verified the way this document keeps
+insisting a check must be verified: with the `!reference_down` gate on
+`fractional_valid` temporarily removed, this same check fails
+(`fractional_pending=1`); restored, it passes on all five phases. That is the
+regression test the fix itself did not have.
+
+## Overnight follow-up work, and one item deliberately not attempted
+
+Two more candidate improvements were considered before the rebuild. One was
+implemented; the other was investigated and set aside with a specific reason,
+not silently dropped.
+
+**Attempted and closed**: the coverage gap above.
+
+**Investigated and deferred**: exposing `diag_up_offset_frac_q12` (the M5
+controller's new fractional diagnostic) through `lora_clg400_gpreg_bridge.v`
+to `tools/read_clg400_symbol_trace.py`, so a future stage-differential run
+would not have to rediscover this session's own invisibility problem for a
+second signal. The joint-estimator page already uses all five of its
+generic 32-bit register slots (`joint_a`..`joint_e`, i.e. sequence/coarse_lo/
+coarse_hi/fractional_q12/log_peak_q12 in the page-multiplexing scheme shared
+with the symbol-trace and clock pages) for its existing five fields. Adding
+this one without disturbing anything already read by today's `pl_grid_error_samples`
+analysis or by `tests/test_clg400_symbol_trace_tool.py` needs one of: a sixth
+generic slot (touches the shared multiplexing scheme used by all three
+pages, not just this one -- out of scope for an unsupervised pass), or a
+reduced-precision pack into `joint_status`'s eleven reserved bits (bits
+15:5, currently zero), which would need one fewer bit of Q12 resolution than
+the interpolator natively gives (Q11, i.e. `>>> 1` before packing) and
+careful placement alongside the existing sticky bits in the same 32-bit CDC
+word. Both are real, buildable options -- deliberately not attempted tonight
+without someone to sanity-check the bit-packing against a live capture.
+
+## The Vivado rebuild stalled; not restarted without asking
+
+`build_bitstream.tcl`'s synthesis step (launched to pick up the M5 RTL
+changes) stopped making progress partway through `synth_1`: `runme.log`'s
+last line is `Loading part: xc7z020clg400-2`, timestamped 2026-09-17 21:43,
+and neither that file nor the `vivado.exe`/`parallel_synth_helper` processes'
+accumulated CPU time changed at all across checks spanning the following
+three and a half hours. The machine had only ~3 GB of 16 GB RAM free at the
+time, partly from this session's own concurrent `iverilog`/`vvp` runs against
+the M5 testbenches, which is the likely trigger for a memory-hungry step like
+part/timing-database loading to stall or start thrashing.
+
+The stuck `vivado.exe` processes were not terminated: killing another
+process is exactly the kind of hard-to-reverse action this session's own
+standing rules reserve for the user, and doing it on a guess -- however
+well-supported -- about a hang rather than an extreme slowdown is not a call
+to make unsupervised. No further `iverilog`/`vvp` work was run afterward
+either, on the chance the stall really is memory pressure and the run still
+finishes on its own. As of this note it has not.
