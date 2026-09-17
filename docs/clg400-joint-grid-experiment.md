@@ -955,3 +955,50 @@ experiment -- not a retrospective read of a convenience sample -- would need
 to isolate. 56 packets at one distance, one power level, and one antenna
 placement remain, per the evidence-boundary note above, well short of a link
 characterization.
+
+## Chasing the correction-sign split -- three ruled out, none confirmed
+
+Three cheap checks against the same 56-packet pool, each aimed at a specific
+candidate mechanism, before touching the board again:
+
+**Search-timing margin.** Every trace already carries `search_clocks` and
+`sfd_deadline_clocks`; a search that overruns its SFD budget could plausibly
+mean the fine correction lands after the first payload symbol already went
+through the coarse-only grid, independent of its sign. `search_within_sfd`
+splits CRC at 38% (n=16) against 40% (n=40) -- no effect. Restricting to the
+27 packets sharing the single most common margin value (9709 clocks, i.e.
+identical search timing to the clock-accounting granularity available) still
+shows the same correction-sign split inside that matched subgroup. Ruled
+out.
+
+**Residual CFO.** `up_offset_samples` minus `correction_samples` is
+proportional to `(up_offset - down_offset) / 2`, the up/down-search
+differential the header comment attributes to CFO rather than timing. Across
+all 56 packets this quantity is constant at -3 or -4 (rounding only) -- not
+merely uncorrelated with CRC, but showing no per-packet variation to
+correlate with anything. Two stationary radios one metre apart with no
+relative motion apparently have no CFO worth measuring this way. Ruled out,
+and as a side effect: `up_offset_samples` and `correction_samples` move in
+lockstep here, so they were never two independent variables to begin with.
+
+**Asymmetric application arithmetic.** Direct read of both files in the
+correction's path.
+`lora_joint_chirp_grid_controller.v`'s `round_away_from_zero` (take
+`|sum|`, add 1, shift right 1, reapply the original sign) treats positive and
+negative sums identically by construction, and `guarded_skip =
+FINE_GUARD_SAMPLES + rounded_timing` is one affine expression with no
+sign-dependent branch. `lora_symbol_grid_resync.v`'s two-skip composition
+(coarse skip withholds the guard, fine skip supplies
+`fine_resync_skip` directly) has no path that treats the sign of the fine
+skip's contents differently either. No asymmetry found by inspection in
+either module.
+
+None of the three obvious candidates hold up under its own test. What is
+left unchecked is the generated FFT/matched-filter correlator itself --
+whether a few samples of residual sub-chip alignment error behaves
+differently depending on which side of the ideal boundary it falls on is a
+question about that block's numerics, not about either module read here --
+and the possibility that "correction sign" is a marker for some other,
+not-yet-identified population split rather than a cause in its own right
+(for instance, however `chips_to_boundary` itself gets quantized upstream).
+Both need more than a re-read of this pool to settle.
