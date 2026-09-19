@@ -253,10 +253,11 @@ timing, and reports the same symbols as MATLAB/Simulink for the regression set.
   covered by `tb_lora_joint_grid_completion`, which now requires the guard
   back whatever the estimate does. A `search_abort_error` output makes the
   abort visible.
-- [ ] Find why the joint search fails at a non-zero arrival phase — a "fine correction applied"
-  flag beside `DEBUG` bit 8 and a sticky bit per abort reason — then rebuild
-  and repeat. `lora_joint_chirp_grid_controller` has three silent paths to
-  `STATE_IDLE`, and a frozen trace cannot currently tell them apart.
+- [x] Add sticky abort diagnostics and investigate joint-grid placement.
+  The September 19 M5 log reports 81/84 CRC across 90 attempts at gain 25 dB,
+  with 79/79 CRC at zero grid error. See [the experiment log](clg400-joint-grid-experiment.md).
+- [ ] Explain the remaining five nonzero-grid captures and qualify against
+  all planned attempts; this small series does not satisfy the 1,000-packet gate.
 - [ ] Measure symbol error rate and PER over a controlled cable path.
 - [ ] Extend to the complete packet PHY and bidirectional interoperability.
 - [ ] Measure PER versus SNR/input power and CFO/SFO tolerance.
@@ -279,6 +280,12 @@ Acceptance: published bias, standard deviation, and outlier rate over a defined
 input range; all raw-data checksums and configurations are retained.
 
 ## M6 — Three-receiver synchronized TDoA
+
+- [x] Separate trace/grid re-arm from the absolute sample-counter reset;
+  two-packet RTL regression checks coarse values 1024 and 18832 in one epoch.
+- [ ] Build/route and cold-boot the M6 image, record its hash and timing report,
+  then verify continuous epoch on hardware before the 1,000-attempt campaign.
+  Follow [issues #28/#29 qualification gates](qualification-gates.md).
 
 - [ ] Verify external reference and synchronization access on every ZynqSDR.
 - [ ] Distribute a common clock and epoch pulse directly to PL.

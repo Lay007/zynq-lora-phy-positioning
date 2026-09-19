@@ -16,21 +16,17 @@ companion [`zynq-sdr-course`](https://github.com/Lay007/zynq-sdr-course). The
 [project-boundary ADR](docs/architecture-decisions/0003-course-project-boundary.md)
 defines why generated LoRa HDL is not duplicated there.
 
-> Status: MATLAB M1 is complete: continuous configured-IQ packet acquisition,
-> hard/soft LoRa decoding, end-to-end BER/PER, fractional ToA, and calibrated
-> 2D TDoA are executable and regression-tested, including recorded SX1262 IQ.
-> M2 now includes the streaming fixed-point correlator, joint timing/CFO and
-> frequency-only estimators, blind packet-start detection, sample-grid
-> realignment, SFD acceptance, packet framing, reset behavior, coarse
-> timestamps, and fractional ToA. M3 has namespaced generated Verilog,
-> exact 8/8 HDL cosimulation for ToA, core-only post-route evidence, and a full
-> portable SF7/L=8 IQ-to-AXI timestamp receiver synthesized for
-> `xc7z020clg400-2`. A CLG400 overlay now connects that receiver to the vendor
-> AD9361 RX1 stream and exposes atomic metadata through a PS gpreg window.
-> The eight generated cores are now packaged as catalog-verified Vivado IP;
-> hardware validation remains open. M4-M6 hardware
-> reception and synchronized positioning have not started, so the repository
-> does not yet claim a hardware LoRa receiver.
+> Status (2026-09-19): M1/M2 models and M3 generated/portable RTL are
+> established. M4/M5 now include real SF7/BW125/L=8 reception on CLG400:
+> the two non-clipping gain-25 campaigns report **90 attempts, 84 captures,
+> 81 CRC passes**, including **79/79 at `grid_err=0`**. These are capture/CRC
+> results, not calibrated ToA accuracy or a qualification PER.
+> [Committed experiment log](docs/clg400-joint-grid-experiment.md) records the
+> conditions and limitations; raw run directories are local, not published here.
+> M6 preparation separates `trace_rearm` from the epoch-resetting `stream_reset`
+> and passes the two-packet RTL regression. Its new bitstream, continuous
+> hardware campaign, delay calibration and synchronized TDoA remain pending.
+> See the [qualification gates](docs/qualification-gates.md) for issues #28/#29.
 
 ## Project goals
 
