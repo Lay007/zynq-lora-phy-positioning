@@ -1288,3 +1288,120 @@ well-supported -- about a hang rather than an extreme slowdown is not a call
 to make unsupervised. No further `iverilog`/`vvp` work was run afterward
 either, on the chance the stall really is memory pressure and the run still
 finishes on its own. As of this note it has not.
+
+## M5 on real hardware: the fix's arithmetic is verified sound, the first board run of it is not usable evidence -- 2026-09-19
+
+The rebuild eventually completed (stale `synth_1` run status cleared with a
+one-off `reset_run` after the killed processes were confirmed dead, on
+explicit instruction) and the M5 bitstream was deployed to board B by the
+same atomic-swap procedure as every prior image this project has shipped.
+A 30-attempt capture series (`experiments/runs/2026-09-19-clg400-m5-verify/`,
+28 captured) came back at **11% CRC pass (3/28)** -- worse than the M4
+baseline's ~39%, and the opposite of what the interpolator fix was for. All
+28 captures show `up_abort=false down_abort=false range_reject=false
+precise=true`: the joint search itself is as reliable as ever. Running the
+same `pl_grid_error_samples` ground-truth sweep used to find the original
+defect shows why the CRC number is bad: **24 of 28 packets (86%) now land at
+`pl_grid_error_samples=-1`**, against a much more mixed 0/±1 split in the M4
+baseline. The fix did not merely fail to help; it looks, from this dataset
+alone, like it made the systematic one-sample error *more* consistent.
+
+Two things had to be ruled out before trusting that reading, in the order
+this project always checks a surprising number: first whether the fix's own
+arithmetic is wrong, then whether the measurement is wrong.
+
+**The arithmetic is not wrong.** Every existing simulation of the M5 change
+(the controller unit test, the full joint-grid-path test) only ever injects
+a true arrival offset that is an exact integer number of samples -- the
+fractional part the interpolator is supposed to correct is always ~0 in
+every case that was run before tonight, on both legs, so none of them could
+have caught a sign or combination error in the new Q12 path. A throwaway
+copy of `tb_lora_joint_chirp_grid_path.sv` (kept out of the repo; this is a
+diagnostic, not a regression test) added a real-valued sub-sample delay to
+both the preamble and SFD chirp generators and ran it through the actual
+generated interpolator and the real FSM, at +0.1, +0.3, +0.5, -0.1, -0.3 and
+-0.5 samples. At every non-tie value the up-leg and down-leg interpolations
+agreed with each other and with the injected shift to within quantization
+noise (e.g. +0.3 samples read back as `up_frac_q12=1122 down_frac_q12=1122`,
+against an exact expectation of 1229), and the final rounded correction
+matched a hand-computed expectation in every case. The one apparent failure,
+at exactly -0.5 samples, turned out to be the diagnostic script's own
+expectation formula not accounting for which of two equally-true integer
+neighbors the *unmodified* integer search resolves an exact tie to -- not a
+DUT defect, and not a new tie-breaking question either, since that
+resolution is the same pre-existing integer search this project has already
+relied on since before M5.
+
+**The measurement is.** Re-examining the raw IQ this time against the
+AD9361's actual native resolution (12 bits, full scale +/-2048 -- not the
+16-bit container's +/-32767, which is what an earlier check tonight wrongly
+compared against and is corrected here) shows every one of the five
+`2026-09-19-clg400-m5-verify` captures sampled has `max|I| = max|Q| = 2047`
+and `min = -2048` exactly, and closer inspection of one capture's burst
+window finds 25-30% of its I and Q samples sitting flat at that rail across
+multiple consecutive samples -- textbook hard clipping, not "a strong clean
+signal" as first read. Against this, the M4 baseline
+(`2026-09-17-clg400-crc-stats`) peaks at `|I|`/`|Q|` of about 40: comfortably
+inside range, at the *same* RX gain (both read back live at 50 dB manual on
+both channels just now) and the *same* transmit profile (`power_dbm=-9`,
+byte-identical `PROFILE` line in both datasets' serial logs). Nothing in the
+receive chain configuration changed between the two sessions; the RF path
+coupling did, almost certainly from one of this session's several stand
+reconnects/reboots moving the antennas closer together or into a better
+line of sight than the "roughly 1 m apart" of the 2026-09-17 run.
+
+This also explains the two other loose threads from tonight's data without
+needing a second mechanism: the anomalous `iq_burst_ratio` values (a clipped
+peak still reads as the maximum of its smoothing window while the noise
+floor stays just as quiet, so the peak/median ratio inflates rather than
+saturates), and the elevated-but-partial symbol error rate per packet
+(roughly a fifth to two-fifths of symbols wrong, not all of them -- a
+hard-clipped chirp is distorted, not destroyed). And it gives the ±1-sample
+regression a believable cause that is specific to M5: a clipped correlation
+peak is not the smooth, symmetric shape the parabolic interpolator assumes,
+and M5 is the first bitstream that ever lets that interpolator's output
+reach the down (SFD) leg's contribution to the timing correction. In M4 the
+down leg's fraction was hard-wired to zero, so a biased interpolator output
+on that leg was structurally inert; M5 is the first time it can move the
+final answer at all.
+
+**Conclusion: the 2026-09-19 hardware run is not valid evidence about
+whether M5 fixes the real-hardware CRC problem, in either direction.** It
+needs to be repeated with the RX path back in a non-saturating regime
+(antenna separation restored, or RX gain temporarily lowered below 50 dB
+with headroom confirmed by raw-IQ peak inspection before trusting any
+capture) before drawing any conclusion. The RTL fix itself has no open
+question left in simulation as of tonight.
+
+## M5 re-verified at a non-saturating gain -- 2026-09-19
+
+`restore_rx_profile.sh`, unmodified, cannot simply be re-run to change gain
+once the board is already at the 1 MS/s profile: it unconditionally disables
+both FIR enables first, which is illegal at 1 MS/s with the target rate
+already in place and fails with `write error: Invalid argument` -- exactly
+the EINVAL ordering hazard the script's own header describes, just not
+previously hit because every prior run started from a fresh boot. Working
+around it live (writing gain sysfs attributes directly, then re-running the
+full script once to restore the FIR/rate chain the partial failure had left
+in an illegal 1 MS/s + FIR-disabled state) is a script gap worth fixing
+later, not tonight.
+
+`in_voltage0/1_hardwaregain` set to 25 dB (from 50 dB, both channels,
+manual mode, confirmed by readback). A single test capture came back at
+peak `|I|`/`|Q|` of 219 -- comfortable margin under the 2048 rail, zero
+clipped samples in the burst window, CRC valid. A fresh 30-attempt series
+(`experiments/runs/2026-09-19-clg400-m5-verify-gain25/`, 29 captured) stayed
+under 218 peak amplitude across every capture (10.6% of full scale) with no
+clipping anywhere in the run, and gave:
+
+**28/29 CRC pass (97%)**. The `pl_grid_error_samples` ground-truth sweep
+shows why: **28 of 28 packets with `grid_err=0` decoded, and the sole
+failure (`tx=54`) is the sole `grid_err=+1` packet** -- both buckets exactly
+where the fix predicts, and the 0-bucket pass rate is a clean 100% against
+the M4 baseline's 88%. This is the confirmation the interpolation fix was
+built for: with the RX path back in range, M5 does what the simulation and
+the ground-truth analysis said it should.
+
+The 2026-09-19-clg400-m5-verify (clipped, 50 dB) run stays in this document
+as a worked example of why raw-IQ headroom has to be checked before trusting
+a capture, not as a data point about the fix.
