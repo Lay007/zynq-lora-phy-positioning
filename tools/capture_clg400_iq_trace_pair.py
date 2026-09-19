@@ -247,6 +247,7 @@ def capture_once(
     serial_log = args.run_dir / f"heltec-{stamp}.log"
     local_iq = args.run_dir / f"rx1-iq-{stamp}.bin"
     stage = "prepare_transmitter"
+    record = None
     try:
         # The transmitter is prepared *before* the recording starts. Verifying
         # the profile takes seconds of serial round trips; doing it inside the
@@ -349,6 +350,24 @@ def capture_once(
                 "transmitted_utc": stamp,
             },
         }
+        if record is not None:
+            failure["serial"]["tx_sequence"] = record["sequence"]
+            failure["serial"]["tx_start_ms"] = record["start_ms"]
+        # When the recording finished but the trace could not be read, the
+        # IQ still says whether a packet was on the air: without it, "the
+        # programmable logic never detected it" and "nothing was received"
+        # look identical in the record. Best effort only; a failure here must
+        # not replace the original error.
+        if stage in ("read_trace", "fetch_iq", "check_burst_ratio"):
+            try:
+                if not local_iq.exists():
+                    fetch_binary(args, REMOTE_IQ, local_iq)
+                failure["iq_capture"] = local_iq.name
+                failure["iq_burst_ratio"] = round(burst_ratio(local_iq), 1)
+            except Exception as fetch_error:  # noqa: BLE001
+                failure["iq_fetch_error"] = (
+                    f"{type(fetch_error).__name__}: {fetch_error}"
+                )
         trace_path = args.run_dir / f"clg400-trace-{stamp}.json"
         trace_path.write_text(
             json.dumps(failure, indent=2, ensure_ascii=False) + "\n",
@@ -394,6 +413,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gap-s", type=float, default=1.5)
     parser.add_argument("--capture-timeout-s", type=float, default=60)
     parser.add_argument(
+        "--full-rearm-every-attempt",
+        action="store_true",
+        help="pulse stream_reset (which zeros the absolute sample counter) "
+        "before every attempt instead of only the first; the control arm "
+        "for comparing against the default trace_rearm path",
+    )
+    parser.add_argument(
         "--min-burst-ratio",
         type=float,
         default=50.0,
@@ -412,7 +438,9 @@ def main() -> int:
             # (guaranteeing a clean start); every attempt after it re-arms
             # with trace_rearm instead (M6), so the series keeps one
             # continuous absolute sample counter across all of it.
-            capture_once(args, full_rearm=(index == 0))
+            capture_once(
+                args, full_rearm=(index == 0 or args.full_rearm_every_attempt)
+            )
             completed += 1
         except Exception as error:  # noqa: BLE001 - one attempt must not end the run
             print(

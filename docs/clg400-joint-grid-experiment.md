@@ -1541,3 +1541,55 @@ including the ordering assertion in
 a new bitstream to hardware, and the follow-on ~50-60 attempt confirmatory
 run this fix's own plan calls for. That is a separate, separately-agreed
 step, same as every prior RTL change this project has shipped.
+
+## M6 on hardware: the timebase survives, M5's quality is unchanged -- 2026-09-19
+
+**Build and deployment.** Vivado 2021.1 rebuild of the M6 RTL: post-route
+WNS +0.021 ns / WHS +0.019 ns, TNS and THS 0, `write_bitstream` clean; the
+margin is thinner than M5's (+0.139 ns) but met. The first `build_bitstream.tcl`
+attempt hit the launcher hang the board README already describes -- synthesis
+wrote its report (`0 errors`) at 19:14 and then nothing: no `system_top.dcp`,
+no `impl_1`, three `vivado.exe` processes with flat CPU time for over two
+hours. With the user's go-ahead those three processes were stopped,
+`reset_stale_synth_run.tcl` returned `synth_1` from `synth_design ERROR` to
+`Not started`, and the rerun completed normally (no concurrent simulation
+load this time). Image SHA-256
+`86cf6b088d8fa1e7bad0b20b871f3d45eded14301f65dcbe921c4b7ecf5baec5`,
+2,546,340 bytes; the M5 image (`973e98ea...a719`) was backed up on the card as
+`system_top.bit.pre_m6_rearm_20260919T000000Z` and both hashes were verified
+before and after the atomic swap. After a cold boot the page-0 smoke test
+(`verify_board_b_cold_boot.sh`) read the same `status=0x00011243` as M5:
+the existing ABI is untouched.
+
+**Timebase.** A 50-attempt series in which only the first attempt pulses
+`stream_reset` and every later one pulses the new `trace_rearm`
+(`experiments/runs/2026-09-19-clg400-m6-rearm/`), 47 captured: the first
+trace entry's `sample_count` is strictly increasing across all 47 captures
+and spans 803.7 M samples over 803.7 s of the transmitter's own clock
+(`tx_start_ms`). A line fitted through (`tx_start_ms`, `sample_count`) has
+slope 1000.005 samples/ms and the worst residual is 0.51 ms, under one
+symbol (1.024 ms), which is what the per-packet grid re-alignment alone
+should contribute. The 5 ppm is the offset between the transmitter's
+millisecond clock and the receiver's sample clock together; it is not
+attributable to either. Before M6 every capture restarted this counter near
+zero.
+
+**M5's quality is unchanged.** 47/47 CRC pass on that series, and the
+`pl_grid_error_samples` ground-truth sweep gives `grid_err=0` on all 47.
+
+**Detection misses, and what this does not show.** Every failed attempt now
+leaves a record (`status: failed`, `stage`, `error`) and, when the recording
+finished, the IQ and its `burst_ratio`. All four failures across both series
+have `burst_ratio` in the thousands: the packet was in the recording and the
+PL did not detect it (`symbol trace is not complete: active=False,
+captured=0`). Counts at the same gain and bitstream: `trace_rearm` 3/50 (5/56
+with the 6-attempt probe), the control series with `stream_reset` before
+every attempt (`--full-rearm-every-attempt`, `m6-control/`) 1/50, and 6/90 in
+the two pre-M6 gain-25 series. None of these differences is significant
+(Fisher p = 0.21 against the control, 0.75 against pre-M6), so M6 neither
+introduced nor explains the misses -- but a roughly 7% rate of undetected,
+clearly present packets is a real, still-open defect of its own.
+
+**Still not done:** the 1000-packet campaign with separate per-stage
+counters, cable-delay calibration and the two-receiver work; the misses above
+are the first thing a longer campaign would need to explain.
