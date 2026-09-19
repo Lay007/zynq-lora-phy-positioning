@@ -1405,3 +1405,38 @@ the ground-truth analysis said it should.
 The 2026-09-19-clg400-m5-verify (clipped, 50 dB) run stays in this document
 as a worked example of why raw-IQ headroom has to be checked before trusting
 a capture, not as a data point about the fix.
+
+## A larger confirmatory run, and a script fix along the way -- 2026-09-19
+
+Before trusting 29 captures as the final word, two things followed: fixing a
+real bug the gain change had exposed in `restore_rx_profile.sh`, and running
+a second, larger series at the same corrected gain.
+
+`restore_rx_profile.sh` cannot simply be re-run to change gain on a board
+that is already at the 1 MS/s profile: it unconditionally disables both FIR
+enables before changing rate, which is only legal starting from the cold-boot
+state (30.72 MS/s, filter bypassed) the script's own header describes -- not
+from an already-configured 1 MS/s state, where that same disable is the
+identical illegal combination approached from the other side, and it failed
+with the same bare EINVAL. Parking the rate before touching the FIR (matching
+the vendor's own `ad9361_set_bb_rate()` order more closely) was not enough by
+itself, measured live: even after parking, the immediate FIR-disable write
+still failed sometimes, in one case with the write reporting an error while
+the readback showed the value had actually taken anyway -- the write's own
+exit status turned out not to be trustworthy evidence of what the driver did.
+The fix (`set_fir()`) writes, ignores that write's own reported status, and
+polls the readback with a short retry budget instead of guessing a settle
+delay. Verified with five consecutive re-runs against an already-configured
+board, no cold boot between them, all passing.
+
+With that fixed, a second series was captured at the same validated 25 dB
+(`experiments/runs/2026-09-19-clg400-m5-verify-gain25-long/`, 60 attempts,
+55 captured, peak amplitude 181/2048 across the whole run -- no clipping):
+**53/55 CRC (96%)**, and by `pl_grid_error_samples`: **51/51 pass at
+`grid_err=0`**, 2/4 pass at `grid_err=+1`. Pooled with the first gain-25 run
+(29 captures): **81/84 CRC (96%) overall, 79/79 (100%) at `grid_err=0`,
+2/5 (40%) at `grid_err=+1`**. The zero-bucket result is now backed by 79
+consecutive packets with no exception, not 28; the residual failures are all
+in the rare (5/84, 6%) nonzero bucket, consistent with a genuine one-sample
+placement sometimes surviving decode and sometimes not, rather than with any
+remaining defect in the fix itself.
