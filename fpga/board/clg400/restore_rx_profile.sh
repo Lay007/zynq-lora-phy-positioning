@@ -15,6 +15,43 @@ set -eu
 # interpolate-by-4 filter -- with one correction for this board's driver: both
 # filter enables are written, and both before the target rate, because at
 # 1 MS/s the chain is only legal with the receive FIR decimating.
+#
+# The rate is parked *before* the FIR is bypassed, not after: on a cold boot
+# the transceiver is already above the park rate with the filter bypassed, so
+# either order looks fine there. Re-running this script against a board
+# already sitting at the 1 MS/s profile (e.g. only to change gain) is a
+# different starting point -- bypassing the FIR while still at 1 MS/s is the
+# same illegal combination the comment above already names, just approached
+# from the other side, and fails with the same bare EINVAL.
+#
+# Reordering alone was not enough, measured live: even with the rate already
+# parked, bypassing the FIR immediately afterward -- both writes in the same
+# shell, no delay -- still failed with the same bare EINVAL. A fixed settle
+# delay after the park was tried next and was not reliable either: 0.2 s was
+# enough in some trials and not others, and a failing write's exit status
+# turned out not to mean the value was rejected -- one run's `echo 0 >
+# out_voltage_filter_fir_en` reported the same write error and still left
+# the attribute reading back 0. So the write's own exit status is not what
+# to trust here; the readback is. set_fir below writes, ignores that write's
+# reported status, and polls the readback with a short retry budget instead
+# of a guessed delay.
+set_fir() {
+    attribute=$1
+    value=$2
+    tries=0
+    while true; do
+        echo "$value" > "$attribute" 2>/dev/null || true
+        if [ "$(cat "$attribute")" = "$value" ]; then
+            return 0
+        fi
+        tries=$((tries + 1))
+        if [ "$tries" -ge 20 ]; then
+            echo "FAIL: $attribute did not settle to $value after $tries attempts" >&2
+            return 1
+        fi
+        sleep 0.1
+    done
+}
 
 DEVICE=${DEVICE:-/sys/bus/iio/devices/iio:device0}
 RATE=${RATE:-1000000}
@@ -59,9 +96,9 @@ trap 'rm -f "$filter_file"' EXIT HUP INT TERM
 
 cd "$DEVICE"
 
-echo 0 > out_voltage_filter_fir_en
-echo 0 > in_voltage_filter_fir_en
 echo "$PARK_RATE" > in_voltage_sampling_frequency
+set_fir out_voltage_filter_fir_en 0
+set_fir in_voltage_filter_fir_en 0
 cat "$filter_file" > filter_fir_config
 
 # The interpolated transmit chain has to be able to clock the whole filter at
@@ -78,8 +115,13 @@ fi
 # not: the receive enable has to be written separately, and it has to be written
 # before the target rate. At 1 MS/s the chain is only legal with the receive FIR
 # decimating, so setting the rate first is what produces the bare EINVAL.
-echo 1 > out_voltage_filter_fir_en
-echo 1 > in_voltage_filter_fir_en
+#
+# Re-enabling was not observed to be flaky the way disabling was, but it is
+# the same write to the same two attributes right after another rate change,
+# so it gets the same verified-by-readback treatment rather than an
+# unguarded echo that happens to have worked in every trial so far.
+set_fir out_voltage_filter_fir_en 1
+set_fir in_voltage_filter_fir_en 1
 echo "$RATE" > in_voltage_sampling_frequency
 
 echo "$BANDWIDTH" > in_voltage_rf_bandwidth
