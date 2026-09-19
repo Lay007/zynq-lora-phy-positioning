@@ -58,13 +58,24 @@ def utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def arm_receive_stream(args: argparse.Namespace) -> str:
-    """Re-arm the frozen trace by pulsing the receive-stream reset."""
+def arm_receive_stream(args: argparse.Namespace, full: bool = True) -> str:
+    """Re-arm for the next capture.
 
+    ``full=True`` pulses ``stream_reset`` (control bit 1): it also zeros the
+    absolute sample counter in ``lora_iq_history_buffer``, so the first
+    attempt of a series uses it to guarantee a clean start. ``full=False``
+    pulses ``trace_rearm`` (control bit 2, M6) instead: it re-arms the
+    one-shot symbol trace and the grid resync's ``armed`` latch (see
+    ``fpga/board/clg400/lora_clg400_gpreg_bridge.v``) without touching that
+    counter, so attempts after the first keep one continuous timebase across
+    the whole series.
+    """
+
+    set_bit, clear_mask = (2, 0xFFFFFFFD) if full else (4, 0xFFFFFFFB)
     script = f"""set -eu
 orig=$(devmem {CONTROL} 32)
-reset=$((orig | 2))
-run=$((orig & 0xfffffffd))
+reset=$((orig | {set_bit}))
+run=$((orig & {clear_mask}))
 devmem {CONTROL} 32 "$reset" >/dev/null
 sleep 1
 devmem {CONTROL} 32 "$run" >/dev/null
@@ -215,91 +226,135 @@ def burst_ratio(path: Path) -> float:
     return float(smooth.max() / median)
 
 
-def capture_once(args: argparse.Namespace) -> dict[str, object]:
+def capture_once(
+    args: argparse.Namespace, full_rearm: bool = True
+) -> dict[str, object]:
+    """Run one capture attempt.
+
+    ``full_rearm`` selects which control bit ``arm_receive_stream`` pulses
+    (see there); it does not affect anything else about the attempt.
+
+    Every attempt writes a ``clg400-trace-<stamp>.json`` record, even one
+    that fails partway through: a capture campaign that silently dropped
+    failed attempts could not tell "the transmitter never sent" from "the
+    packet was never detected" from "the trace read timed out" after the
+    fact, and the run's own attempt/capture/detection/CRC counts would not
+    add up to the number of attempts actually made.
+    """
+
     stamp = utc_stamp()
     args.run_dir.mkdir(parents=True, exist_ok=True)
     serial_log = args.run_dir / f"heltec-{stamp}.log"
     local_iq = args.run_dir / f"rx1-iq-{stamp}.bin"
-
-    # The transmitter is prepared *before* the recording starts. Verifying the
-    # profile takes seconds of serial round trips; doing it inside the
-    # recording window pushes the send past the end of a 1.5 s capture and
-    # yields a full-length file with no packet in it.
-    transmitter = SerialTransmitter(args.port, args.baud, serial_log)
+    stage = "prepare_transmitter"
     try:
-        transmitter.command("stop", quiet_s=0.4)
-        version = next(
-            (l for l in transmitter.command("version", quiet_s=0.4)
-             if l.startswith("zynq-lora")), "")
-        profile = _read_profile(transmitter)
-        fields = parse_profile(profile)
-        if fields.get("power_dbm") != EXPECTED_PROFILE["power_dbm"]:
-            transmitter.command(
-                f"set power {EXPECTED_PROFILE['power_dbm']}", quiet_s=0.4)
+        # The transmitter is prepared *before* the recording starts. Verifying
+        # the profile takes seconds of serial round trips; doing it inside the
+        # recording window pushes the send past the end of a 1.5 s capture and
+        # yields a full-length file with no packet in it.
+        transmitter = SerialTransmitter(args.port, args.baud, serial_log)
+        try:
+            transmitter.command("stop", quiet_s=0.4)
+            version = next(
+                (l for l in transmitter.command("version", quiet_s=0.4)
+                 if l.startswith("zynq-lora")), "")
             profile = _read_profile(transmitter)
             fields = parse_profile(profile)
-        mismatch = {
-            key: {"expected": value, "actual": fields.get(key)}
-            for key, value in EXPECTED_PROFILE.items()
-            if fields.get(key) != value
-        }
-        if mismatch:
-            raise RuntimeError(f"transmitter profile mismatch: {mismatch}")
+            if fields.get("power_dbm") != EXPECTED_PROFILE["power_dbm"]:
+                transmitter.command(
+                    f"set power {EXPECTED_PROFILE['power_dbm']}", quiet_s=0.4)
+                profile = _read_profile(transmitter)
+                fields = parse_profile(profile)
+            mismatch = {
+                key: {"expected": value, "actual": fields.get(key)}
+                for key, value in EXPECTED_PROFILE.items()
+                if fields.get(key) != value
+            }
+            if mismatch:
+                raise RuntimeError(f"transmitter profile mismatch: {mismatch}")
 
-        print(f"[{stamp}] {arm_receive_stream(args)}")
-        _run_remote(args, iio_capture_command(args.iq_samples, REMOTE_IQ))
+            stage = "arm"
+            print(f"[{stamp}] {arm_receive_stream(args, full=full_rearm)}")
+            _run_remote(args, iio_capture_command(args.iq_samples, REMOTE_IQ))
+            time.sleep(args.settle_s)
+
+            stage = "send"
+            send_lines = transmitter.command(
+                "send", quiet_s=0.4, required_prefix="TX seq=",
+                response_timeout_s=15,
+            )
+            transmitter.command("stop", quiet_s=0.4)
+        finally:
+            transmitter.close()
+
+        record = parse_transmit_line(send_lines)
+        if record["state"] != 0:
+            raise RuntimeError(f"transmitter reported state={record['state']}")
+        identity = {"version": version, "profile": profile}
+
+        stage = "wait_for_capture"
+        status, remote_size = wait_for_capture(
+            args, REMOTE_IQ, args.capture_timeout_s)
+        if status != 0:
+            raise RuntimeError(f"iio_readdev exited {status}")
+        expected_bytes = args.iq_samples * 4
+        if remote_size != expected_bytes:
+            raise RuntimeError(
+                f"recording is {remote_size} bytes, expected {expected_bytes}"
+            )
+
+        stage = "read_trace"
         time.sleep(args.settle_s)
+        report = build_report(read_trace(args))
 
-        send_lines = transmitter.command(
-            "send", quiet_s=0.4, required_prefix="TX seq=", response_timeout_s=15
+        stage = "fetch_iq"
+        downloaded = fetch_binary(args, REMOTE_IQ, local_iq)
+        _run_remote(args, f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done {REMOTE_IQ}.err")
+
+        report["serial"] = {
+            "port": args.port,
+            "log": serial_log.name,
+            "transmitted_utc": stamp,
+            "iq_capture": local_iq.name,
+            "version": identity["version"],
+            "profile": identity["profile"],
+            "tx_sequence": record["sequence"],
+            "tx_payload_length": record["payload_length"],
+            "tx_state": record["state"],
+            "tx_start_ms": record["start_ms"],
+            "tx_duration_ms": record["duration_ms"],
+        }
+
+        stage = "check_burst_ratio"
+        ratio = burst_ratio(local_iq)
+        if ratio < args.min_burst_ratio:
+            raise RuntimeError(
+                f"recording holds no packet: peak-to-median power {ratio:.1f} "
+                f"below {args.min_burst_ratio:.1f}; the send probably fell "
+                f"outside the recording window"
+            )
+
+        report["iq_bytes"] = downloaded
+        report["iq_samples"] = downloaded // 4
+        report["iq_burst_ratio"] = round(ratio, 1)
+    except Exception as error:
+        failure = {
+            "schema": "zynq-lora-clg400-symbol-trace-v1",
+            "status": "failed",
+            "stage": stage,
+            "error": f"{type(error).__name__}: {error}",
+            "serial": {
+                "port": args.port,
+                "log": serial_log.name,
+                "transmitted_utc": stamp,
+            },
+        }
+        trace_path = args.run_dir / f"clg400-trace-{stamp}.json"
+        trace_path.write_text(
+            json.dumps(failure, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
         )
-        transmitter.command("stop", quiet_s=0.4)
-    finally:
-        transmitter.close()
-
-    record = parse_transmit_line(send_lines)
-    if record["state"] != 0:
-        raise RuntimeError(f"transmitter reported state={record['state']}")
-    identity = {"version": version, "profile": profile}
-
-    status, remote_size = wait_for_capture(args, REMOTE_IQ, args.capture_timeout_s)
-    if status != 0:
-        raise RuntimeError(f"iio_readdev exited {status}")
-    expected_bytes = args.iq_samples * 4
-    if remote_size != expected_bytes:
-        raise RuntimeError(
-            f"recording is {remote_size} bytes, expected {expected_bytes}"
-        )
-
-    time.sleep(args.settle_s)
-    report = build_report(read_trace(args))
-    downloaded = fetch_binary(args, REMOTE_IQ, local_iq)
-    _run_remote(args, f"rm -f {REMOTE_IQ} {REMOTE_IQ}.done {REMOTE_IQ}.err")
-
-    report["serial"] = {
-        "port": args.port,
-        "log": serial_log.name,
-        "transmitted_utc": stamp,
-        "iq_capture": local_iq.name,
-        "version": identity["version"],
-        "profile": identity["profile"],
-        "tx_sequence": record["sequence"],
-        "tx_payload_length": record["payload_length"],
-        "tx_state": record["state"],
-        "tx_start_ms": record["start_ms"],
-        "tx_duration_ms": record["duration_ms"],
-    }
-    ratio = burst_ratio(local_iq)
-    if ratio < args.min_burst_ratio:
-        raise RuntimeError(
-            f"recording holds no packet: peak-to-median power {ratio:.1f} "
-            f"below {args.min_burst_ratio:.1f}; the send probably fell outside "
-            f"the recording window"
-        )
-
-    report["iq_bytes"] = downloaded
-    report["iq_samples"] = downloaded // 4
-    report["iq_burst_ratio"] = round(ratio, 1)
+        raise
 
     trace_path = args.run_dir / f"clg400-trace-{stamp}.json"
     trace_path.write_text(
@@ -353,7 +408,11 @@ def main() -> int:
     completed = 0
     for index in range(args.attempts):
         try:
-            capture_once(args)
+            # Only the first attempt of a series pulses the full stream_reset
+            # (guaranteeing a clean start); every attempt after it re-arms
+            # with trace_rearm instead (M6), so the series keeps one
+            # continuous absolute sample counter across all of it.
+            capture_once(args, full_rearm=(index == 0))
             completed += 1
         except Exception as error:  # noqa: BLE001 - one attempt must not end the run
             print(

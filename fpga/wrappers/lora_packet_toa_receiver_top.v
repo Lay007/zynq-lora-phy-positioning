@@ -38,6 +38,15 @@ module lora_packet_toa_receiver_top #(
     input  wire signed [15:0] iq_in_im,
     input  wire               valid_in,
     input  wire               reset_in,
+    // Re-arms lora_symbol_grid_resync's one-shot "armed" latch without the
+    // rest of reset_in's effect (the absolute sample counter in
+    // lora_iq_history_buffer, the FFT detector's internal state, and every
+    // other module here besides this one already return to a ready state on
+    // their own between packets -- see the M6 investigation in
+    // docs/clg400-joint-grid-experiment.md). Ties into the same
+    // stream_reset port lora_symbol_grid_resync already had; that module is
+    // unmodified.
+    input  wire               trace_rearm_in,
     input  wire               resync_valid,
     input  wire [31:0]        resync_skip,
     input  wire [7:0]         sync_word,
@@ -170,7 +179,7 @@ module lora_packet_toa_receiver_top #(
             ) u_grid_resync (
                 .clk(clk),
                 .resetn(resetn),
-                .stream_reset(reset_in),
+                .stream_reset(reset_in || trace_rearm_in),
                 .sample_valid(gated_valid_in),
                 .packet_detected(detected),
                 .chips_to_boundary(chips_to_boundary),

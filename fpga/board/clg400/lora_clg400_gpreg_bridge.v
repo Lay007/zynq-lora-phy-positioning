@@ -72,6 +72,18 @@ module lora_clg400_gpreg_bridge #(
 
     wire receiver_requested = ctrl_sample_sync[0];
     wire stream_reset = !receiver_requested || ctrl_sample_sync[1];
+    // gp_ctrl bit layout: 0 receiver_requested, 1 stream_reset, 2 trace_rearm,
+    // 8-15 configured_sync_word, 16/17/18 symbol/clock/joint page select,
+    // 24-30 trace read index. Bits 3-7, 19-23 and 31 are unused.
+    //
+    // trace_rearm re-arms the one-shot 128-entry symbol trace and the grid
+    // resync's "armed" latch for the next packet without stream_reset's
+    // wider effect of zeroing the absolute sample counter in
+    // lora_iq_history_buffer -- see docs/clg400-joint-grid-experiment.md,
+    // the M6 investigation, for why a long capture campaign needs this
+    // distinction and why every other module in the receiver already
+    // returns to a ready state between packets on its own.
+    wire trace_rearm = ctrl_sample_sync[2];
     wire [7:0] configured_sync_word =
         (ctrl_sample_sync[15:8] == 8'h00) ? 8'h12 : ctrl_sample_sync[15:8];
 
@@ -139,6 +151,7 @@ module lora_clg400_gpreg_bridge #(
         .iq_in_im(rx_q),
         .valid_in(rx_valid && receiver_requested),
         .reset_in(stream_reset),
+        .trace_rearm_in(trace_rearm),
         .resync_valid(1'b0),
         .resync_skip(32'd0),
         .sync_word(configured_sync_word),
@@ -256,7 +269,7 @@ module lora_clg400_gpreg_bridge #(
     ) u_symbol_trace (
         .sample_clk(sample_clk),
         .sample_resetn(sample_resetn),
-        .stream_reset(stream_reset),
+        .stream_reset(stream_reset || trace_rearm),
         .packet_detected(packet_detected),
         .preamble_bin(preamble_bin),
         .symbol_index(symbol_index),
@@ -298,9 +311,11 @@ module lora_clg400_gpreg_bridge #(
     // completed", true for both an applied and a rejected correction) and
     // unlike joint_timing_valid (a one-cycle pulse that never fires at all
     // on an abort), these let software tell all four outcomes apart after
-    // the fact from a single frozen read. Cleared only by stream_reset, like
-    // the rest of this page, so an abort earlier in the same stream is still
-    // visible even if a later packet's estimate succeeds.
+    // the fact from a single frozen read. Cleared by stream_reset or by
+    // trace_rearm, like the rest of this page (M6): a capture campaign that
+    // re-arms with trace_rearm between packets needs each packet's own
+    // outcome, not every earlier packet's abort still latched in from the
+    // start of the whole campaign.
     reg        joint_up_abort_sticky_sample;
     reg        joint_down_abort_sticky_sample;
     reg        joint_range_error_sticky_sample;
@@ -319,7 +334,7 @@ module lora_clg400_gpreg_bridge #(
             joint_down_abort_sticky_sample      <= 1'b0;
             joint_range_error_sticky_sample     <= 1'b0;
             joint_precise_applied_sticky_sample <= 1'b0;
-        end else if (stream_reset) begin
+        end else if (stream_reset || trace_rearm) begin
             joint_seen_sample         <= 1'b0;
             joint_up_abort_sticky_sample        <= 1'b0;
             joint_down_abort_sticky_sample      <= 1'b0;
@@ -475,11 +490,16 @@ module lora_clg400_gpreg_bridge #(
             event_ack_meta   <= event_ack_toggle;
             event_ack_sync   <= event_ack_meta;
 
+            // packet_seen/sample_seen/packet_start_count_low are page-0's own
+            // continuous liveness bits (host tooling already reads page 0
+            // without ever pulsing a reset between packets) and stay tied to
+            // stream_reset only, not trace_rearm: a capture campaign that
+            // re-arms the symbol trace between packets must not also wipe
+            // page 0's independent, already-continuous history.
             if (stream_reset) begin
                 packet_seen_sample <= 1'b0;
                 sample_seen_sample <= 1'b0;
                 packet_start_count_low_sample <= 16'd0;
-                diagnostic_sticky_sample <= 15'd0;
             end else begin
                 if (rx_valid)
                     sample_seen_sample <= 1'b1;
@@ -487,7 +507,15 @@ module lora_clg400_gpreg_bridge #(
                     packet_seen_sample <= 1'b1;
                     packet_start_count_low_sample <= packet_start_count[15:0];
                 end
+            end
 
+            // diagnostic_sticky_sample belongs to the symbol-trace page (M6):
+            // it is per-capture diagnostic like the joint_*_sticky_sample
+            // bits above, so it clears on trace_rearm too, not only on a full
+            // stream_reset.
+            if (stream_reset || trace_rearm) begin
+                diagnostic_sticky_sample <= 15'd0;
+            end else begin
                 diagnostic_sticky_sample <= diagnostic_sticky_sample | {
                     alignment_error,
                     symbol_index_width_error,

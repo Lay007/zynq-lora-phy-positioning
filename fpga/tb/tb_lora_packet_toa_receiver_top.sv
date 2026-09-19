@@ -90,7 +90,7 @@ module tb_lora_packet_toa_receiver_top;
     lora_packet_toa_receiver_top dut (
         .clk(clk), .resetn(resetn),
         .iq_in_re(iq_in_re), .iq_in_im(iq_in_im), .valid_in(valid_in),
-        .reset_in(reset_in), .resync_valid(resync_valid),
+        .reset_in(reset_in), .trace_rearm_in(1'b0), .resync_valid(resync_valid),
         .resync_skip(resync_skip), .sync_word(sync_word),
         .s_axi_awaddr(awaddr), .s_axi_awvalid(awvalid),
         .s_axi_awready(awready), .s_axi_wdata(wdata),

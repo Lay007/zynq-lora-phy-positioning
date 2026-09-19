@@ -1440,3 +1440,104 @@ consecutive packets with no exception, not 28; the residual failures are all
 in the rare (5/84, 6%) nonzero bucket, consistent with a genuine one-sample
 placement sometimes surviving decode and sometimes not, rather than with any
 remaining defect in the fix itself.
+
+## M6: re-arming a capture without losing the timebase, implemented and verified in simulation -- 2026-09-19
+
+With M5 confirmed, the next roadmap goal is a long capture campaign that
+keeps one continuous absolute sample counter across many packets, instead of
+the counter restarting on every single capture the way today's tooling works.
+Investigated this before writing any RTL (two parallel research passes, one
+over every module with a `stream_reset` port, one over the host-side capture
+tooling) rather than guessing at scope.
+
+**The blocker, found by reading, not assuming.** The only way to re-arm the
+128-entry `lora_symbol_trace_buffer` for the next packet is to pulse
+`stream_reset` (`lora_clg400_gpreg_bridge.v`, control bit 1 --
+`tools/capture_clg400_iq_trace_pair.py::arm_receive_stream` does this every
+attempt). That same `stream_reset` zeros `next_sample_count` in
+`lora_iq_history_buffer.v`, the very timebase the campaign needs to keep.
+Reading every module with a `stream_reset` port (not just grepping for the
+string) found exactly two things that actually need re-arming between
+packets, everything else already returns to a ready state on its own:
+
+- `lora_symbol_trace_buffer.capture_complete_sample` -- a one-shot latch,
+  the expected blocker.
+- `lora_symbol_grid_resync.armed` -- a second, non-obvious one-shot latch.
+  Without re-arming it too, packet 2+ would decode on a stale, unrealigned
+  grid: silent wrong output, not a hang. `tb_lora_symbol_grid_resync.sv`
+  already asserted the old contract explicitly ("only re-arming through a
+  stream reset may" move the grid again).
+- Two sticky diagnostic groups in the bridge itself
+  (`diagnostic_sticky_sample`, the four `joint_*_sticky_sample` bits): today
+  "cleared only by stream_reset", which would misattribute an early packet's
+  search abort to every later packet in a campaign that never fully resets.
+
+Also found: page 0 of the gpreg bridge (the packet-start/coarse/fractional
+timestamp mailbox) is *already* a continuously-updating atomic mailbox, never
+tied to the trace buffer's re-arm cycle. `packet_seen_sample`/
+`sample_seen_sample` there must stay tied to `stream_reset` only -- coupling
+them to the new bit would regress that already-continuous behavior.
+
+Also found, by grep, not assumption: `lora_packet_toa_receiver_top.v`
+instantiates `lora_fft_detector_timestamp_path` (the real FFT correlator),
+not the alternate `lora_detector_timestamp_path`/BlindDetector some other
+testbenches exercise. Nothing in the existing suite drove two packets
+through the real receiver_top with only one `reset_in` pulse at the start,
+so the FFT DUT's multi-packet continuity -- asserted by design comment, used
+in production -- had no regression proving it.
+
+**The fix.** A new control bit 2, `trace_rearm`, distinct from `stream_reset`:
+
+- `lora_clg400_gpreg_bridge.v`: `wire trace_rearm = ctrl_sample_sync[2];`,
+  OR'd into the two sticky-diagnostic clear conditions and into the wire
+  feeding `lora_symbol_trace_buffer`'s existing `stream_reset` port at its
+  instantiation site. Neither `lora_symbol_trace_buffer.v` nor
+  `lora_symbol_grid_resync.v` needed to change at all: both already do
+  exactly the right thing on their `stream_reset` input, so widening what
+  drives that input (rather than adding a second reset port with duplicate
+  logic) reuses already-verified behavior instead of re-implementing it.
+- `lora_packet_toa_receiver_top.v`: one new port, `trace_rearm_in`, OR'd
+  into `reset_in` at exactly one place -- the `lora_symbol_grid_resync`
+  instantiation -- and nowhere else. Every other `stream_reset`-consuming
+  instance in this file (the FFT detector, IQ history buffer, matched
+  filter, joint controller) keeps seeing `reset_in` alone.
+
+**Verification, in simulation, before any hardware step.** A new testbench,
+`tb_lora_joint_grid_multi_packet.sv`, drives two full packets through the
+real `lora_packet_toa_receiver_top` (real FFT detector, not BlindDetector)
+with exactly one `reset_in` pulse at the very start and only `trace_rearm_in`
+between them. It confirms `grid_resync_armed` is genuinely 0 after packet 1
+(so the re-arm check below proves something), comes back to 1 after
+`trace_rearm_in` alone, both packets are detected and complete their joint
+estimate with no aborts, and -- the actual point -- packet 2's coarse
+timestamp is measured from the same absolute epoch as packet 1's rather than
+reset back near zero. **PASS**: `packet1_coarse=1024 packet2_coarse=18832`,
+history counter unchanged by the `trace_rearm_in` pulse itself
+(`history_before_rearm=17408`). `tb_lora_clg400_gpreg_bridge.sv` gained a
+matching bridge-level check: pulsing bit 2 alone (bit 1 held low) clears the
+same sticky bits a stream reset does, while page 0's `packet_seen` survives
+it -- both **PASS**. The two existing testbenches that instantiate
+`lora_packet_toa_receiver_top` directly
+(`tb_lora_packet_toa_receiver_top.sv`, `tb_lora_joint_grid_completion.sv`)
+needed the new port tied off (`trace_rearm_in(1'b0)`) to keep compiling and
+both still **PASS** unchanged (`tb_lora_joint_grid_completion.sv` re-run at
+`grid_phase=0` and `grid_phase=512`).
+
+**Host tooling, minimally.** `tools/capture_clg400_iq_trace_pair.py`:
+`arm_receive_stream` now takes `full: bool`, pulsing bit 1 (`full=True`) or
+bit 2 (`full=False`); `main()` uses `full=True` only for the first attempt of
+a series, `trace_rearm` for every attempt after it. `capture_once` now
+writes a `clg400-trace-<stamp>.json` record for a failed attempt too
+(`{"status": "failed", "stage": ..., "error": ...}`, `stage` tracked coarsely
+through the attempt) instead of the previous silent stderr-only drop -- a
+campaign's own attempt/capture/CRC counts must add up to the number of
+attempts actually made. The successful-record schema is unchanged, so
+`tools/export_stage_differential.py`'s `analyze()`/`--grid-sweep` keep
+working without modification. All 209 existing Python tests still pass,
+including the ordering assertion in
+`test_the_transmitter_is_prepared_before_the_recording_starts`.
+
+**Explicitly not done tonight**: rebuilding the Vivado project and deploying
+a new bitstream to hardware, and the follow-on ~50-60 attempt confirmatory
+run this fix's own plan calls for. That is a separate, separately-agreed
+step, same as every prior RTL change this project has shipped.

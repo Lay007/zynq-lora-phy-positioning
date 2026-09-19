@@ -295,6 +295,46 @@ jobs:
       - name: Run joint grid completion at grid_phase ${{ matrix.grid_phase }}
         run: vvp /tmp/lora_joint_grid_completion_tb +grid_phase=${{ matrix.grid_phase }}
 
+  joint-grid-multi-packet:
+    # M6: a capture campaign re-arms with trace_rearm_in between packets
+    # instead of a full reset_in, because reset_in also zeros the absolute
+    # sample counter the campaign needs to keep. Nothing else in this suite
+    # drives two packets through the real receiver_top (real FFT detector)
+    # with only one reset_in pulse at the start; this is that regression.
+    name: Joint grid multi-packet continuity (no reset_in between packets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+      - name: Compile and run joint grid multi-packet testbench
+        run: |
+          iverilog -g2012 -DLORA_NAMESPACED_GENERATED -s tb_lora_joint_grid_multi_packet \
+            -o /tmp/lora_joint_grid_multi_packet_tb \
+            fpga/generated/fft-correlator-fixed/lora_fft_correlator_gen/*.v \
+            fpga/generated/blind-detector/lora_blind_detector_gen/lora_blind_BlindDetector.v \
+            fpga/generated/toa-interpolator/lora_toa_interpolator_gen/lora_toa_ToaInterpolator.v \
+            fpga/wrappers/fft_correlator_route_top.v \
+            fpga/wrappers/lora_detector_timestamp_align.v \
+            fpga/wrappers/lora_detector_timestamp_path.v \
+            fpga/wrappers/lora_fft_detector_timestamp_path.v \
+            fpga/wrappers/lora_iq_history_buffer.v \
+            fpga/wrappers/lora_reference_chirp_rom.v \
+            fpga/wrappers/lora_matched_filter_mac.v \
+            fpga/wrappers/lora_peak_triplet_capture.v \
+            fpga/wrappers/lora_matched_filter_search.v \
+            fpga/wrappers/lora_joint_chirp_grid_controller.v \
+            fpga/wrappers/lora_symbol_grid_resync.v \
+            fpga/wrappers/lora_timestamp_metadata_join.v \
+            fpga/wrappers/lora_axi_lite_status.v \
+            fpga/wrappers/lora_packet_toa_receiver_top.v \
+            fpga/tb/tb_lora_joint_grid_multi_packet.sv
+          vvp /tmp/lora_joint_grid_multi_packet_tb
+
   matlab:
     name: Authoritative MATLAB and Simulink tests
     runs-on: ubuntu-latest

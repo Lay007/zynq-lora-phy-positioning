@@ -366,8 +366,74 @@ module tb_lora_clg400_gpreg_bridge;
         end
         $display("PASS joint sticky bits cleared by stream reset");
 
+        // M6: trace_rearm (control bit 2) must clear the same per-capture
+        // joint sticky bits as stream_reset, so a capture campaign that
+        // re-arms with bit 2 between packets gets each packet's own outcome
+        // -- but page 0's "a packet has been seen" bit belongs to the whole
+        // campaign, not to one capture, and must survive a bit-2-alone pulse
+        // (only a real stream_reset, bit 1, may clear it).
+        //
+        // The stream reset just above also cleared packet_seen_sample, so
+        // it needs to be set again before testing that trace_rearm alone
+        // leaves it alone.
         gp_ctrl = 32'h0000_1201;
         repeat (2) @(posedge ctrl_clk);
+        @(negedge sample_clk);
+        force dut.packet_start_valid = 1'b1;
+        @(negedge sample_clk);
+        force dut.packet_start_valid = 1'b0;
+        repeat (3) @(posedge ctrl_clk);
+        if (!gp_status[5]) begin
+            $display("FAIL packet_seen not set on page 0 (test setup) status=0x%08x",
+                     gp_status);
+            $fatal(1);
+        end
+
+        @(negedge sample_clk);
+        force dut.joint_up_search_abort_error = 1'b1;
+        force dut.joint_down_search_abort_error = 1'b1;
+        force dut.joint_timing_range_error = 1'b1;
+        force dut.joint_precise_correction_applied = 1'b1;
+        force dut.joint_timing_valid = 1'b1;
+        @(negedge sample_clk);
+        force dut.joint_up_search_abort_error = 1'b0;
+        force dut.joint_down_search_abort_error = 1'b0;
+        force dut.joint_timing_range_error = 1'b0;
+        force dut.joint_precise_correction_applied = 1'b0;
+        force dut.joint_timing_valid = 1'b0;
+        repeat (4) @(posedge sample_clk);
+
+        gp_ctrl = 32'h0004_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[4:0] !== 5'b11111) begin
+            $display("FAIL joint sticky bits before trace_rearm status=0x%08x (want bits 4:0 all set)",
+                     gp_status);
+            $fatal(1);
+        end
+
+        // Pulse bit 2 alone -- bit 1 (stream_reset) stays low throughout.
+        gp_ctrl = 32'h0000_1205;
+        repeat (3) @(posedge sample_clk);
+        gp_ctrl = 32'h0000_1201;
+        repeat (3) @(posedge sample_clk);
+
+        gp_ctrl = 32'h0004_1201;
+        repeat (6) @(posedge ctrl_clk);
+        if (gp_status[4:0] !== 5'b00000) begin
+            $display("FAIL joint sticky bits survived trace_rearm alone: status=0x%08x",
+                     gp_status);
+            $fatal(1);
+        end
+        $display("PASS joint sticky bits cleared by trace_rearm alone (no stream_reset)");
+
+        gp_ctrl = 32'h0000_1201;
+        repeat (2) @(posedge ctrl_clk);
+        if (!gp_status[5]) begin
+            $display("FAIL page 0 packet_seen was cleared by trace_rearm alone: status=0x%08x",
+                     gp_status);
+            $fatal(1);
+        end
+        $display("PASS page 0 packet_seen survives trace_rearm (only stream_reset clears it)");
 
         $display("PASS tb_lora_clg400_gpreg_bridge");
         $finish;
