@@ -1790,7 +1790,10 @@ of silence in front, 8 arrival phases: exactly one `DET` per phase; the early
 false `DET` (P = 0, ctb = 0, n = 23953, alt rule at symbol 20) is gone. A good
 recording (`rx1-iq-20260919T195431Z`) with the same lead, shifts 96..208 step
 16: detected at all 8 phases, one symbol earlier (n = 37265) at shifts 96..192
-than at 208 (n = 38289), i.e. the straddle path still takes the band packets
-the generated detector waits one more symbol for. Full RTL regression (fft
+than at 208 (n = 38289). The `DET` line of the replay testbench now also prints
+the flag (`straddle=`, from `packet_straddle_detected`): the same 8 phases give
+straddle = 1 at shifts 112..192 (reference bin 66..56) and 0 at 96 and 208, where
+the generated detector copes on its own. So the straddle path still takes the
+band packets. Full RTL regression (fft
 detector, receiver top, AXI path, joint controller path x3, bridge, multi-packet,
 completion x5) and `pytest tests` (220) pass.

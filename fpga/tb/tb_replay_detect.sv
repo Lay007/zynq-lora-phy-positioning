@@ -10,7 +10,7 @@
 // met the SFD deadline".
 //
 // Output lines: SYM <bin> <window origin>, PRE <bin> <chips> n=<sample>,
-// SYN n=<sample>, DET <bin> <chips> n=<sample>, PSC <packet_start_count>
+// SYN n=<sample>, DET <bin> <chips> n=<sample> straddle=<0|1>, PSC <packet_start_count>
 // n=<sample>, JNT <joint controller result>, DONE.
 //
 // Compile from the repo root (the reference ROM path is relative) with the
@@ -208,7 +208,8 @@ module tb_replay_detect;
                 $display("SYN n=%0d", sample_cnt);
             if (detected) begin
                 det_count = det_count + 1;
-                $display("DET %0d %0d n=%0d", dut.preamble_bin, dut.chips_to_boundary, sample_cnt);
+                $display("DET %0d %0d n=%0d straddle=%0d", dut.preamble_bin, dut.chips_to_boundary,
+                         sample_cnt, dut.packet_straddle_detected);
             end
         end
     end

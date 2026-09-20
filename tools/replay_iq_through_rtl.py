@@ -63,6 +63,9 @@ def parse_output(text: str) -> dict[str, object]:
             [int(v) for v in m]
             for m in re.findall(r"^DET (\d+) (\d+) n=(\d+)", text, re.M)
         ],
+        "straddle": [
+            int(v) for v in re.findall(r"^DET \d+ \d+ n=\d+ straddle=(\d)", text, re.M)
+        ],
         "psc": [int(v) for v in re.findall(r"^PSC (\d+)", text, re.M)],
         "joint": re.findall(r"^JNT (.*)$", text, re.M),
         "symbols": [int(v) for v in re.findall(r"^SYM (\d+) \d+", text, re.M)],

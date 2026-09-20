@@ -37,7 +37,7 @@ def test_output_parser_reads_every_line_kind() -> None:
             "SYM 64 1024",
             "SYM 64 2048",
             "PRE 64 64 n=13000",
-            "DET 64 64 n=14000",
+            "DET 64 64 n=14000 straddle=1",
             "PSC 7168 n=14001",
             "JNT up_coarse=7680 corr=1 range=0 upab=0 dnab=0 precise=1 up_off=-2 skip=17",
             "DONE detected=1 samples=25000",
@@ -47,6 +47,7 @@ def test_output_parser_reads_every_line_kind() -> None:
     parsed = parse_output(text)
 
     assert parsed["det"] == [[64, 64, 14000]]
+    assert parsed["straddle"] == [1]
     assert parsed["psc"] == [7168]
     assert parsed["symbols"] == [64, 64]
     assert parsed["joint"] == [
