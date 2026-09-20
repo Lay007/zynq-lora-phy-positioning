@@ -4,6 +4,7 @@ from tools.read_clg400_symbol_trace import (
     JointEstimate,
     ClockAccounting,
     _clock_summary,
+    TraceNotComplete,
     _joint_summary,
     grid_phase,
     parse_trace,
@@ -408,3 +409,46 @@ def test_trace_without_a_joint_page_still_parses() -> None:
 
     assert trace.joint is None
     assert _joint_summary(trace.joint) is None
+
+
+def _unfinished_trace(extra: str) -> str:
+    """A frozen buffer that never captured: not active, not complete, count 0."""
+
+    lines = ["SIGNATURE 0x4c4f5241", extra]
+    for index in range(128):
+        lines.append(
+            f"ENTRY {index} 0x53590000 0x00000003 0x00000000 0x00000000 "
+            "0x00000000 0x00000000 0x00000080"
+        )
+    return "\n".join(lines)
+
+
+def test_an_unfinished_trace_reports_what_the_rest_of_the_logic_saw() -> None:
+    """A miss must leave evidence: the sticky bits die at the next re-arm."""
+
+    extra = "\n".join(
+        [
+            "PAGE0 0x00011243 0x00000007 0x000f4240 0x00000001",
+            _joint_page(seen=False),
+            _clock_page(overflow=True),
+        ]
+    )
+
+    with pytest.raises(TraceNotComplete, match="not complete") as caught:
+        parse_trace(_unfinished_trace(extra))
+
+    state = caught.value.state
+    assert state["page0_status"] == "0x00011243"
+    assert state["page0_sequence"] == 7
+    assert state["page0_coarse_lo"] == 0x000F4240
+    assert state["joint_seen"] is False
+    assert state["crossing_overflow"] is True
+    assert state["capture_sequence"] == 3
+
+
+def test_an_unfinished_trace_without_the_extra_pages_still_raises() -> None:
+    with pytest.raises(TraceNotComplete) as caught:
+        parse_trace(_unfinished_trace(""))
+
+    assert "page0_status" not in caught.value.state
+    assert isinstance(caught.value, ValueError)

@@ -90,6 +90,22 @@ class JointEstimate:
     detector_straddle_accepted: bool = False
 
 
+class TraceNotComplete(ValueError):
+    """The frozen trace buffer holds no finished capture.
+
+    ``state`` is what the same read saw of the rest of the programmable logic:
+    the page-0 counters (metadata sequence, coarse ToA, status), the joint
+    page's sticky outcome bits and the clock page's crossing flag. Without it
+    a detection miss ("the detector never fired") cannot be told from a packet
+    that was detected but never traced, or from a sample stream that stalled,
+    once the next attempt's re-arm has cleared the sticky bits.
+    """
+
+    def __init__(self, message: str, state: dict[str, object]) -> None:
+        super().__init__(message)
+        self.state = state
+
+
 @dataclass(frozen=True)
 class SymbolTrace:
     capture_sequence: int
@@ -201,6 +217,11 @@ restore() {{ devmem {CONTROL} 32 "$orig" >/dev/null; }}
 trap restore EXIT HUP INT TERM
 sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
+page0sel=$((orig & 0x80f8ffff))
+devmem {CONTROL} 32 "$page0sel" >/dev/null
+printf 'PAGE0 %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {SAMPLE_LO} 32)" \\
+  "$(devmem {SAMPLE_HI} 32)"
 jointsel=$(((orig & 0x80f8ffff) | 0x00040000))
 devmem {CONTROL} 32 "$jointsel" >/dev/null
 printf 'JOINT %s %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
@@ -239,6 +260,7 @@ def parse_trace(text: str) -> SymbolTrace:
     signature: int | None = None
     clock: ClockAccounting | None = None
     joint: JointEstimate | None = None
+    page0: list[int] | None = None
     rows: list[tuple[int, ...]] = []
     for line in text.splitlines():
         fields = line.split()
@@ -246,6 +268,8 @@ def parse_trace(text: str) -> SymbolTrace:
             continue
         if fields[0] == "SIGNATURE" and len(fields) == 2:
             signature = int(fields[1], 0)
+        elif fields[0] == "PAGE0" and len(fields) == 5:
+            page0 = [int(value, 0) for value in fields[1:]]
         elif fields[0] == "JOINT" and len(fields) == 7:
             values = [int(value, 0) for value in fields[1:]]
             if (values[0] >> 16) != 0x4A54:
@@ -312,9 +336,33 @@ def parse_trace(text: str) -> SymbolTrace:
     capture_active = bool(status & 0x100)
     capture_complete = bool(status & 0x200)
     if capture_active or not capture_complete:
-        raise ValueError(
+        state: dict[str, object] = {
+            "trace_status": f"0x{status:08x}",
+            "capture_sequence": rows[0][2],
+        }
+        if page0 is not None:
+            state.update(
+                page0_status=f"0x{page0[0]:08x}",
+                page0_sequence=page0[1],
+                page0_coarse_lo=page0[2],
+                page0_coarse_hi=page0[3],
+            )
+        if joint is not None:
+            state.update(
+                joint_seen=joint.seen,
+                up_search_aborted=joint.up_search_aborted,
+                down_search_aborted=joint.down_search_aborted,
+                detector_straddle_accepted=joint.detector_straddle_accepted,
+            )
+        if clock is not None:
+            state.update(
+                crossing_overflow=clock.crossing_overflow,
+                clocks_per_sample_min=clock.clocks_per_sample_min,
+            )
+        raise TraceNotComplete(
             f"symbol trace is not complete: active={capture_active}, "
-            f"captured={captured_count}"
+            f"captured={captured_count}",
+            state,
         )
     if captured_count > len(rows):
         raise ValueError("captured count exceeds returned trace depth")

@@ -37,6 +37,7 @@ from tools.read_clg400_symbol_trace import (  # noqa: E402
     CONTROL,
     _run_remote,
     build_report,
+    TraceNotComplete,
     read_trace,
 )
 from tools.run_clg400_payload_capture import (  # noqa: E402
@@ -353,6 +354,10 @@ def capture_once(
         if record is not None:
             failure["serial"]["tx_sequence"] = record["sequence"]
             failure["serial"]["tx_start_ms"] = record["start_ms"]
+        # The sticky bits are cleared by the next attempt's re-arm, so the
+        # programmable logic's own account of a miss exists only right now.
+        if isinstance(error, TraceNotComplete):
+            failure["pl_state"] = error.state
         # When the recording finished but the trace could not be read, the
         # IQ still says whether a packet was on the air: without it, "the
         # programmable logic never detected it" and "nothing was received"
