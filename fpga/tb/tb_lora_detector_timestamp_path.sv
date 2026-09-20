@@ -12,6 +12,7 @@ module tb_lora_detector_timestamp_path;
     reg  [7:0]  sync_word = 8'h12;
 
     wire        detected;
+    wire        straddle_detected;
     wire        preamble_detected;
     wire        sync_valid;
     wire [15:0] preamble_bin;
@@ -28,6 +29,7 @@ module tb_lora_detector_timestamp_path;
     integer i;
     reg edge_preamble;
     reg edge_detected;
+    reg edge_straddle;
     reg edge_sync_valid;
 
     always #5 clk = ~clk;
@@ -43,6 +45,7 @@ module tb_lora_detector_timestamp_path;
         .timestamp_valid(timestamp_valid),
         .sync_word(sync_word),
         .detected(detected),
+        .straddle_detected(straddle_detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
         .preamble_bin(preamble_bin),
@@ -116,10 +119,24 @@ module tb_lora_detector_timestamp_path;
             @(posedge clk);
             edge_preamble = preamble_detected;
             edge_detected = detected;
+            edge_straddle = straddle_detected;
             edge_sync_valid = sync_valid;
             #1;
             symbol_valid = 1'b0;
             timestamp_valid = 1'b0;
+        end
+    endtask
+
+    // Drive `count` identical decisions with timestamps first_timestamp,
+    // +100, +200, ...
+    task automatic send_run;
+        input [31:0] index_value;
+        input integer count;
+        input [63:0] first_timestamp;
+        integer run_i;
+        begin
+            for (run_i = 0; run_i < count; run_i = run_i + 1)
+                send_symbol(index_value, first_timestamp + run_i*64'd100, 1'b1);
         end
     endtask
 
@@ -183,6 +200,110 @@ module tb_lora_detector_timestamp_path;
         expect_bit("fresh preamble detected after stream reset", edge_preamble, 1'b1);
         expect_bit("fresh preamble timestamp valid after reset", preamble_start_valid, 1'b1);
         expect_u64("fresh preamble uses post-reset history only", preamble_start_count, 64'd2000);
+
+        // M7: straddle-tolerant sync acceptance. Where the preamble meets the
+        // first sync symbol the free-running window can return the preamble
+        // half of two comparable peaks, so the first sync symbol shows up as
+        // one extra preamble bin while the second is read correctly. Symbol
+        // decisions below are the real RTL replay pattern (bins 64/64x13/80
+        // for a board capture the generated detector never accepted).
+        //
+        // Normal pattern first, as the reference for where the packet
+        // timestamp must land: 12 preamble bins, +8, +16.
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd72, 64'd1300, 1'b1);
+        expect_bit("normal sync: no decision after first sync symbol", edge_detected, 1'b0);
+        send_symbol(32'd80, 64'd1400, 1'b1);
+        expect_bit("normal sync at bin 64 detected", edge_detected, 1'b1);
+        expect_bit("normal sync is the generated detector's decision", edge_sync_valid, 1'b1);
+        expect_bit("normal sync is not flagged as straddle", edge_straddle, 1'b0);
+        expect_u64("normal sync packet timestamp", packet_start_count, 64'd500);
+
+        // The straddle pattern: the same twelve preamble bins, the first sync
+        // slot reads as the preamble bin, the second sync slot is correct.
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd64, 64'd1300, 1'b1);
+        expect_bit("straddle: no decision on the extra preamble bin", edge_detected, 1'b0);
+        send_symbol(32'd80, 64'd1400, 1'b1);
+        expect_bit("straddle sync at bin 64 detected", edge_detected, 1'b1);
+        expect_bit("straddle sync is not the generated detector's decision", edge_sync_valid, 1'b0);
+        expect_bit("straddle sync is flagged for the joint controller", edge_straddle, 1'b1);
+        expect_bit("straddle sync yields a packet timestamp", packet_start_valid, 1'b1);
+        expect_u64("straddle sync timestamp equals the normal one", packet_start_count, 64'd500);
+        expect_bit("straddle sync raises no alignment error", alignment_error, 1'b0);
+
+        // Wrap-around: preamble bin 120, second sync bin (120+16) mod 128 = 8.
+        pulse_stream_reset();
+        send_run(32'd120, 12, 64'd100);
+        send_symbol(32'd120, 64'd1300, 1'b1);
+        send_symbol(32'd8, 64'd1400, 1'b1);
+        expect_bit("straddle sync detected across the bin wrap", edge_detected, 1'b1);
+
+        // Same +/-1 bin tolerance as the generated rule.
+        pulse_stream_reset();
+        send_symbol(32'd64, 64'd100, 1'b1);
+        send_symbol(32'd65, 64'd200, 1'b1);
+        send_symbol(32'd63, 64'd300, 1'b1);
+        send_symbol(32'd64, 64'd400, 1'b1);
+        send_symbol(32'd64, 64'd500, 1'b1);
+        send_symbol(32'd65, 64'd600, 1'b1);
+        send_symbol(32'd64, 64'd700, 1'b1);
+        send_symbol(32'd63, 64'd800, 1'b1);
+        send_symbol(32'd64, 64'd900, 1'b1);
+        send_symbol(32'd64, 64'd1000, 1'b1);
+        send_symbol(32'd65, 64'd1100, 1'b1);
+        send_symbol(32'd64, 64'd1200, 1'b1);
+        send_symbol(32'd63, 64'd1300, 1'b1);
+        send_symbol(32'd81, 64'd1400, 1'b1);
+        expect_bit("straddle sync tolerates +/-1 bin jitter", edge_detected, 1'b1);
+
+        // A different configured sync word moves both sync slots.
+        sync_word = 8'h34;
+        pulse_stream_reset();
+        send_run(32'd10, 12, 64'd100);
+        send_symbol(32'd10, 64'd1300, 1'b1);
+        send_symbol(32'd42, 64'd1400, 1'b1);
+        expect_bit("straddle sync follows the configured sync word (0x34)", edge_detected, 1'b1);
+        pulse_stream_reset();
+        send_run(32'd10, 12, 64'd100);
+        send_symbol(32'd10, 64'd1300, 1'b1);
+        send_symbol(32'd18, 64'd1400, 1'b1);
+        expect_bit("0x34: a 0x12-shaped second slot is rejected", edge_detected, 1'b0);
+        sync_word = 8'h12;
+
+        // Things that must NOT be detected.
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd64, 64'd1300, 1'b1);
+        send_symbol(32'd72, 64'd1400, 1'b1);
+        expect_bit("extra preamble bin then +8 (not +16) is rejected", edge_detected, 1'b0);
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd64, 64'd1300, 1'b1);
+        send_symbol(32'd64, 64'd1400, 1'b1);
+        expect_bit("a longer preamble alone is not a packet", edge_detected, 1'b0);
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd72, 64'd1300, 1'b1);
+        send_symbol(32'd72, 64'd1400, 1'b1);
+        expect_bit("+8 then +8 is rejected", edge_detected, 1'b0);
+        pulse_stream_reset();
+        send_run(32'd64, 12, 64'd100);
+        send_symbol(32'd96, 64'd1300, 1'b1);
+        send_symbol(32'd80, 64'd1400, 1'b1);
+        expect_bit("an unrelated first sync slot is rejected", edge_detected, 1'b0);
+
+        // A stream reset must clear the straddle history too: eight symbols
+        // before the reset plus a short run after it cannot make a window.
+        pulse_stream_reset();
+        send_run(32'd64, 8, 64'd100);
+        pulse_stream_reset();
+        send_run(32'd64, 3, 64'd2000);
+        send_symbol(32'd64, 64'd2300, 1'b1);
+        send_symbol(32'd80, 64'd2400, 1'b1);
+        expect_bit("stream reset clears the straddle history", edge_detected, 1'b0);
 
         // Missing timestamp sideband on a real detector event must be visible as
         // an integration error and must not emit a stale timestamp.

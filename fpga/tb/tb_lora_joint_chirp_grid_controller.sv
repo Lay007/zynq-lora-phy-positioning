@@ -13,6 +13,7 @@ module tb_lora_joint_chirp_grid_controller;
     reg packet_start_valid = 1'b0;
     reg [63:0] packet_start_count = 64'd0;
     reg [15:0] chips_to_boundary = 16'd0;
+    reg packet_straddle = 1'b0;
     reg [63:0] history_next_sample_count = 64'd0;
     reg search_busy = 1'b0;
     reg search_failed = 1'b0;
@@ -58,6 +59,7 @@ module tb_lora_joint_chirp_grid_controller;
         .packet_start_valid(packet_start_valid),
         .packet_start_count(packet_start_count),
         .chips_to_boundary(chips_to_boundary),
+        .packet_straddle(packet_straddle),
         .history_next_sample_count(history_next_sample_count),
         .search_busy(search_busy),
         .search_failed(search_failed),
@@ -78,11 +80,16 @@ module tb_lora_joint_chirp_grid_controller;
         .precise_correction_applied(precise_correction_applied)
     );
 
-    task automatic pulse_packet(input [63:0] start_count, input [15:0] chips);
+    task automatic pulse_packet(
+        input [63:0] start_count,
+        input [15:0] chips,
+        input straddle = 1'b0
+    );
         begin
             @(negedge clk);
             packet_start_count <= start_count;
             chips_to_boundary <= chips;
+            packet_straddle <= straddle;
             packet_start_valid <= 1'b1;
             @(negedge clk);
             packet_start_valid <= 1'b0;
@@ -209,6 +216,34 @@ module tb_lora_joint_chirp_grid_controller;
         // A packet at 60512 lies halfway between grid origins 60000/61024.
         // The later decision window represents it; phase 64 chips must point
         // backwards to that packet, with the SFD at 60512 + 10*1024.
+        pulse_packet(64'd61024, 16'd64);
+        wait_search(1'b0, 64'd60512);
+        return_peak(64'd60512);
+        wait_search(1'b1, 64'd70752);
+        return_peak(64'd70752);
+        expect_result(32'sd0, 32'd16);
+
+        // M7: a packet the detector accepted through its straddle-tolerant
+        // path never wraps. Same phase (64 chips) and same packet at 60512,
+        // but the retained decision window is still the EARLIER one, 60000,
+        // so the arrival is 512 samples forward of it instead of 512 back
+        // of the later window. Without the flag this comes out a whole
+        // symbol early and the down search lands on the second sync symbol.
+        pulse_packet(64'd60000, 16'd64, 1'b1);
+        wait_search(1'b0, 64'd60512);
+        return_peak(64'd60512);
+        wait_search(1'b1, 64'd70752);
+        return_peak(64'd70752);
+        expect_result(32'sd0, 32'd16);
+        // The far end of the measured straddle band (73 chips = 584
+        // samples of advance) also stays unwrapped.
+        pulse_packet(64'd60000, 16'd73, 1'b1);
+        wait_search(1'b0, 64'd60584);
+        return_peak(64'd60584);
+        wait_search(1'b1, 64'd70824);
+        return_peak(64'd70824);
+        expect_result(32'sd0, 32'd16);
+        // And the flag is per packet: the next, unflagged packet wraps again.
         pulse_packet(64'd61024, 16'd64);
         wait_search(1'b0, 64'd60512);
         return_peak(64'd60512);

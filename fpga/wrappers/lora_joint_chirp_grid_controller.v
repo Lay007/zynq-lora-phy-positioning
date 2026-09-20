@@ -39,6 +39,9 @@ module lora_joint_chirp_grid_controller #(
     input  wire               packet_start_valid,
     input  wire [63:0]        packet_start_count,
     input  wire [15:0]        chips_to_boundary,
+    // Set when the detector accepted the sync word only through its
+    // straddle-tolerant path (M7). See coarse_phase_samples below.
+    input  wire               packet_straddle,
     input  wire [63:0]        history_next_sample_count,
 
     input  wire               search_busy,
@@ -121,8 +124,20 @@ module lora_joint_chirp_grid_controller #(
     assign diag_up_offset_frac_q12 = up_offset_frac_q12;
 
     wire [63:0] coarse_chip_advance = chips_to_boundary * SAMPLES_PER_CHIP;
+    // A straddle-accepted packet never wraps. Where the preamble meets the
+    // first sync symbol the correlator window holds half of each, and for
+    // the arrivals the generated detector could not accept (measured on
+    // board IQ replayed through this RTL: chips_to_boundary 62..73, up to
+    // 592 samples of advance, past the half-symbol point) the retained
+    // decision window has not yet moved on to the next symbol.
+    // packet_start_count then still names the earlier window, and wrapping
+    // by a symbol here points the down search a whole symbol early: its
+    // matched-filter peak came out 6.5x weaker, noise. The up leg cannot
+    // tell, because every preamble upchirp looks alike.
+    wire coarse_wraps = !packet_straddle
+        && (coarse_chip_advance >= (SYMBOL_SAMPLES_U64 / 2));
     wire signed [64:0] coarse_phase_samples =
-        (coarse_chip_advance >= (SYMBOL_SAMPLES_U64 / 2))
+        coarse_wraps
         ? $signed({1'b0, coarse_chip_advance}) - $signed({1'b0, SYMBOL_SAMPLES_U64})
         : $signed({1'b0, coarse_chip_advance});
     wire signed [64:0] packet_chirp_start =

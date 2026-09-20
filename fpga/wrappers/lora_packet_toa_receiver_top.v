@@ -78,6 +78,9 @@ module lora_packet_toa_receiver_top #(
     output wire [63:0]        symbol_sample_count,
     output wire               symbol_timestamp_valid,
     output wire               detected,
+    // High in the same cycle as `detected` when the sync word was accepted
+    // only by the detector's straddle-tolerant path (M7).
+    output wire               packet_straddle_detected,
     output wire               preamble_detected,
     output wire               sync_valid,
     output wire [15:0]        preamble_bin,
@@ -198,6 +201,9 @@ module lora_packet_toa_receiver_top #(
         end
     endgenerate
 
+    wire detector_straddle;
+    assign packet_straddle_detected = detector_straddle;
+
     lora_fft_detector_timestamp_path u_fft_detector_timestamp (
         .clk(clk),
         .resetn(resetn),
@@ -214,6 +220,7 @@ module lora_packet_toa_receiver_top #(
         .symbol_sample_count(symbol_sample_count),
         .timestamp_valid(symbol_timestamp_valid),
         .detected(detected),
+        .straddle_detected(detector_straddle),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
         .preamble_bin(preamble_bin),
@@ -299,13 +306,21 @@ module lora_packet_toa_receiver_top #(
     // The coarse resync reads the same signal on `detected` and was
     // never affected, which is why only the joint estimate was wrong.
     reg [15:0] held_chips_to_boundary;
+    // Held for the same reason: whether the sync word was accepted by the
+    // straddle-tolerant path (M7) decides how the controller unwraps the
+    // arrival phase, and it too is only valid on `detected`.
+    reg        held_packet_straddle;
     always @(posedge clk) begin
-        if (!resetn)
+        if (!resetn) begin
             held_chips_to_boundary <= 16'd0;
-        else if (reset_in)
+            held_packet_straddle   <= 1'b0;
+        end else if (reset_in) begin
             held_chips_to_boundary <= 16'd0;
-        else if (detected)
+            held_packet_straddle   <= 1'b0;
+        end else if (detected) begin
             held_chips_to_boundary <= chips_to_boundary;
+            held_packet_straddle   <= detector_straddle;
+        end
     end
     wire raw_search_failure = toa_underflow_error || raw_search_restart_error ||
         toa_mac_window_mismatch_error || toa_mac_read_miss_error ||
@@ -327,6 +342,7 @@ module lora_packet_toa_receiver_top #(
                 .packet_start_valid(packet_start_valid && receiver_enable),
                 .packet_start_count(packet_start_count),
                 .chips_to_boundary(held_chips_to_boundary),
+                .packet_straddle(held_packet_straddle),
                 .history_next_sample_count(history_next_sample_count),
                 .search_busy(raw_search_busy),
                 .search_failed(raw_search_failure),

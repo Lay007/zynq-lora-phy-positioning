@@ -24,6 +24,7 @@ module lora_fft_detector_timestamp_path (
     output wire               timestamp_valid,
 
     output wire               detected,
+    output wire               straddle_detected,
     output wire               preamble_detected,
     output wire               sync_valid,
     output wire [15:0]        preamble_bin,
@@ -77,6 +78,7 @@ module lora_fft_detector_timestamp_path (
         .timestamp_valid(timestamp_valid),
         .sync_word(sync_word),
         .detected(detected),
+        .straddle_detected(straddle_detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
         .preamble_bin(preamble_bin),

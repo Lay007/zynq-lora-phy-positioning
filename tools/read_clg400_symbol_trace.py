@@ -84,6 +84,10 @@ class JointEstimate:
     down_search_aborted: bool
     timing_rejected_out_of_range: bool
     precise_correction_applied: bool
+    # STATUS bit 5, sticky like the four above: at least one packet since the
+    # last re-arm was accepted only through the detector's straddle-tolerant
+    # path (M7), i.e. one the generated sync rule alone would have lost.
+    detector_straddle_accepted: bool = False
 
 
 @dataclass(frozen=True)
@@ -261,6 +265,7 @@ def parse_trace(text: str) -> SymbolTrace:
                 down_search_aborted=bool(values[0] & 4),
                 timing_rejected_out_of_range=bool(values[0] & 8),
                 precise_correction_applied=bool(values[0] & 16),
+                detector_straddle_accepted=bool(values[0] & 32),
             )
         elif fields[0] == "CLOCK" and len(fields) == 6:
             values = [int(value, 0) for value in fields[1:]]
@@ -424,6 +429,7 @@ def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:
         "down_search_aborted": joint.down_search_aborted,
         "timing_rejected_out_of_range": joint.timing_rejected_out_of_range,
         "precise_correction_applied": joint.precise_correction_applied,
+        "detector_straddle_accepted": joint.detector_straddle_accepted,
     }
 
 

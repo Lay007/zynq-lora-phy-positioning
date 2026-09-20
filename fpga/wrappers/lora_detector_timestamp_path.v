@@ -29,6 +29,9 @@ module lora_detector_timestamp_path (
     input  wire [7:0]  sync_word,
 
     output wire         detected,
+    // High in the same cycle as `detected` when only the straddle-tolerant
+    // path (see below) accepted the sync word, not the generated rule.
+    output wire         straddle_detected,
     output wire         preamble_detected,
     output wire         sync_valid,
     output wire [15:0]  preamble_bin,
@@ -50,6 +53,8 @@ module lora_detector_timestamp_path (
     wire [15:0] detector_symbol_index = symbol_index[15:0];
     assign symbol_index_width_error = symbol_valid && (|symbol_index[31:16]);
 
+    wire detected_generated;
+
     `LORA_BLIND_DETECTOR_MODULE u_blind_detector (
         .clk(clk),
         .reset(~resetn),
@@ -58,13 +63,87 @@ module lora_detector_timestamp_path (
         .symbolValid(symbol_valid),
         .syncWord(sync_word),
         .resetIn(reset_in),
-        .detected(detected),
+        .detected(detected_generated),
         .preambleDetected(preamble_detected),
         .syncValid(sync_valid),
         .preambleBin(preamble_bin),
         .chipsToBoundary(chips_to_boundary),
         .binsSeen(bins_seen)
     );
+
+    // Straddle-tolerant sync acceptance (M7).
+    //
+    // On the free-running symbol grid the correlator window straddles two
+    // symbols. Deep inside the preamble that costs nothing, but where the
+    // preamble meets the first sync symbol the window holds half of each and
+    // the N-point spectrum has two comparable peaks; the peak tracker returns
+    // whichever is larger. For arrivals a little past half a symbol (about
+    // 9% of arrival phases, measured by replaying board IQ through this RTL
+    // at every phase) it returns the preamble half: the first sync symbol
+    // shows up as one extra preamble bin, and the second sync symbol is read
+    // correctly. The generated detector needs preamble+8*highNibble at that
+    // position and so never fires, and the packet is lost for good: the sync
+    // word cannot be seen again on this grid.
+    //
+    // The pattern is [8 x ref][ref][ref + 8*lowNibble] instead of
+    // [8 x ref][ref + 8*highNibble][ref + 8*lowNibble]. Accepting it as well,
+    // with the same +/-1 bin tolerance and the same ten-symbol window, adds
+    // no detection where the generated rule already fires: the two sync
+    // patterns differ in the ninth symbol by 8*highNibble bins, so at most
+    // one of them can match (a sync word with highNibble 0 makes them
+    // identical and this path adds nothing). No generated file is edited;
+    // this is combinational in the same cycle as symbol_valid, like the
+    // generated detected, because lora_detector_timestamp_align requires the
+    // decision on the matching timestamp cycle.
+    localparam [15:0] BIN_MASK = 16'd127; // 2^SF - 1 for the SF7 build
+
+    reg [15:0] prev_bin [0:8]; // [0] oldest ... [8] newest previous symbol
+    reg [3:0]  prev_filled;
+    integer    alt_i;
+    integer    alt_j;
+
+    wire [15:0] alt_low  = {12'd0, sync_word[3:0]};
+    wire [15:0] alt_ref  = prev_bin[0];
+    wire [15:0] alt_s2_target = (alt_ref + ((alt_low << 3) & BIN_MASK)) & BIN_MASK;
+
+    function automatic bin_within(input [15:0] bin, input [15:0] target);
+        reg [15:0] delta;
+        begin
+            delta = (bin - target) & BIN_MASK;
+            bin_within = (delta == 16'd0) || (delta == 16'd1) ||
+                         (delta == BIN_MASK);
+        end
+    endfunction
+
+    reg alt_run_ok;
+    always @* begin
+        alt_run_ok = 1'b1;
+        for (alt_i = 0; alt_i < 8; alt_i = alt_i + 1)
+            alt_run_ok = alt_run_ok && bin_within(prev_bin[alt_i], alt_ref);
+    end
+
+    wire alt_step = clk_enable && symbol_valid && !reset_in;
+    wire detected_straddle = alt_step && (prev_filled == 4'd9) &&
+        alt_run_ok &&
+        bin_within(prev_bin[8], alt_ref) &&
+        bin_within(detector_symbol_index, alt_s2_target);
+
+    assign detected = detected_generated || detected_straddle;
+    assign straddle_detected = detected_straddle && !detected_generated;
+
+    always @(posedge clk) begin
+        if (!resetn || reset_in) begin
+            prev_filled <= 4'd0;
+            for (alt_j = 0; alt_j < 9; alt_j = alt_j + 1)
+                prev_bin[alt_j] <= 16'd0;
+        end else if (clk_enable && symbol_valid) begin
+            for (alt_j = 0; alt_j < 8; alt_j = alt_j + 1)
+                prev_bin[alt_j] <= prev_bin[alt_j + 1];
+            prev_bin[8] <= detector_symbol_index;
+            if (prev_filled < 4'd9)
+                prev_filled <= prev_filled + 4'd1;
+        end
+    end
 
     // reset_in clears the generated detector/correlator streaming state. Clear
     // timestamp history on the same clock edge so a post-reset detector event
@@ -77,7 +156,7 @@ module lora_detector_timestamp_path (
         .symbol_sample_count(symbol_sample_count),
         .symbol_timestamp_valid(timestamp_valid),
         .preamble_detected(preamble_detected),
-        .packet_detected(detected),
+        .packet_detected(detected),  // generated OR straddle-tolerant
         .preamble_start_count(preamble_start_count),
         .preamble_start_valid(preamble_start_valid),
         .packet_start_count(packet_start_count),

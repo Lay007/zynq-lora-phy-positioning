@@ -260,6 +260,7 @@ def _joint_page(
     down_search_aborted: bool = False,
     timing_rejected_out_of_range: bool = False,
     precise_correction_applied: bool = False,
+    detector_straddle_accepted: bool = False,
     marker: int = 0x4A54,
 ) -> str:
     status = (
@@ -269,6 +270,7 @@ def _joint_page(
         | (4 if down_search_aborted else 0)
         | (8 if timing_rejected_out_of_range else 0)
         | (16 if precise_correction_applied else 0)
+        | (32 if detector_straddle_accepted else 0)
     )
     packed = (chips << 16) | bin_
     return (
@@ -333,6 +335,34 @@ def test_joint_page_reports_sticky_outcome_bits_independently() -> None:
     assert summary["up_search_aborted"] is True
     assert summary["down_search_aborted"] is False
     assert summary["estimate_seen"] is False
+
+
+def test_joint_page_reports_the_straddle_accepted_bit_on_its_own() -> None:
+    """STATUS bit 5 (M7): a packet accepted only through the detector's
+    straddle-tolerant path, independent of the four outcome bits below it."""
+
+    def parse(**flags: bool):
+        text = _trace_page(grid_realigned=False).replace(
+            "SIGNATURE 0x4c4f5241",
+            "SIGNATURE 0x4c4f5241\n" + _joint_page(**flags),
+        )
+        trace = parse_trace(text)
+        assert trace.joint is not None
+        return trace.joint
+
+    plain = parse(precise_correction_applied=True)
+    assert not plain.detector_straddle_accepted
+    assert plain.precise_correction_applied
+
+    straddled = parse(detector_straddle_accepted=True)
+    assert straddled.detector_straddle_accepted
+    assert not straddled.precise_correction_applied
+    assert not straddled.up_search_aborted
+    assert not straddled.down_search_aborted
+    assert not straddled.timing_rejected_out_of_range
+
+    both = parse(detector_straddle_accepted=True, precise_correction_applied=True)
+    assert both.detector_straddle_accepted and both.precise_correction_applied
 
 
 def test_joint_summary_recomputes_the_controllers_origin() -> None:
