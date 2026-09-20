@@ -1797,3 +1797,60 @@ the generated detector copes on its own. So the straddle path still takes the
 band packets. Full RTL regression (fft
 detector, receiver top, AXI path, joint controller path x3, bridge, multi-packet,
 completion x5) and `pytest tests` (220) pass.
+
+### M7 guard image on hardware: misses 12/196 -> 2/301, false detections gone -- 2026-09-20
+
+The guard image (`eac45bda...`, RTL `43366d2`, WNS +0.025 ns / WHS +0.023 ns
+after post-route phys_opt, build 32 minutes without a launcher hang) was
+deployed by the same atomic swap (the first M7 image kept on the card as
+`system_top.bit.pre_m7_guard_20260920T000000Z`) and cold-booted; the page-0
+smoke test read `status=0x00011243` again. Runs, all at 25 dB with
+`trace_rearm` between attempts: a 6-attempt probe, a 100-attempt series and a
+200-attempt series (`experiments/runs/2026-09-20-clg400-m7g-*`).
+
+| | attempts | captured | detection misses | straddle-accepted | of which decoded |
+|---|---|---|---|---|---|
+| first M7 image | 100 | 99 | 0 | 12 | 7 (5 false detections) |
+| guard image | 306 | 301 | 2 | 17 | 17 (`pl_grid_error` 0) |
+
+The 5 attempts that did not capture: 3 on the transmitter side (one profile
+readback without fields, two `send` timeouts), 2 detection misses. Misses are
+now 2 of 301 recordings with a packet (0.7%), against 12 of 196 (6.1%) before
+M7. The false detections are gone: every packet accepted through the straddle
+path decodes with grid error 0.
+
+**The two remaining misses do not reproduce in RTL.** Tx 54 (normal signal
+level) and attempt 163 (`burst_ratio` 2412) replayed from reset with 20000
+samples of silence in front: detected at all 32 (tx 54, step 32) and all 16
+(attempt 163, step 64) arrival phases, two of the latter only through the
+straddle path. Neither packet lies unusually early in its recording (burst
+start 193512 and 192547 samples, against 188762..218996 for all 397 recordings
+of the M7 series), so the DMA start is not implicated. So the cause is state or
+stream the recording does not carry. For attempt 163 the failure record now has
+`pl_state`: the joint page saw no packet (`joint_seen` false) and the page-0
+sequence equals the trace sequence, i.e. the detector never fired; the
+clock-crossing flag is set on every capture and says nothing.
+`tools/read_clg400_symbol_trace.py` now raises `TraceNotComplete` carrying this
+state, because the sticky bits are cleared by the next attempt's re-arm and the
+evidence exists only at the moment of the failure. What would settle it is a
+ring of the detector's last decisions readable at the miss; not built.
+
+**1-sample grid errors follow the transmitter's CFO, not the level.** The probe
+and the first 100 captures after the cold boot have 6 ordinary-path packets with
+`pl_grid_error` 1 (CRC fails) out of 98; the next 197 have none (one weak
+recording, `burst_ratio` 1456, has a sweep best offset of -8 with a valid CRC,
+an ambiguity of the sweep). By 25-capture windows in time order the reference
+model's CFO displacement was -3.43, -3.39, -3.40, -3.40 samples (errors 3, 1, 0,
+2), then from about 16:16 UTC -3.20, -3.20, -3.18, -3.20, -3.22, -3.18, -3.17 (errors
+0 in each; the one flagged in that stretch is the sweep artefact above, CRC valid). The share of packets whose applied correction exceeds
+`up_offset` by 4 rather than 3 (which is (down - up)/2 rounding, not an error in
+itself: the M6 series have it at 18/47 and 13/49 with all grid errors 0) was
+24-52% in the first four windows and 12-28% in the later ones. Every one of the six errors has that
+difference of 4. Not amplitude: the same failing recording replayed through the RTL
+at x1, x0.5 and x0.25 gives an identical `corr`, `up_off` and `skip` at every phase.
+Not clipping: ADC peak 240 of 2048, no sample at the rail. Earlier series
+(M6 -3.1..-3.4, first M7 -2.9..-3.1) had none. A displacement of about 3.5 samples
+is 0.44 of a bin; a tone that close to the half-bin decision edge gives a
+one-sample grid shift (0.125 bin) room to change the decision, which would explain why
+only that CFO range shows it. This is a hypothesis fitted to the table above, not
+a measurement of the mechanism.
