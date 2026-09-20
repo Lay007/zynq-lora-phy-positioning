@@ -1854,3 +1854,51 @@ is 0.44 of a bin; a tone that close to the half-bin decision edge gives a
 one-sample grid shift (0.125 bin) room to change the decision, which would explain why
 only that CFO range shows it. This is a hypothesis fitted to the table above, not
 a measurement of the mechanism.
+
+### M7 guard image, 500-attempt series: 3 more misses, no grid errors, misses still not reproducible -- 2026-09-20/21
+
+A 500-attempt series on the same image, 25 dB, `trace_rearm` between attempts
+(`experiments/runs/2026-09-20-clg400-m7g-long500`, 17:52-20:18 UTC, 3 to 5.3
+hours after the cold boot; 500 was the disk limit, 15 GB free on the drive).
+
+492 of 500 captured; 5 attempts failed on the transmitter side (3 profile
+readbacks without fields, 2 `send` timeouts) and 3 were detection misses
+(attempts 113, 133 and 492, `burst_ratio` 64769, 54506 and 36662, so ordinary or
+strong signals). **CRC 492 of 492 and `pl_grid_error` 0 on every capture**: 463
+ordinary-path packets and 29 accepted through the straddle path.
+
+Pooled over the guard image (probe, 100, 200 and 500 series): 806 attempts, 793
+captured, 8 transmitter-side failures, **5 detection misses = 5 of 798 recordings
+with a packet (0.63%, 95% Wilson interval about 0.27..1.46%)**, against 12 of 196
+(6.1%) before M7. 46 packets accepted through the straddle path, all 46 decode
+(7 of 12 on the first M7 image).
+
+**Misses.** All three carry `pl_state`: `joint_seen` false and the page-0
+sequence equal to the trace sequence, the same as attempt 163: the detector never
+fired. Replayed from reset with 20000 samples of silence in front at 16 arrival
+phases (step 64), each is detected at every phase, two of them at one phase only
+through the straddle path. So five of five misses on the board do not reproduce
+from the recording alone. Nothing they share was found: the previous attempt of
+each was an ordinary, correct capture, the gap was 17-18 s, the burst started
+193124, 192667 and 191502 samples into the file (ranks 66%, 52% and 20% in the series). One coincidence noted and not
+supported by a mechanism: the low 32 bits of the absolute sample counter wrapped
+twice in this series (about 19:04 and 20:15 UTC); the packet 7.7 s after the first
+wrap was detected, and the miss at 20:15 lies about 4 s after the second. The
+counters on the detector's path are 64-bit (`lora_detector_timestamp_align`,
+receiver top), so nothing in it depends on the low word; with about six power-of-two
+boundaries to choose from after the fact this is not evidence.
+
+**Grid errors.** None in 492. Together with the earlier runs: 6 of 747 ordinary-path
+packets have a 1-sample grid error, all six among the 98 of the probe and the first
+series (first ~35 minutes after the cold boot), where the model CFO displacement was
+-3.57..-3.33. Split by the CFO displacement after the fact: below -3.38 samples 6 of
+83 packets have the error, at -3.38 and above 0 of 664 (25 of those lie between -3.38
+and -3.30). The 500-series CFO stayed within -3.35..-2.80 (window means -3.28..-2.92),
+so it never returned to the region where the errors occurred: the CFO hypothesis
+above is neither confirmed nor refuted by it. Two things this cannot separate: the
+threshold was chosen after looking (no p-value is quoted for that reason), and the
+CFO region coincides with the first ~35 minutes after the cold boot, so a board
+warm-up effect other than the CFO fits equally. Separating them needs the CFO
+region visited at a later time (a warm board with a detuned transmitter) or a cold
+boot repeated; or the synthetic test of the decode-best offset against CFO
+and fractional timing.
