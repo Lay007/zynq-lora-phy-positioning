@@ -1593,3 +1593,113 @@ clearly present packets is a real, still-open defect of its own.
 **Still not done:** the 1000-packet campaign with separate per-stage
 counters, cable-delay calibration and the two-receiver work; the misses above
 are the first thing a longer campaign would need to explain.
+
+## M7: the ~7% of packets the detector never saw -- 2026-09-20
+
+M6 left one honest open item: about 7% of packets that are plainly in the
+recording (`burst_ratio` in the thousands) are never detected by the PL
+(`symbol trace is not complete: active=False, captured=0`), and the control
+arm showed it is not caused by `trace_rearm`. Everything below was done
+offline against the recordings already on disk; nothing here has run on
+hardware yet.
+
+**A first hypothesis, dropped by reading, not by testing.** The obvious
+suspect is a preamble bin sitting on the boundary between two FFT bins, the
+decision flipping between neighbours on noise and breaking the run of equal
+bins. `model/simulink/build_blind_detector_model.m` already accepts
+`BinTolerance = 1` on both the preamble run and the sync bins, so an
+adjacent-bin flip cannot make it miss. The same file's header comment names
+the real failure mode: on the free-running grid "the first sync symbol is
+skipped entirely and the run reads as one extra preamble bin followed by the
+second sync bin", and it measures the cost against offset in
+`RUN_BLIND_DETECTOR_REGRESSION`. The receiver top realigns its grid on
+`detected`, not on the preamble, so it has that caveat with no mitigation.
+
+**Reproducing it in the RTL.** A testbench (`fpga/tb/tb_replay_detect.sv`,
+driver `tools/replay_iq_through_rtl.py`) feeds a window of a recorded IQ file
+through `lora_packet_toa_receiver_top` -- the real FFT correlator and blind
+detector -- and prints every symbol decision. The packet's arrival phase
+against the receiver's symbol grid is what varies from packet to packet and
+cannot be recovered from the recording, so the window start is swept over a
+symbol. Five recordings (one detected on the board, the four missed ones), 32
+phases each: every recording behaves identically, detection at every phase
+except one narrow band. A finer sweep (step 8 samples) of the detected
+recording puts the band at 96 samples, 9.4% of a symbol. Pooling every gain-25
+attempt of this investigation (6/90 before M6, 5/56 with `trace_rearm`, 1/50
+control) the board saw 12/196 = 6.1% misses against 9.4% predicted, about 1.5
+sigma low and not inconsistent with it. The "missed" and the "detected"
+packets are the same kind of packet; the arrival phase decides.
+
+Inside the band the decisions are `[12 x P][P][P+16]` where the detector needs
+`[12 x P][P+8][P+16]`: the correlator window holds half of the last preamble
+symbol and half of the first sync symbol, the two peaks are comparable, and
+the larger one -- the preamble half -- wins. The second sync symbol is read
+correctly. The sync word cannot be seen again on this grid, so the packet is
+lost for good.
+
+**Fix 1: accept the pattern (`lora_detector_timestamp_path.v`).** A
+hand-written combinational path next to the generated detector, in the same
+cycle as `symbol_valid` because `lora_detector_timestamp_align` needs the
+decision on the matching timestamp cycle, accepts `[8 x ref][ref][ref +
+8*lowNibble]` with the same +/-1 bin tolerance and the same ten-symbol window.
+The two sync patterns differ in the ninth symbol by `8*highNibble` bins, so at
+most one can match; a sync word with highNibble 0 makes them identical and the
+path adds nothing. The generated HDL is untouched (the file's own rule). A
+Python model of both rules, checked against the RTL's own detections on all
+160 replay runs, agreed everywhere (0 mismatches), rescued all 13 misses and
+added no extra detection on any run that already detected. The new unit tests
+in `tb_lora_detector_timestamp_path.sv` (normal pattern, straddle pattern,
+wrap-around, +/-1 jitter, another sync word, four patterns that must not
+detect, reset clearing the history) fail on the old wrapper in exactly the six
+straddle-acceptance checks and pass on the new one.
+
+**Fix 2, found only by running the rest of the chain: the coarse origin.**
+Detection alone would have converted a lost packet into a silently corrupted
+one. In the band, `packet_start_count` still names the earlier decision window
+while `chips_to_boundary * 8` has already crossed 512, so
+`lora_joint_chirp_grid_controller.v`'s unwrap moves the origin back a whole
+symbol. The up leg cannot tell (every preamble upchirp looks alike); the down
+leg is pointed at the second sync symbol and its matched-filter peak is 6.5x
+weaker (peak/median 1.4, noise). Run through the RTL's own joint search with
+the flag ignored, k = 672/704/736 reported `precise=1`, no abort, no range
+error -- and `corr = -7` instead of `+1`, an 8-sample grid error, applied
+silently. Since M4/M5 established that one sample off kills the payload, that
+would have been a lost packet with a different label. The detector now raises
+`straddle_detected` in the cycle of `detected`; `lora_packet_toa_receiver_top`
+holds it beside `held_chips_to_boundary`; the controller does not unwrap a
+straddle-accepted packet. Ordinary detections keep the existing rule: on the
+board IQ it is right on both sides of the band (positive below chips 62, wrap
+from chips 74). The new controller test cases fail without the flag handling
+(start 59488 instead of 60512, exactly one symbol).
+
+**Full chain, board IQ, RTL joint search run to completion** (phases
+k = 640..752 step 16; the band is 656..744): `precise=1`, no abort, no range
+error, `corr = +1`, `up_off = -2` at every phase, and `up_coarse` grows by
+exactly the phase step (7648, 7664, ... 7760), including across the point where
+`packet_start_count` steps by one symbol. Detection at every phase: 64/64 (step
+16) on the detected recording and 16/16 in the band on each of two previously
+missed ones. The whole existing RTL regression set (detector, FFT detector,
+receiver top, AXI path, joint path x3, gpreg bridge, multi-packet, joint-grid
+completion at all five phases) and the Python suite (210) pass.
+
+**Diagnostics.** `joint_status` bit 5 (sticky like bits 4:1, cleared by
+`stream_reset` and `trace_rearm`) says at least one packet since the last
+re-arm was accepted only through the straddle path; `read_clg400_symbol_trace`
+reports it as `detector_straddle_accepted`. On the board this is per capture,
+so it shows directly which packets the fix rescued and whether they decode.
+
+**Not solved, deliberately.** On an ideal synthetic packet (no analog chain)
+the same replay still loses two of 64 phases at the switching point, with a
+different pattern: the first sync symbol read twice, `[12 x P][P+8][P+8][P+16]`.
+It does not occur in any board recording tried, and handling it needs the
+timestamp origin moved one decision back, which cannot be validated without
+data that shows it. It is recorded here, not handled. The same replay also
+puts the switch point for ideal signals near 480 samples of advance rather than
+the controller's 512, and near 588 on the board: the 512 the controller
+assumes is not where either flips, and the synthetic tests never exercised the
+difference. The straddle flag makes the board case right; it does not make the
+number universal.
+
+Timing: the added logic sits in front of `detected`, which fans out to the
+grid resync, the timestamp aligner and the trace buffer. The last build had
++0.021 ns of setup slack, so this may need attention in the rebuild.
