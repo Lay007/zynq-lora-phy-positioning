@@ -164,6 +164,7 @@ module tb_replay_detect;
     reg [4095:0] iq_file;
     integer sample_cnt = 0;
     integer joint_wait = 0;
+    integer wait_joint = 1;
     reg joint_done = 1'b0;
 
     task automatic axi_write(input [5:0] address, input [31:0] value);
@@ -218,6 +219,9 @@ module tb_replay_detect;
             $fatal(1);
         end
         if (!$value$plusargs("n=%d", n_samples)) n_samples = 0;
+        // +wait_joint=0: stop after the last sample instead of waiting for
+        // the joint search (much faster when only detection matters).
+        if (!$value$plusargs("wait_joint=%d", wait_joint)) wait_joint = 1;
         $readmemh(iq_file, mem);
         $display("MEM %h %h %h n=%0d file=[%0s]", mem[0], mem[5000], mem[9000], n_samples, iq_file);
         repeat (6) @(posedge clk);
@@ -235,7 +239,7 @@ module tb_replay_detect;
         iq_in_re <= 16'sd0;
         iq_in_im <= 16'sd0;
         joint_wait = 0;
-        while (!joint_done && joint_wait < 450000) begin
+        while (wait_joint != 0 && !joint_done && joint_wait < 450000) begin
             @(posedge clk);
             joint_wait = joint_wait + 1;
         end

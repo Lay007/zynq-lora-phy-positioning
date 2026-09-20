@@ -69,8 +69,8 @@ def parse_output(text: str) -> dict[str, object]:
     }
 
 
-def run_one(job: tuple[Path, int, str, Path]) -> dict[str, object]:
-    iq_path, shift, vvp_file, workdir = job
+def run_one(job: tuple[Path, int, str, Path, bool]) -> dict[str, object]:
+    iq_path, shift, vvp_file, workdir, wait_joint = job
     iq = load_iq(iq_path)
     burst_start, _ = burst_bounds(iq)
     start = burst_start - LEAD_SAMPLES - shift
@@ -81,7 +81,13 @@ def run_one(job: tuple[Path, int, str, Path]) -> dict[str, object]:
     write_window(iq, start, count, hex_path)
     try:
         completed = subprocess.run(
-            ["vvp", vvp_file, "+iq=" + hex_path.as_posix(), f"+n={count}"],
+            [
+                "vvp",
+                vvp_file,
+                "+iq=" + hex_path.as_posix(),
+                f"+n={count}",
+                f"+wait_joint={int(wait_joint)}",
+            ],
             capture_output=True,
             text=True,
             timeout=3600,
@@ -105,13 +111,18 @@ def main() -> int:
     parser.add_argument("--vvp-file", required=True, help="compiled tb_replay_detect")
     parser.add_argument("--phases", default="0:1024:32", help="start:stop:step shifts")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--no-joint",
+        action="store_true",
+        help="do not wait for the joint search (detection only, much faster)",
+    )
     parser.add_argument("--out", type=Path, default=Path("replay_sweep.json"))
     args = parser.parse_args()
 
     phases = parse_phases(args.phases)
     with tempfile.TemporaryDirectory() as tmp:
         jobs = [
-            (path, shift, args.vvp_file, Path(tmp))
+            (path, shift, args.vvp_file, Path(tmp), not args.no_joint)
             for path in args.iq
             for shift in phases
         ]
