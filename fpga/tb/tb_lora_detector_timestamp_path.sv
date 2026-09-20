@@ -10,6 +10,8 @@ module tb_lora_detector_timestamp_path;
     reg  [63:0] symbol_sample_count = 64'd0;
     reg         timestamp_valid = 1'b0;
     reg  [7:0]  sync_word = 8'h12;
+    // Correlator peak of the decision being driven; zero means silence.
+    reg  [15:0] symbol_peak = 16'd100;
 
     wire        detected;
     wire        straddle_detected;
@@ -44,6 +46,7 @@ module tb_lora_detector_timestamp_path;
         .symbol_sample_count(symbol_sample_count),
         .timestamp_valid(timestamp_valid),
         .sync_word(sync_word),
+        .symbol_peak(symbol_peak),
         .detected(detected),
         .straddle_detected(straddle_detected),
         .preamble_detected(preamble_detected),
@@ -234,12 +237,16 @@ module tb_lora_detector_timestamp_path;
         expect_u64("straddle sync timestamp equals the normal one", packet_start_count, 64'd500);
         expect_bit("straddle sync raises no alignment error", alignment_error, 1'b0);
 
-        // Wrap-around: preamble bin 120, second sync bin (120+16) mod 128 = 8.
+        // Wrap-around. The reference bin has to lie in N/4..3N/4, so with the
+        // standard sync word (+16) the second sync bin never wraps; sync word
+        // 0x34 (+32) does at the top of the band: (96+32) mod 128 = 0.
+        sync_word = 8'h34;
         pulse_stream_reset();
-        send_run(32'd120, 12, 64'd100);
-        send_symbol(32'd120, 64'd1300, 1'b1);
-        send_symbol(32'd8, 64'd1400, 1'b1);
+        send_run(32'd96, 12, 64'd100);
+        send_symbol(32'd96, 64'd1300, 1'b1);
+        send_symbol(32'd0, 64'd1400, 1'b1);
         expect_bit("straddle sync detected across the bin wrap", edge_detected, 1'b1);
+        sync_word = 8'h12;
 
         // Same +/-1 bin tolerance as the generated rule.
         pulse_stream_reset();
@@ -262,16 +269,80 @@ module tb_lora_detector_timestamp_path;
         // A different configured sync word moves both sync slots.
         sync_word = 8'h34;
         pulse_stream_reset();
-        send_run(32'd10, 12, 64'd100);
-        send_symbol(32'd10, 64'd1300, 1'b1);
-        send_symbol(32'd42, 64'd1400, 1'b1);
+        send_run(32'd40, 12, 64'd100);
+        send_symbol(32'd40, 64'd1300, 1'b1);
+        send_symbol(32'd72, 64'd1400, 1'b1);
         expect_bit("straddle sync follows the configured sync word (0x34)", edge_detected, 1'b1);
         pulse_stream_reset();
-        send_run(32'd10, 12, 64'd100);
-        send_symbol(32'd10, 64'd1300, 1'b1);
-        send_symbol(32'd18, 64'd1400, 1'b1);
+        send_run(32'd40, 12, 64'd100);
+        send_symbol(32'd40, 64'd1300, 1'b1);
+        send_symbol(32'd56, 64'd1400, 1'b1);
         expect_bit("0x34: a 0x12-shaped second slot is rejected", edge_detected, 1'b0);
         sync_word = 8'h12;
+
+        // Silence. With no signal the correlator's spectrum is exactly zero and
+        // its argmax is bin 0, so a run of zeros is free. The first, partial
+        // window of the next packet then only has to land on 16 +/- 1 for the
+        // straddle rule to fire: on the board this false detection hit 5 of
+        // the first 12 rescued packets, armed the trace inside the preamble
+        // and garbled the joint estimate.
+        pulse_stream_reset();
+        symbol_peak = 16'd0;
+        send_run(32'd0, 9, 64'd100);
+        symbol_peak = 16'd1;
+        send_symbol(32'd16, 64'd1000, 1'b1);
+        expect_bit("silence then an onset decision of 16 is not a detection", edge_detected, 1'b0);
+        expect_bit("silence then an onset decision of 16 is not a straddle", edge_straddle, 1'b0);
+        symbol_peak = 16'd100;
+        // Same with the onset decision landing exactly one bin off.
+        pulse_stream_reset();
+        symbol_peak = 16'd0;
+        send_run(32'd0, 9, 64'd100);
+        symbol_peak = 16'd1;
+        send_symbol(32'd17, 64'd1000, 1'b1);
+        expect_bit("silence then 17 is not a detection", edge_detected, 1'b0);
+        symbol_peak = 16'd100;
+
+        // A run of zeros WITH a signal (bin 0 is far from half a symbol) is
+        // outside the straddle band as well.
+        pulse_stream_reset();
+        send_run(32'd0, 9, 64'd100);
+        send_symbol(32'd16, 64'd1000, 1'b1);
+        expect_bit("a bin-0 run with signal then 16 is outside the band", edge_straddle, 1'b0);
+
+        // One silent decision anywhere in the ten-symbol window is enough to
+        // refuse a straddle acceptance, even at a bin inside the band.
+        pulse_stream_reset();
+        send_run(32'd64, 5, 64'd100);
+        symbol_peak = 16'd0;
+        send_symbol(32'd64, 64'd600, 1'b1);
+        symbol_peak = 16'd100;
+        send_run(32'd64, 6, 64'd700);
+        send_symbol(32'd64, 64'd1300, 1'b1);
+        send_symbol(32'd80, 64'd1400, 1'b1);
+        expect_bit("a silent decision inside the window blocks the straddle path", edge_detected, 1'b0);
+
+        // The band edges: N/4 = 32 and 3N/4 = 96 inclusive.
+        pulse_stream_reset();
+        send_run(32'd31, 12, 64'd100);
+        send_symbol(32'd31, 64'd1300, 1'b1);
+        send_symbol(32'd47, 64'd1400, 1'b1);
+        expect_bit("straddle at reference bin 31 is below the band", edge_detected, 1'b0);
+        pulse_stream_reset();
+        send_run(32'd32, 12, 64'd100);
+        send_symbol(32'd32, 64'd1300, 1'b1);
+        send_symbol(32'd48, 64'd1400, 1'b1);
+        expect_bit("straddle at reference bin 32 is inside the band", edge_detected, 1'b1);
+        pulse_stream_reset();
+        send_run(32'd96, 12, 64'd100);
+        send_symbol(32'd96, 64'd1300, 1'b1);
+        send_symbol(32'd112, 64'd1400, 1'b1);
+        expect_bit("straddle at reference bin 96 is inside the band", edge_detected, 1'b1);
+        pulse_stream_reset();
+        send_run(32'd97, 12, 64'd100);
+        send_symbol(32'd97, 64'd1300, 1'b1);
+        send_symbol(32'd113, 64'd1400, 1'b1);
+        expect_bit("straddle at reference bin 97 is above the band", edge_detected, 1'b0);
 
         // Things that must NOT be detected.
         pulse_stream_reset();

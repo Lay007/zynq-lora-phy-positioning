@@ -26,6 +26,9 @@ module lora_detector_timestamp_path (
     input  wire        symbol_valid,
     input  wire [63:0] symbol_sample_count,
     input  wire        timestamp_valid,
+    // Correlator peak magnitude of the decision on symbol_index, in the same
+    // cycle. Zero exactly when there is no signal (see the straddle guard).
+    input  wire [15:0] symbol_peak,
     input  wire [7:0]  sync_word,
 
     output wire         detected,
@@ -95,15 +98,41 @@ module lora_detector_timestamp_path (
     // this is combinational in the same cycle as symbol_valid, like the
     // generated detected, because lora_detector_timestamp_align requires the
     // decision on the matching timestamp cycle.
+    //
+    // Two guards, both found the hard way on the first board run of this
+    // path (5 of its 12 rescued packets were false detections):
+    //
+    //  * Every decision in the window must have come from a correlator that
+    //    saw a signal. In silence the correlator's spectrum is exactly zero
+    //    and its argmax is bin 0, so eight "equal" bins and a ninth equal
+    //    bin cost nothing, and the decision for the first, partial window of
+    //    the next packet then needs only ONE coincidence (16 +/- 1 bins,
+    //    about 2.3%) instead of the generated rule's two. peak, spectrum sum
+    //    and confidence were all exactly 0 on every silent decision of
+    //    board recordings from 25 dB to the 50 dB set, and non-zero on every
+    //    decision of a real preamble or sync window, so "peak != 0" is a
+    //    clean test. A false detection there arms the trace and the grid
+    //    resync on the wrong instant and garbles the joint estimate.
+    //  * The reference bin must lie near half a symbol (N/4 .. 3N/4). The
+    //    straddle happens only when the packet's arrival is about half a
+    //    symbol from the correlator window, which is what the bin measures;
+    //    on the board it was 55..66 and the seven rescued packets that
+    //    decoded were 58..64. Silence's bin 0 is far outside.
     localparam [15:0] BIN_MASK = 16'd127; // 2^SF - 1 for the SF7 build
 
     reg [15:0] prev_bin [0:8]; // [0] oldest ... [8] newest previous symbol
+    reg [8:0]  prev_present;   // matching 'correlator saw a signal' bits
     reg [3:0]  prev_filled;
     integer    alt_i;
     integer    alt_j;
 
     wire [15:0] alt_low  = {12'd0, sync_word[3:0]};
     wire [15:0] alt_ref  = prev_bin[0];
+    // N/4 .. 3N/4: the reference bin has to be near half a symbol.
+    localparam [15:0] BAND_LOW  = (BIN_MASK + 16'd1) >> 2;
+    localparam [15:0] BAND_HIGH = ((BIN_MASK + 16'd1) >> 2) * 16'd3;
+    wire alt_ref_in_band = (alt_ref >= BAND_LOW) && (alt_ref <= BAND_HIGH);
+    wire alt_signal_present = (&prev_present) && (symbol_peak != 16'd0);
     wire [15:0] alt_s2_target = (alt_ref + ((alt_low << 3) & BIN_MASK)) & BIN_MASK;
 
     function automatic bin_within(input [15:0] bin, input [15:0] target);
@@ -124,7 +153,7 @@ module lora_detector_timestamp_path (
 
     wire alt_step = clk_enable && symbol_valid && !reset_in;
     wire detected_straddle = alt_step && (prev_filled == 4'd9) &&
-        alt_run_ok &&
+        alt_run_ok && alt_signal_present && alt_ref_in_band &&
         bin_within(prev_bin[8], alt_ref) &&
         bin_within(detector_symbol_index, alt_s2_target);
 
@@ -134,12 +163,14 @@ module lora_detector_timestamp_path (
     always @(posedge clk) begin
         if (!resetn || reset_in) begin
             prev_filled <= 4'd0;
+            prev_present <= 9'd0;
             for (alt_j = 0; alt_j < 9; alt_j = alt_j + 1)
                 prev_bin[alt_j] <= 16'd0;
         end else if (clk_enable && symbol_valid) begin
             for (alt_j = 0; alt_j < 8; alt_j = alt_j + 1)
                 prev_bin[alt_j] <= prev_bin[alt_j + 1];
             prev_bin[8] <= detector_symbol_index;
+            prev_present <= {prev_present[7:0], symbol_peak != 16'd0};
             if (prev_filled < 4'd9)
                 prev_filled <= prev_filled + 4'd1;
         end

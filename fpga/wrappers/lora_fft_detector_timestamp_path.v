@@ -76,6 +76,7 @@ module lora_fft_detector_timestamp_path (
         .symbol_valid(symbol_valid),
         .symbol_sample_count(symbol_sample_count),
         .timestamp_valid(timestamp_valid),
+        .symbol_peak(peak_magnitude_squared),
         .sync_word(sync_word),
         .detected(detected),
         .straddle_detected(straddle_detected),

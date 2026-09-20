@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.analyze_clg400_iq_trace import burst_bounds, load_iq  # noqa: E402
 
-LEAD_SAMPLES = 2048
+LEAD_SAMPLES = 2048  # default; --lead overrides (silence before the packet matters)
 TAIL_SAMPLES = 24 * 1024
 
 
@@ -69,12 +69,12 @@ def parse_output(text: str) -> dict[str, object]:
     }
 
 
-def run_one(job: tuple[Path, int, str, Path, bool]) -> dict[str, object]:
-    iq_path, shift, vvp_file, workdir, wait_joint = job
+def run_one(job: tuple[Path, int, str, Path, bool, int]) -> dict[str, object]:
+    iq_path, shift, vvp_file, workdir, wait_joint, lead = job
     iq = load_iq(iq_path)
     burst_start, _ = burst_bounds(iq)
-    start = burst_start - LEAD_SAMPLES - shift
-    count = LEAD_SAMPLES + shift + TAIL_SAMPLES
+    start = burst_start - lead - shift
+    count = lead + shift + TAIL_SAMPLES
     if start < 0:
         raise ValueError(f"{iq_path.name}: the burst is too close to the start")
     hex_path = workdir / f"{iq_path.stem}_{shift:04d}.hex"
@@ -116,13 +116,21 @@ def main() -> int:
         action="store_true",
         help="do not wait for the joint search (detection only, much faster)",
     )
+    parser.add_argument(
+        "--lead",
+        type=int,
+        default=LEAD_SAMPLES,
+        help="samples of the recording before the burst to feed first; the "
+        "detector sees these as silence, and a long stretch of it is what "
+        "exposes rules that a quiet input satisfies for free",
+    )
     parser.add_argument("--out", type=Path, default=Path("replay_sweep.json"))
     args = parser.parse_args()
 
     phases = parse_phases(args.phases)
     with tempfile.TemporaryDirectory() as tmp:
         jobs = [
-            (path, shift, args.vvp_file, Path(tmp), not args.no_joint)
+            (path, shift, args.vvp_file, Path(tmp), not args.no_joint, args.lead)
             for path in args.iq
             for shift in phases
         ]

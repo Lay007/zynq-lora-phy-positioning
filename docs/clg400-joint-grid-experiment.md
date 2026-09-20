@@ -1703,3 +1703,94 @@ number universal.
 Timing: the added logic sits in front of `detected`, which fans out to the
 grid resync, the timestamp aligner and the trace buffer. The last build had
 +0.021 ns of setup slack, so this may need attention in the rebuild.
+
+### M7 on hardware, first run: no misses, and 5 false detections I introduced -- 2026-09-20
+
+The M7 image (`a07c45f6...`, RTL `6d7552f`) was deployed by the usual atomic
+swap (M6 kept on the card as `system_top.bit.pre_m7_straddle_20260920T000000Z`)
+and cold-booted; the page-0 smoke test read the same `status=0x00011243` as
+every earlier image. A 6-attempt probe and then a 100-attempt series
+(`experiments/runs/2026-09-20-clg400-m7-verify/`, 25 dB, `trace_rearm`
+between attempts):
+
+- 99 of 100 captured. The one failure is at `prepare_transmitter`: the
+  transmitter's profile readback came back without its payload/length/running
+  fields over serial, before any packet was sent. Not a PL event.
+- **No detection miss at all** -- 0 of 99 attempts with the packet in the
+  recording and the trace empty, against 12 of 196 (6.1%) in the earlier
+  gain-25 runs. Twelve packets (12%, 9.4% predicted) were accepted only by
+  the new straddle path (joint status bit 5), all with `precise_correction_
+  applied`. The 87 packets that took the ordinary path decoded 87/87.
+- But only 7 of those 12 decoded. That is not the fix working "mostly": it is
+  two different populations.
+
+**Seven that decode.** `preamble_bin` 58, 63, 64, 64, 62, 64, 58 -- inside the
+band predicted from replay (55..66) -- `pl_grid_error_samples = 0` in every
+case, first trace entry exactly `packet_start_count + 10240` (ten symbols
+after the coarse origin, as for any packet), header and payload symbols
+identical to the ordinary ones. Their correction (-5..+11) is in the same
+range as the ordinary packets'. This is the mechanism M7 was built for, and it
+works.
+
+**Five that do not.** `preamble_bin = 0` in every one of them; the trace's
+first entry lies 4355 samples (four symbols) *before* `packet_start_count`;
+its first eight decisions are a constant preamble-like bin drifting 44..48; the
+ground-truth sweep gives `pl_grid_error_samples` of 7, -7, -5, 10, 4 with the
+first divergent stage at the dechirp. A trace that starts inside the preamble
+and a coarse origin that belongs to something else: the detector fired *early*.
+
+**Why my replays had not seen it.** They start from reset with about two
+symbols (2048 samples) of the recording before the burst, so the detector
+never has a run of silence. Replaying the failing recording with 20000 samples
+of real silence before the burst (`tools/replay_iq_through_rtl.py --lead
+20000`) reproduces it at one of eight phases: `DET` with P = 0, ctb = 0 at
+n = 23953, well before the real detection at n = 38529, from the decisions
+`[0 x 20][16, 16, 16, 47, 46, 46, ...]` -- twenty exact zeros, then the first
+window of the packet.
+
+Silence is bin 0, not random. With no signal the correlator's spectrum is
+exactly zero and its argmax is index 0. Measured on the recordings
+(`SYM ... conf= peak= sum=` printed by `tb_replay_detect.sv`): on every silent
+decision of a 25 dB recording and of two 50 dB ones (amplitude about 40),
+confidence, peak and spectrum sum are all exactly 0; on every decision of a
+real preamble or sync window peak is 12..67 (17..18 steady on the weak ones).
+A run of eight "equal" bins is therefore free in silence, and my rule
+`[8 x ref][ref][ref + 16]` then needs only one coincidence -- the first,
+partial window of the next packet landing on 16 +/- 1, 3 of 128 bins, about
+2.3% -- where the generated rule `[8 x ref][ref + 8][ref + 16]` needs two
+(about 0.05%). Observed: 5 of 99. When I wrote the rule I estimated its false
+rate as (3/128)^8 for eight random decisions; the decisions in silence are not
+random, and I did not test the one input a receiver sees most of the time.
+
+What a false detection does: it arms the symbol trace and the grid resync on
+the wrong instant (the trace begins in the preamble, so the header lies beyond
+the eight entry offsets the decoder tries), takes a coarse origin that is not
+a chirp start, and the joint search then reports a "successful" correction
+that is wrong (`precise=1`, no abort) -- the same silent corruption that the
+straddle flag prevents in the other direction.
+
+**Guard.** Two conditions on the straddle path
+(`lora_detector_timestamp_path.v`), both from data: (1) the correlator's peak
+is non-zero for all ten decisions of the window (silence is exactly zero,
+every real preamble/sync window is not, including the weak recordings), and
+(2) the reference bin lies in N/4..3N/4 (32..96), since the straddle needs the
+packet about half a symbol from the window and the bin measures exactly that
+(55..66 on the board, 58..64 among the rescued packets that decode); silence's
+bin 0 is far outside. `peak_magnitude_squared` from the correlator is wired
+into the wrapper as a new input. Seven new checks in
+`tb_lora_detector_timestamp_path.sv` (silence then 16, silence then 17, a
+bin-0 run with signal, one silent decision inside a straddle window, and the
+band edges 31/32/96/97) fail on the previous version and pass on this one; the
+two older tests whose reference bins lay outside the band (bin wrap at 120,
+sync word 0x34 at 10) were rewritten to in-band references with sync word
+0x34, where the second sync bin does wrap ((96 + 32) mod 128 = 0).
+
+**Replay check of the guard.** Failing recording (tx 246) with 20000 samples
+of silence in front, 8 arrival phases: exactly one `DET` per phase; the early
+false `DET` (P = 0, ctb = 0, n = 23953, alt rule at symbol 20) is gone. A good
+recording (`rx1-iq-20260919T195431Z`) with the same lead, shifts 96..208 step
+16: detected at all 8 phases, one symbol earlier (n = 37265) at shifts 96..192
+than at 208 (n = 38289), i.e. the straddle path still takes the band packets
+the generated detector waits one more symbol for. Full RTL regression (fft
+detector, receiver top, AXI path, joint controller path x3, bridge, multi-packet,
+completion x5) and `pytest tests` (220) pass.
