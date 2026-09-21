@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-09-21T11:53:44.164617+00:00",
+  "generator": "tools/run_fm_positioning_experiment.py",
+  "git": {
+    "commit": "0cc1982f4baa536f78462cd395436e2cd5a40088",
+    "branch": "experiment/fm-positioning-waveforms",
+    "dirty": false
+  },
+  "configuration": {
+    "sample_rate_hz": 1000000.0,
+    "duration_s": 0.001024,
+    "sample_count": 1024,
+    "swept_bandwidth_hz": 125000.0,
+    "energy": 1.0,
+    "carrier_hz": 868000000.0,
+    "mobile_speed_m_s": 30.0,
+    "mobile_doppler_hz": 86.8600903895988,
+    "monte_carlo_trials_per_case": 2000,
+    "monte_carlo_seed": 20260921,
+    "energy_snr_values_db": [
+      0.0,
+      5.0,
+      10.0,
+      15.0,
+      20.0
+    ]
+  },
+  "optimization": {
+    "family": "two-harmonic monotone endpoint-preserving FM",
+    "objective": "0.85 * delay-CRLB-std/LFM + 0.15 * abs-Doppler-delay/LFM",
+    "constraints": {
+      "peak_sidelobe_db_max": -10.0,
+      "integrated_sidelobe_db_max": -1.5,
+      "minimum_normalized_slope": 0.02
+    },
+    "design_doppler_hz": 86.8600903895988,
+    "selected_harmonic_coefficients": [
+      0.17999999999999997,
+      -0.06
+    ],
+    "relative_score": 0.829258009721527,
+    "feasible_candidates_evaluated": 92
+  },
+  "metrics": [
+    {
+      "waveform": "lfm",
+      "harmonic_coefficients": "",
+      "duration_us": 1024.0,
+      "swept_bandwidth_hz": 125000.0,
+      "energy": 0.9999999999999999,
+      "rms_bandwidth_hz": 36119.64771143685,
+      "delay_crlb_snr_db": 20.0,
+      "delay_crlb_std_ns": 311.57430000072776,
+      "one_way_crlb_std_m": 93.40762524684759,
+      "mainlobe_width_samples": 16,
+      "mainlobe_width_us": 16.0,
+      "peak_sidelobe_db": -13.484433813006527,
+      "integrated_sidelobe_db": -9.756761265557056,
+      "mobile_doppler_hz": 86.8600903895988,
+      "mobile_peak_delay_samples": -0.6966587706078826,
+      "mobile_peak_bias_m": -208.85304522779526,
+      "mobile_peak_loss_db": -0.027157844741358635
+    },
+    {
+      "waveform": "sinusoidal_nlfm",
+      "harmonic_coefficients": "0.28;0",
+      "duration_us": 1024.0,
+      "swept_bandwidth_hz": 125000.0,
+      "energy": 1.0,
+      "rms_bandwidth_hz": 46402.85681565253,
+      "delay_crlb_snr_db": 20.0,
+      "delay_crlb_std_ns": 242.52717880438047,
+      "one_way_crlb_std_m": 72.70781906557072,
+      "mainlobe_width_samples": 12,
+      "mainlobe_width_us": 12.0,
+      "peak_sidelobe_db": -6.682331738443717,
+      "integrated_sidelobe_db": 0.7355621011002521,
+      "mobile_doppler_hz": 86.8600903895988,
+      "mobile_peak_delay_samples": -0.5359174618337192,
+      "mobile_peak_bias_m": -160.66401316825187,
+      "mobile_peak_loss_db": -0.08813016523676936
+    },
+    {
+      "waveform": "optimized_fm",
+      "harmonic_coefficients": "0.18;-0.06",
+      "duration_us": 1024.0,
+      "swept_bandwidth_hz": 125000.0,
+      "energy": 1.0,
+      "rms_bandwidth_hz": 43549.82907945296,
+      "delay_crlb_snr_db": 20.0,
+      "delay_crlb_std_ns": 258.41557107909523,
+      "one_way_crlb_std_m": 77.47103923927567,
+      "mainlobe_width_samples": 12,
+      "mainlobe_width_us": 12.0,
+      "peak_sidelobe_db": -10.038109183309514,
+      "integrated_sidelobe_db": -1.7870898142593747,
+      "mobile_doppler_hz": 86.8600903895988,
+      "mobile_peak_delay_samples": -0.5772019498485861,
+      "mobile_peak_bias_m": -173.04079130750037,
+      "mobile_peak_loss_db": -0.06518569969321211
+    }
+  ],
+  "files": {
+    "waveform_metrics": "waveform-metrics.csv",
+    "ambiguity_cuts": "ambiguity-cuts.csv",
+    "monte_carlo_toa": "monte-carlo-toa.csv"
+  }
+}
