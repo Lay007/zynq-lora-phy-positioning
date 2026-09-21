@@ -103,6 +103,63 @@ class OptimizationResult:
     evaluated_candidates: int
 
 
+@dataclass(frozen=True)
+class DopplerCouplingMetrics:
+    """Linearized displacement of the ambiguity peak with Doppler."""
+
+    slope_samples_per_hz: float
+    intercept_samples: float
+    residual_rms_samples: float
+
+
+@dataclass(frozen=True)
+class PairedAmbiguityEstimate:
+    """Timing and Doppler displacement from conjugate up/down FM pulses."""
+
+    doppler_hz: float
+    up_delay_samples: float
+    down_delay_samples: float
+    timing_delay_samples: float
+    doppler_displacement_samples: float
+    mean_normalized_magnitude: float
+
+
+@dataclass(frozen=True)
+class PairedToaMonteCarloResult:
+    """Monte Carlo result for a half-sum up/down timing estimate."""
+
+    snr_db: float
+    doppler_hz: float
+    trials: int
+    up_bias_samples: float
+    down_bias_samples: float
+    bias_samples: float
+    rmse_samples: float
+    outlier_rate: float
+
+
+@dataclass(frozen=True)
+class ParetoCandidate:
+    """One harmonic FM law and its LFM-normalized minimization objectives."""
+
+    waveform: FmWaveform
+    delay_variance_ratio: float
+    peak_sidelobe_amplitude_ratio: float
+    integrated_sidelobe_energy_ratio: float
+    doppler_coupling_ratio: float
+    rms_bandwidth_hz: float
+    autocorrelation: AutocorrelationMetrics
+    doppler_coupling: DopplerCouplingMetrics
+
+
+@dataclass(frozen=True)
+class ParetoSearchResult:
+    """All monotone candidates and the non-dominated subset."""
+
+    candidates: tuple[ParetoCandidate, ...]
+    front: tuple[ParetoCandidate, ...]
+
+
 def harmonic_frequency_law(
     config: FmWaveformConfig,
     coefficients: tuple[float, ...] = (),
@@ -281,6 +338,175 @@ def ambiguity_peak(
     )
 
 
+def delay_doppler_coupling(
+    waveform: FmWaveform,
+    sample_rate_hz: float,
+    doppler_offsets_hz: ArrayLike,
+) -> DopplerCouplingMetrics:
+    """Fit ambiguity-peak delay against Doppler over a symmetric local grid."""
+
+    offsets = np.asarray(doppler_offsets_hz, dtype=np.float64)
+    if offsets.ndim != 1 or offsets.size < 2:
+        raise ValueError("doppler_offsets_hz must contain at least two values")
+    if not np.all(np.isfinite(offsets)) or np.all(offsets == offsets[0]):
+        raise ValueError("doppler offsets must be finite and not all equal")
+    delays = np.asarray(
+        [
+            ambiguity_peak(waveform, sample_rate_hz, float(offset)).delay_samples
+            for offset in offsets
+        ],
+        dtype=np.float64,
+    )
+    centered = offsets - float(np.mean(offsets))
+    slope = float(np.dot(centered, delays) / np.dot(centered, centered))
+    intercept = float(np.mean(delays) - slope * np.mean(offsets))
+    residual = delays - (intercept + slope * offsets)
+    return DopplerCouplingMetrics(
+        slope_samples_per_hz=slope,
+        intercept_samples=intercept,
+        residual_rms_samples=float(np.sqrt(np.mean(residual**2))),
+    )
+
+
+def make_downchirp(waveform: FmWaveform) -> FmWaveform:
+    """Return the conjugate down-sweep paired with an odd-symmetric up-sweep."""
+
+    return FmWaveform(
+        name=f"{waveform.name}_down",
+        samples=np.conjugate(waveform.samples),
+        instantaneous_frequency_hz=-waveform.instantaneous_frequency_hz,
+        harmonic_coefficients=waveform.harmonic_coefficients,
+    )
+
+
+def paired_ambiguity_estimate(
+    up_waveform: FmWaveform,
+    sample_rate_hz: float,
+    doppler_hz: float,
+) -> PairedAmbiguityEstimate:
+    """Average conjugate up/down ambiguity peaks to cancel first-order Doppler."""
+
+    up = ambiguity_peak(up_waveform, sample_rate_hz, doppler_hz)
+    down = ambiguity_peak(
+        make_downchirp(up_waveform), sample_rate_hz, doppler_hz
+    )
+    return PairedAmbiguityEstimate(
+        doppler_hz=float(doppler_hz),
+        up_delay_samples=up.delay_samples,
+        down_delay_samples=down.delay_samples,
+        timing_delay_samples=0.5 * (up.delay_samples + down.delay_samples),
+        doppler_displacement_samples=0.5 * (up.delay_samples - down.delay_samples),
+        mean_normalized_magnitude=0.5
+        * (up.normalized_magnitude + down.normalized_magnitude),
+    )
+
+
+def _is_pareto_efficient(objectives: FloatArray) -> NDArray[np.bool_]:
+    efficient = np.ones(objectives.shape[0], dtype=bool)
+    for index, objective in enumerate(objectives):
+        no_worse = np.all(objectives <= objective, axis=1)
+        strictly_better = np.any(objectives < objective, axis=1)
+        if np.any(no_worse & strictly_better):
+            efficient[index] = False
+    return efficient
+
+
+def search_pareto_harmonic_fm(
+    config: FmWaveformConfig,
+    *,
+    first_harmonics: ArrayLike | None = None,
+    second_harmonics: ArrayLike | None = None,
+    doppler_offsets_hz: ArrayLike = (-200.0, -100.0, 100.0, 200.0),
+) -> ParetoSearchResult:
+    """Find the four-objective Pareto front in the two-harmonic FM family.
+
+    Delay CRLB variance, PSL amplitude, ISL energy, and the absolute local
+    delay-Doppler slope are minimized independently.  Every value is divided
+    by the LFM value before dominance is tested, so LFM is ``(1, 1, 1, 1)``.
+    PSL and ISL remain separate objectives because merging them into one scalar
+    can hide a waveform with a good peak but excessive total sidelobe energy.
+    """
+
+    first = (
+        np.linspace(-0.08, 0.30, 39)
+        if first_harmonics is None
+        else np.asarray(first_harmonics, dtype=np.float64)
+    )
+    second = (
+        np.linspace(-0.08, 0.08, 17)
+        if second_harmonics is None
+        else np.asarray(second_harmonics, dtype=np.float64)
+    )
+    baseline = make_lfm_waveform(config)
+    baseline_beta = rms_bandwidth_hz(baseline)
+    baseline_ac = autocorrelation_metrics(baseline, config.sample_rate_hz)
+    baseline_coupling = delay_doppler_coupling(
+        baseline, config.sample_rate_hz, doppler_offsets_hz
+    )
+    baseline_slope = abs(baseline_coupling.slope_samples_per_hz)
+    candidates: list[ParetoCandidate] = []
+    for first_value, second_value in product(first, second):
+        try:
+            waveform = make_fm_waveform(
+                "pareto_fm", config, (float(first_value), float(second_value))
+            )
+        except ValueError:
+            continue
+        beta = rms_bandwidth_hz(waveform)
+        correlation = autocorrelation_metrics(waveform, config.sample_rate_hz)
+        coupling = delay_doppler_coupling(
+            waveform, config.sample_rate_hz, doppler_offsets_hz
+        )
+        candidates.append(
+            ParetoCandidate(
+                waveform=waveform,
+                delay_variance_ratio=float((baseline_beta / beta) ** 2),
+                peak_sidelobe_amplitude_ratio=float(
+                    10.0
+                    ** (
+                        (correlation.peak_sidelobe_db - baseline_ac.peak_sidelobe_db)
+                        / 20.0
+                    )
+                ),
+                integrated_sidelobe_energy_ratio=float(
+                    10.0
+                    ** (
+                        (
+                            correlation.integrated_sidelobe_db
+                            - baseline_ac.integrated_sidelobe_db
+                        )
+                        / 10.0
+                    )
+                ),
+                doppler_coupling_ratio=float(
+                    abs(coupling.slope_samples_per_hz) / baseline_slope
+                ),
+                rms_bandwidth_hz=beta,
+                autocorrelation=correlation,
+                doppler_coupling=coupling,
+            )
+        )
+    objectives = np.asarray(
+        [
+            (
+                candidate.delay_variance_ratio,
+                candidate.peak_sidelobe_amplitude_ratio,
+                candidate.integrated_sidelobe_energy_ratio,
+                candidate.doppler_coupling_ratio,
+            )
+            for candidate in candidates
+        ],
+        dtype=np.float64,
+    )
+    efficient = _is_pareto_efficient(objectives)
+    front = tuple(
+        candidate
+        for candidate, keep in zip(candidates, efficient, strict=True)
+        if keep
+    )
+    return ParetoSearchResult(candidates=tuple(candidates), front=front)
+
+
 def _relative_optimization_score(
     waveform: FmWaveform,
     baseline: FmWaveform,
@@ -406,4 +632,81 @@ def monte_carlo_toa(
         bias_samples=float(np.mean(errors)),
         rmse_samples=float(np.sqrt(np.mean(errors**2))),
         outlier_rate=float(np.mean(np.abs(errors) > 1.0)),
+    )
+
+
+def monte_carlo_paired_toa(
+    waveform: FmWaveform,
+    config: FmWaveformConfig,
+    *,
+    energy_snr_db: float,
+    trials: int,
+    rng: np.random.Generator,
+    doppler_hz: float = 0.0,
+    true_delay_samples: int = 32,
+    guard_samples: int = 32,
+) -> PairedToaMonteCarloResult:
+    """Estimate timing from an up/down pair with fixed total pair energy.
+
+    Half of ``config.energy`` is assigned to each chirp.  The two matched-filter
+    estimates therefore use independent noise at 3 dB lower per-chirp Es/N0,
+    and their half-sum has the same ideal delay information as one full-energy
+    chirp while cancelling equal-and-opposite Doppler displacement.
+    """
+
+    if not np.isfinite(energy_snr_db) or not np.isfinite(doppler_hz):
+        raise ValueError("SNR and Doppler must be finite")
+    if trials < 1:
+        raise ValueError("trials must be positive")
+    if true_delay_samples < 0 or guard_samples < 1:
+        raise ValueError("delays and guards must be non-negative with a positive guard")
+    if true_delay_samples > 2 * guard_samples:
+        raise ValueError("true_delay_samples must lie inside the search guard")
+
+    input_energy = float(np.vdot(waveform.samples, waveform.samples).real)
+    scale = np.sqrt(config.energy / (2.0 * input_energy))
+    up_reference = waveform.samples * scale
+    down_reference = np.conjugate(waveform.samples) * scale
+    received_size = waveform.samples.size + 2 * guard_samples
+    up_clean = np.zeros(received_size, dtype=np.complex128)
+    down_clean = np.zeros(received_size, dtype=np.complex128)
+    signal_slice = slice(
+        true_delay_samples, true_delay_samples + waveform.samples.size
+    )
+    up_clean[signal_slice] = up_reference
+    down_clean[signal_slice] = down_reference
+    local_indices = np.arange(received_size, dtype=np.float64)
+    up_clean *= np.exp(
+        2j * np.pi * doppler_hz * local_indices / config.sample_rate_hz
+    )
+    down_global_indices = local_indices + received_size
+    down_clean *= np.exp(
+        2j * np.pi * doppler_hz * down_global_indices / config.sample_rate_hz
+    )
+
+    noise_power = config.energy / (10.0 ** (energy_snr_db / 10.0))
+    noise_scale = np.sqrt(noise_power / 2.0)
+    up_errors = np.empty(trials, dtype=np.float64)
+    down_errors = np.empty(trials, dtype=np.float64)
+    for trial in range(trials):
+        up_noise = noise_scale * (
+            rng.standard_normal(received_size) + 1j * rng.standard_normal(received_size)
+        )
+        down_noise = noise_scale * (
+            rng.standard_normal(received_size) + 1j * rng.standard_normal(received_size)
+        )
+        up_estimate = estimate_toa(up_clean + up_noise, up_reference)
+        down_estimate = estimate_toa(down_clean + down_noise, down_reference)
+        up_errors[trial] = up_estimate.sample_index - true_delay_samples
+        down_errors[trial] = down_estimate.sample_index - true_delay_samples
+    timing_errors = 0.5 * (up_errors + down_errors)
+    return PairedToaMonteCarloResult(
+        snr_db=float(energy_snr_db),
+        doppler_hz=float(doppler_hz),
+        trials=int(trials),
+        up_bias_samples=float(np.mean(up_errors)),
+        down_bias_samples=float(np.mean(down_errors)),
+        bias_samples=float(np.mean(timing_errors)),
+        rmse_samples=float(np.sqrt(np.mean(timing_errors**2))),
+        outlier_rate=float(np.mean(np.abs(timing_errors) > 1.0)),
     )

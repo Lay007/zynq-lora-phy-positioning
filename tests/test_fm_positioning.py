@@ -12,8 +12,11 @@ from zynq_lora_phy.fm_positioning import (
     delay_crlb_std_s,
     make_lfm_waveform,
     make_sinusoidal_nlfm_waveform,
+    monte_carlo_paired_toa,
     optimize_harmonic_fm,
+    paired_ambiguity_estimate,
     rms_bandwidth_hz,
+    search_pareto_harmonic_fm,
 )
 
 
@@ -113,6 +116,72 @@ def test_experiment_runner_writes_self_describing_tables(tmp_path: Path) -> None
     assert (tmp_path / "waveform-metrics.csv").is_file()
     assert (tmp_path / "ambiguity-cuts.csv").is_file()
     assert (tmp_path / "monte-carlo-toa.csv").is_file()
+    assert (tmp_path / "pareto-candidates.csv").is_file()
+    assert (tmp_path / "pareto-front.csv").is_file()
+    assert (tmp_path / "paired-ambiguity.csv").is_file()
+    assert (tmp_path / "paired-monte-carlo.csv").is_file()
     persisted = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
     assert persisted["configuration"]["monte_carlo_seed"] == 17
     assert persisted["files"]["waveform_metrics"] == "waveform-metrics.csv"
+    assert persisted["pareto_search"]["pareto_front_size"] > 1
+    assert len(persisted["paired_up_down"]["monte_carlo"]) == 8
+
+
+@pytest.mark.parametrize("coefficient", [0.0, 0.18, 0.28])
+def test_up_down_pair_cancels_doppler_displacement(coefficient: float) -> None:
+    config = FmWaveformConfig()
+    waveform = make_sinusoidal_nlfm_waveform(config, coefficient=coefficient)
+
+    estimate = paired_ambiguity_estimate(
+        waveform, config.sample_rate_hz, doppler_hz=100.0
+    )
+
+    assert estimate.up_delay_samples == pytest.approx(
+        -estimate.down_delay_samples, abs=1e-12
+    )
+    assert estimate.timing_delay_samples == pytest.approx(0.0, abs=1e-12)
+    assert abs(estimate.doppler_displacement_samples) > 0.4
+
+
+def test_pareto_search_returns_only_non_dominated_candidates() -> None:
+    config = FmWaveformConfig(sample_rate_hz=250_000.0, duration_s=1.024e-3)
+    result = search_pareto_harmonic_fm(
+        config,
+        first_harmonics=np.array([-0.04, 0.0, 0.08, 0.16]),
+        second_harmonics=np.array([-0.02, 0.0, 0.02]),
+        doppler_offsets_hz=(-100.0, 100.0),
+    )
+
+    assert 1 < len(result.front) < len(result.candidates)
+    objectives = lambda candidate: np.array(
+        [
+            candidate.delay_variance_ratio,
+            candidate.peak_sidelobe_amplitude_ratio,
+            candidate.integrated_sidelobe_energy_ratio,
+            candidate.doppler_coupling_ratio,
+        ]
+    )
+    for candidate in result.front:
+        target = objectives(candidate)
+        assert not any(
+            np.all(objectives(other) <= target)
+            and np.any(objectives(other) < target)
+            for other in result.candidates
+        )
+
+
+def test_paired_monte_carlo_removes_mobile_bias_at_fixed_total_energy() -> None:
+    config = FmWaveformConfig()
+    result = monte_carlo_paired_toa(
+        make_lfm_waveform(config),
+        config,
+        energy_snr_db=30.0,
+        trials=400,
+        rng=np.random.default_rng(91),
+        doppler_hz=100.0,
+    )
+
+    assert result.up_bias_samples < -0.5
+    assert result.down_bias_samples > 0.5
+    assert abs(result.bias_samples) < 0.03
+    assert result.rmse_samples < 0.15
