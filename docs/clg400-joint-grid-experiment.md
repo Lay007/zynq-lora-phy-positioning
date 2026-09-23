@@ -1902,3 +1902,120 @@ warm-up effect other than the CFO fits equally. Separating them needs the CFO
 region visited at a later time (a warm board with a detuned transmitter) or a cold
 boot repeated; or the synthetic test of the decode-best offset against CFO
 and fractional timing.
+
+## M8 diagnostics: decision history and a crossing drop count, for the misses -- 2026-09-24
+
+Five of 798 packets on the M7 guard image were never detected, and none of the
+five recordings reproduces the miss through the RTL at any replayed arrival
+phase. The recording is taken by the vendor DMA path; the receiver is fed
+through `lora_async_sample_fifo`, a separate branch. So whatever the detector
+saw differently is not in the recording, and a miss left nothing on the board
+beyond "the detector never fired" (the symbol trace only starts at a detection).
+
+**What the existing flag says.** `crossing_overflow` (clock page bit 0) was set
+on every capture of the M7 series. It is sticky until the PL reset, not until a
+stream reset, so it means "the receive crossing dropped at least one sample
+since boot", not "this capture": at least one drop did happen after the last
+cold boot, at an unknown time. The FIFO's own comment explains how the boot-time
+fill was removed; a later event (the profile restore changes the AD9361 rate)
+could set it once. Checked against the data already on disk: the PL's absolute
+sample counter against the transmitter's `tx_start_ms`, fitted per series,
+leaves residuals of about 300 samples, which is the 1 ms quantisation of the
+transmitter clock, with no step larger than 1032 samples and nothing unusual
+across any of the five misses. So no packet lost a millisecond or more of
+samples; a few samples, enough to break an eight-equal-bins preamble rule, would
+not show at that resolution.
+
+**What is added (RTL simulated, not yet built):**
+
+- `lora_async_sample_fifo` counts dropped samples (16-bit, saturating, Gray-coded
+  into the read domain). The bridge re-crosses it to the control domain and
+  reports it live on the clock page (METRICS) and on the new history page. Read
+  at every attempt, a change between two attempts puts a loss inside the later
+  one. `tb_lora_async_sample_fifo` checks the count is exact (writer outruns the
+  reader: 64 written, 36 crossed, count 28) and zero for the board's slow writer.
+- `lora_decision_history_buffer` (4096 x 72-bit ring, about 4.2 s of decisions):
+  every symbol decision, detected packet or not, with its sample-count low word,
+  bin, confidence, the drop count's low byte, and flags (valid, detected,
+  straddle, grid-resync armed; a detection or straddle pulse is held until the
+  next decision so it lands on an entry). gp_ctrl bit 3 freezes it, bit 4
+  selects its page (marker `0x4448` "DH"), bits 19-23 and 24-30 are the 12-bit
+  index. Software sees `frozen`, the newest index and the decisions written.
+  The bridge testbench checks writes, freeze (no writes while frozen), indexed
+  reads at 0, 5, 128 (needs index bit 19) and 129, the drop byte, the held
+  straddle flag, release, and that page 0 is untouched.
+- The recording command freezes the ring on the board the moment `iio_readdev`
+  returns, before the sentinel, because the packet is about 1.3 s before the
+  end of a 1.5 s recording and the trace read that follows would let the ring
+  overwrite it. Every arm releases the freeze. On a miss the capture tool reads
+  the ring (4096 entries, tens of seconds) into the failure record; every
+  record carries the drop count; `summarize_capture_run.py` reports the drop
+  increments and which misses have a history. Bits 3 and 4 are unused on older
+  images, so the tools stay compatible (no marker, no drop count).
+- `tools/compare_history_to_replay.py` finds the replayed phase whose decisions
+  best match the board's over the missed packet (from the first non-silent
+  decision after silence, since a silent correlator gives exactly zero
+  confidence) and prints both side by side with the first disagreement and
+  whether the drop count changed during the packet.
+
+What a miss on this image will show: either the drop byte changes inside the
+packet (samples lost in the crossing; the fix is upstream of the detector), or
+the board's bins differ from the replay's with no drop (the stream the PL saw
+differs from the recording some other way, or the detector state before the
+packet differs), or they agree and the rule still did not fire (a detector
+state the replay from reset does not have).
+
+### CFO hypothesis for the 1-sample grid errors: not supported by the model
+
+The M7 guard-image section left a hypothesis: the six 1-sample grid errors fell
+where the model CFO displacement was below -3.38 samples, and a tone that close
+to a half-bin edge might flip the joint estimator's rounding. Tested without the
+board, on synthetic up/down chirp pairs built as a continuous-time chirp at a
+fractional delay (the closed-form phase `reference_chirp` uses, evaluated at
+`n - delay`, not the integer `np.roll`), a CFO calibrated to give exactly the
+displacements measured on the board, and real receiver noise cut from a quiet
+stretch of a board recording at the guard series' amplitude (peak 240), through
+`estimate_joint_chirp_timing` with the geometry and radius the stage
+differential uses (up leg 6 symbols, down leg 14 symbols after the packet start,
+radius 32):
+
+| model CFO displacement | wrong rounding, noiseless, 401 fractions in (-0.5, 0.5) | wrong rounding, board noise, 2000 random fractions |
+|---|---|---|
+| -3.60 | 0 | 0 |
+| -3.50 | 0 | 0 |
+| -3.40 | 0 | 0 |
+| -3.38 | 0 | 0 |
+| -3.30 | 0 | 0 |
+| -3.20 | 0 | 0 |
+| -3.10 | 0 | 0 |
+| -3.00 | 0 | 1 |
+| -2.90 | 0 | 0 |
+| -2.80 | 0 | 1 |
+| 0 (none) | 2.0% (fractions within ~0.01 of +-0.5) | 26 (1.3%) |
+
+Nothing happens at -3.4: across the whole range the board visited, the float
+model rounds correctly. The only errors are at zero CFO, near the +-0.5 tie,
+where the up and down legs' parabolic-interpolation biases coincide and add
+instead of partly cancelling; the board never runs there. The model is floating
+point and the board is not, so the same question was put to the RTL.
+
+**The same question through the RTL.** Full synthetic packets (12 preamble
+upchirps, sync 8/16, 2.25 SFD downchirps, 8 payload symbols) delayed by
+base + f samples (f applied as an FFT phase ramp; the 1 MS/s stream is 8x
+oversampled for 125 kHz, so the band-limited shift is exact), the calibrated
+CFO, board noise, amplitude 240, through `tb_replay_detect` with the joint
+search run to completion; 2 integer phases x 5 CFO levels (0, -2.9, -3.2, -3.4,
+-3.6) x f in {0, 0.25, 0.375, 0.4375, 0.5, 0.5625, 0.625, 0.75}, 80 runs. The
+grid origin the RTL applies (up_coarse + correction - base) is 4096 for every
+f below 0.5 and 4097 for every f above it, at every CFO level and both phases:
+the rounding edge does not move with CFO within 1/16 sample. The only runs
+where the RTL and the float model differ are at f = 0.500 exactly (at -3.6 on
+both phases and -3.2 on one), the tie itself, where either integer is half a
+sample from the truth and neither is an error.
+
+So neither the model nor the RTL shows a CFO effect in the range the board
+visited. The six grid errors of the first 35 minutes after the cold boot are
+not explained by the CFO value; time since boot (a warm-up effect in the board
+or the transmitter that the CFO merely tracked) remains, and nothing measured
+so far separates candidates within it. The scripts are in the session
+scratchpad, not in `tools/` (`cfo_grid_error_synthetic.py`, `cfo_rtl_synth.py`).
