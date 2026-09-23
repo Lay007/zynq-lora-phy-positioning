@@ -6,7 +6,10 @@ captured, failed (by the stage that failed), CRC-valid, packets the detector
 accepted only through its straddle-tolerant path (joint status bit 5, M7) and
 what became of those. A failed attempt carries the IQ's burst ratio when the
 recording finished, which is what separates "no packet on the air" from "the
-packet was there and the PL never detected it".
+packet was there and the PL never detected it". On the M8 diagnostic image
+every record also carries the receive crossing's drop count since boot; the
+summary reports how many samples the series lost and between which attempts,
+and on which misses the decision history was read.
 
     python tools/summarize_capture_run.py experiments/runs/<run>
 """
@@ -26,6 +29,34 @@ def load_records(run_dir: Path) -> list[dict[str, object]]:
         record["_file"] = path.name
         records.append(record)
     return records
+
+
+def _drop_count(record: dict[str, object]) -> int | None:
+    if record.get("status") == "failed":
+        value = (record.get("pl_state") or {}).get("crossing_drop_count")
+    else:
+        value = (record.get("receiver_clock") or {}).get("crossing_drop_count")
+    return None if value is None else int(value)
+
+
+def drop_increments(records: list[dict[str, object]]) -> list[tuple[str, str, int]]:
+    """(previous file, file, samples dropped between them), where any were.
+
+    The count is cumulative since boot and read once per attempt, so an
+    increase between two consecutive readings puts the loss inside the later
+    attempt (or the gap before it).
+    """
+
+    increments = []
+    previous: tuple[str, int] | None = None
+    for record in records:
+        count = _drop_count(record)
+        if count is None:
+            continue
+        if previous is not None and count != previous[1]:
+            increments.append((previous[0], str(record["_file"]), (count - previous[1]) & 0xFFFF))
+        previous = (str(record["_file"]), count)
+    return increments
 
 
 def summarize(records: list[dict[str, object]], min_burst_ratio: float = 50.0) -> dict[str, object]:
@@ -81,6 +112,12 @@ def summarize(records: list[dict[str, object]], min_burst_ratio: float = 50.0) -
         "not_straddle_crc_valid": rate(
             [r for r in plain if r["decode"]["crc_valid"]], plain
         ),
+        "crossing_drop_increments": [
+            f"{b}: +{n}" for _, b, n in drop_increments(records)
+        ] if any(_drop_count(r) is not None for r in records) else "n/a (image without the count)",
+        "misses_with_decision_history": [
+            str(r["_file"]) for r in undetected if r.get("decision_history")
+        ],
     }
 
 

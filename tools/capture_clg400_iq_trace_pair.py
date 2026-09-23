@@ -38,6 +38,7 @@ from tools.read_clg400_symbol_trace import (  # noqa: E402
     _run_remote,
     build_report,
     TraceNotComplete,
+    read_history,
     read_trace,
 )
 from tools.run_clg400_payload_capture import (  # noqa: E402
@@ -73,9 +74,12 @@ def arm_receive_stream(args: argparse.Namespace, full: bool = True) -> str:
     """
 
     set_bit, clear_mask = (2, 0xFFFFFFFD) if full else (4, 0xFFFFFFFB)
+    # Both also release the decision-history freeze (bit 3) that the previous
+    # recording set, so the ring runs again for this attempt.
+    clear_mask &= 0xFFFFFFF7
     script = f"""set -eu
 orig=$(devmem {CONTROL} 32)
-reset=$((orig | {set_bit}))
+reset=$(((orig & 0xFFFFFFF7) | {set_bit}))
 run=$((orig & {clear_mask}))
 devmem {CONTROL} 32 "$reset" >/dev/null
 sleep 1
@@ -102,10 +106,16 @@ def iio_capture_command(samples: int, remote_path: str) -> str:
     # killed when that shell exits and the recording silently comes back empty.
     # nohup with stdin detached from the closing channel is what keeps it
     # alive long enough to span the transmission.
+    # The moment the recording ends, freeze the decision-history ring (control
+    # bit 3, M8 diagnostic image; unused and harmless on older images). The
+    # ring holds about four seconds of decisions and the packet is about 1.3 s
+    # into a 1.5 s recording, so it must stop here, not after the trace read,
+    # or a missed packet's decisions are overwritten before anyone looks.
     inner = (
         f"iio_readdev -u local: -b 32768 -s {samples} cf-ad9361-lpc "
         f"voltage0 voltage1 > {remote_path} 2>{remote_path}.err; "
-        f"echo $? > {remote_path}.done"
+        f"s=$?; devmem {CONTROL} 32 $(( $(devmem {CONTROL} 32) | 8 )); "
+        f"echo $s > {remote_path}.done"
     )
     return (
         f"rm -f {remote_path} {remote_path}.done {remote_path}.err; "
@@ -358,6 +368,17 @@ def capture_once(
         # programmable logic's own account of a miss exists only right now.
         if isinstance(error, TraceNotComplete):
             failure["pl_state"] = error.state
+            # On the M8 diagnostic image the ring still holds the decisions
+            # the detector took over the missed packet. Reading 4096 entries
+            # takes tens of seconds; only a miss is worth it.
+            try:
+                slow = argparse.Namespace(**vars(args))
+                slow.command_timeout = max(args.command_timeout, 600)
+                failure["decision_history"] = read_history(slow)
+            except Exception as history_error:  # noqa: BLE001
+                failure["decision_history_error"] = (
+                    f"{type(history_error).__name__}: {history_error}"
+                )
         # When the recording finished but the trace could not be read, the
         # IQ still says whether a packet was on the air: without it, "the
         # programmable logic never detected it" and "nothing was received"

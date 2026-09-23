@@ -221,6 +221,7 @@ jobs:
             fpga/wrappers/lora_packet_toa_receiver_top.v \
             fpga/wrappers/lora_async_sample_fifo.v \
             fpga/board/clg400/lora_symbol_trace_buffer.v \
+            fpga/board/clg400/lora_decision_history_buffer.v \
             fpga/board/clg400/lora_clg400_gpreg_bridge.v \
             fpga/tb/tb_lora_clg400_gpreg_bridge.sv
           vvp /tmp/lora_clg400_gpreg_bridge_tb

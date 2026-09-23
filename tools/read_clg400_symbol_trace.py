@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from zynq_lora_phy import decode_lora_symbol_trace
@@ -23,6 +23,10 @@ SAMPLE_HI = "0x79040508"
 METRICS = "0x79040548"
 DEBUG = "0x79040588"
 SIGNATURE = "0x790405c8"
+
+# "DH": the decision-history page (gp_ctrl bit 4) of the M8 diagnostic image.
+HISTORY_MARKER = 0x4448
+HISTORY_DEPTH = 4096
 
 
 def _signed32(value: int) -> int:
@@ -56,6 +60,11 @@ class ClockAccounting:
     search_clocks: int
     search_count: int
     crossing_overflow: bool
+    # Samples the receive crossing has dropped since boot (M8 diagnostic
+    # image). crossing_overflow is "at least once since boot" and was set on
+    # every capture of the M7 series; the count, compared between attempts,
+    # says whether a particular attempt lost samples. None on older images.
+    crossing_drop_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -217,6 +226,10 @@ restore() {{ devmem {CONTROL} 32 "$orig" >/dev/null; }}
 trap restore EXIT HUP INT TERM
 sig=$(devmem {SIGNATURE} 32)
 printf 'SIGNATURE %s\\n' "$sig"
+histsel=$(((orig & 0x8000ffef) | 0x10))
+devmem {CONTROL} 32 "$histsel" >/dev/null
+printf 'HISTORY %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {METRICS} 32)"
 page0sel=$((orig & 0x80f8ffff))
 devmem {CONTROL} 32 "$page0sel" >/dev/null
 printf 'PAGE0 %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
@@ -261,6 +274,7 @@ def parse_trace(text: str) -> SymbolTrace:
     clock: ClockAccounting | None = None
     joint: JointEstimate | None = None
     page0: list[int] | None = None
+    history: list[int] | None = None
     rows: list[tuple[int, ...]] = []
     for line in text.splitlines():
         fields = line.split()
@@ -270,6 +284,12 @@ def parse_trace(text: str) -> SymbolTrace:
             signature = int(fields[1], 0)
         elif fields[0] == "PAGE0" and len(fields) == 5:
             page0 = [int(value, 0) for value in fields[1:]]
+        elif fields[0] == "HISTORY" and len(fields) == 4:
+            values = [int(value, 0) for value in fields[1:]]
+            # Older images have no history page: bit 4 selects nothing and
+            # the read falls through to page 0, whose status has no marker.
+            if (values[0] >> 16) == HISTORY_MARKER:
+                history = values
         elif fields[0] == "JOINT" and len(fields) == 7:
             values = [int(value, 0) for value in fields[1:]]
             if (values[0] >> 16) != 0x4A54:
@@ -320,6 +340,8 @@ def parse_trace(text: str) -> SymbolTrace:
             rows.append(tuple([int(fields[1], 10)] + [int(value, 0) for value in fields[2:]]))
     if signature != 0x4C4F5241:
         raise ValueError(f"unexpected bridge signature: {signature!r}")
+    if history is not None and clock is not None:
+        clock = replace(clock, crossing_drop_count=history[2] & 0xFFFF)
     if not rows:
         raise ValueError("remote output contained no trace entries")
 
@@ -359,6 +381,13 @@ def parse_trace(text: str) -> SymbolTrace:
                 crossing_overflow=clock.crossing_overflow,
                 clocks_per_sample_min=clock.clocks_per_sample_min,
             )
+        if history is not None:
+            state.update(
+                crossing_drop_count=history[2] & 0xFFFF,
+                history_frozen=bool(history[0] & (1 << 12)),
+                history_newest=history[0] & 0xFFF,
+                history_written=history[1],
+            )
         raise TraceNotComplete(
             f"symbol trace is not complete: active={capture_active}, "
             f"captured={captured_count}",
@@ -383,6 +412,88 @@ def parse_trace(text: str) -> SymbolTrace:
         rows[0][2], preamble_bin, captured_count, grid_realigned, entries,
         clock, joint
     )
+
+
+def _history_script(depth: int) -> str:
+    """Read the frozen decision-history ring (M8 diagnostic image).
+
+    Bit 3 is forced on so the ring stays stopped while it is read (the
+    recording command already set it the moment the recording ended); the
+    trap restores CONTROL as it found it, still frozen, and the next attempt's
+    arm releases it. The read index is 12 bits: 24-30 low, 19-23 high.
+    """
+
+    return f"""set -eu
+orig=$(devmem {CONTROL} 32)
+restore() {{ devmem {CONTROL} 32 "$orig" >/dev/null; }}
+trap restore EXIT HUP INT TERM
+base=$(((orig & 0x8000ffef) | 0x18))
+devmem {CONTROL} 32 "$base" >/dev/null
+printf 'HSTATUS %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {METRICS} 32)"
+i=0
+while [ "$i" -lt {depth} ]; do
+  devmem {CONTROL} 32 $((base | ((i & 0x7f) << 24) | ((i >> 7) << 19))) >/dev/null
+  printf 'H %u %s %s %s\\n' "$i" "$(devmem {SYMBOL} 32)" \\
+    "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)"
+  i=$((i + 1))
+done
+"""
+
+
+def parse_history(text: str, depth: int = HISTORY_DEPTH) -> dict[str, object]:
+    """Decode a history read into the ring's entries, oldest first."""
+
+    status: list[int] | None = None
+    raw: dict[int, tuple[int, int, int]] = {}
+    for line in text.splitlines():
+        fields = line.split()
+        if fields[:1] == ["HSTATUS"] and len(fields) == 4:
+            status = [int(value, 0) for value in fields[1:]]
+        elif fields[:1] == ["H"] and len(fields) == 5:
+            raw[int(fields[1], 10)] = tuple(int(value, 0) for value in fields[2:])
+    if status is None or (status[0] >> 16) != HISTORY_MARKER:
+        raise ValueError(
+            "no decision-history page: the bitstream predates the M8 diagnostics"
+        )
+    frozen = bool(status[0] & (1 << 12))
+    newest = status[0] & 0xFFF
+    written = status[1]
+    if written >= depth:
+        order = [(newest + 1 + k) % depth for k in range(depth)]
+    else:
+        order = list(range(written))
+    entries = []
+    for index in order:
+        if index not in raw:
+            continue
+        sample_count, packed, bin_word = raw[index]
+        flags = (packed >> 24) & 0xFF
+        if not flags & 1:
+            continue
+        entries.append(
+            {
+                "index": index,
+                "sample_count_low": sample_count,
+                "bin": bin_word & 0xFF,
+                "confidence_q15": packed & 0xFFFF,
+                "drop_count_low": (packed >> 16) & 0xFF,
+                "detected": bool(flags & 2),
+                "straddle": bool(flags & 4),
+                "grid_resync_armed": bool(flags & 8),
+            }
+        )
+    return {
+        "frozen": frozen,
+        "newest_index": newest,
+        "written": written,
+        "crossing_drop_count": status[2] & 0xFFFF,
+        "entries": entries,
+    }
+
+
+def read_history(args: argparse.Namespace, depth: int = HISTORY_DEPTH) -> dict[str, object]:
+    return parse_history(_run_remote(args, _history_script(depth)), depth)
 
 
 def read_trace(args: argparse.Namespace) -> SymbolTrace:
@@ -449,6 +560,7 @@ def _clock_summary(clock: ClockAccounting | None) -> dict[str, object] | None:
             and clock.search_clocks <= 2304 * clock.clocks_per_sample
         ),
         "crossing_overflow": clock.crossing_overflow,
+        "crossing_drop_count": clock.crossing_drop_count,
     }
 
 def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:

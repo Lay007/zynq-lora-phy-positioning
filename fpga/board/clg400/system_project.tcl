@@ -86,6 +86,7 @@ set source_files [concat [lsort [glob -nocomplain [file join $fft_dir *.v]]] [li
   [file join $repo_root fpga wrappers lora_async_sample_fifo.v] \
   [file join $repo_root fpga wrappers lora_packet_toa_receiver_top.v] \
   [file join $script_dir lora_symbol_trace_buffer.v] \
+  [file join $script_dir lora_decision_history_buffer.v] \
   [file join $script_dir lora_clg400_gpreg_bridge.v] \
   [file join $repo_root fpga rom lora_sf7_l8_reference_q10.mem] \
   [file join $vendor_dir library common ad_iobuf.v] \

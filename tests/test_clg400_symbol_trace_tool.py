@@ -5,6 +5,7 @@ from tools.read_clg400_symbol_trace import (
     ClockAccounting,
     _clock_summary,
     TraceNotComplete,
+    parse_history,
     _joint_summary,
     grid_phase,
     parse_trace,
@@ -452,3 +453,69 @@ def test_an_unfinished_trace_without_the_extra_pages_still_raises() -> None:
 
     assert "page0_status" not in caught.value.state
     assert isinstance(caught.value, ValueError)
+
+
+def _history_page(newest: int, written: int, drops: int, entries: dict[int, tuple]) -> str:
+    lines = [f"HSTATUS 0x{(0x4448 << 16) | (1 << 12) | newest:08x} 0x{written:08x} 0x{drops:08x}"]
+    for index in range(8):
+        if index in entries:
+            count, bin_, conf, drop, flags = entries[index]
+            packed = (flags << 24) | (drop << 16) | conf
+            lines.append(f"H {index} 0x{count:08x} 0x{packed:08x} 0x{bin_:08x}")
+        else:
+            lines.append(f"H {index} 0x00000000 0x00000000 0x00000000")
+    return "\n".join(lines)
+
+
+def test_history_before_the_ring_wraps_is_read_from_entry_zero() -> None:
+    text = _history_page(
+        newest=2, written=3, drops=5,
+        entries={0: (1000, 0, 0, 0, 1), 1: (2024, 64, 0x300, 0, 1), 2: (3048, 72, 0x310, 5, 0b1011)},
+    )
+
+    history = parse_history(text, depth=8)
+
+    assert history["frozen"] is True
+    assert history["crossing_drop_count"] == 5
+    assert [e["sample_count_low"] for e in history["entries"]] == [1000, 2024, 3048]
+    last = history["entries"][-1]
+    assert last["bin"] == 72 and last["confidence_q15"] == 0x310
+    assert last["drop_count_low"] == 5
+    assert last["detected"] and not last["straddle"] and last["grid_resync_armed"]
+
+
+def test_a_wrapped_ring_is_read_oldest_first_from_after_the_newest_entry() -> None:
+    entries = {i: (100 * i, i, 1, 0, 1) for i in range(8)}
+
+    history = parse_history(_history_page(newest=2, written=20, drops=0, entries=entries), depth=8)
+
+    assert [e["index"] for e in history["entries"]] == [3, 4, 5, 6, 7, 0, 1, 2]
+
+
+def test_history_on_an_image_without_the_page_is_refused() -> None:
+    with pytest.raises(ValueError, match="predates the M8"):
+        parse_history("HSTATUS 0x00011243 0x00000007 0x00000000\nH 0 0x0 0x0 0x0", depth=1)
+
+
+def test_the_history_line_adds_the_crossing_drop_count_to_the_clock() -> None:
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\nHISTORY 0x44480123 0x00000400 0x00000007\n" + _clock_page(),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.clock is not None and trace.clock.crossing_drop_count == 7
+
+
+def test_an_old_image_reports_no_drop_count() -> None:
+    # Bit 4 selects nothing on older images: the read falls through to page 0.
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\nHISTORY 0x00011243 0x00000009 0x00012345\n" + _clock_page(),
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.clock is not None and trace.clock.crossing_drop_count is None
+
