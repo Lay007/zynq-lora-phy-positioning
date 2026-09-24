@@ -295,6 +295,13 @@ jobs:
             fpga/tb/tb_lora_joint_grid_completion.sv
       - name: Run joint grid completion at grid_phase ${{ matrix.grid_phase }}
         run: vvp /tmp/lora_joint_grid_completion_tb +grid_phase=${{ matrix.grid_phase }}
+      # The packet timestamp must not move with the carrier offset: the
+      # board's typical CFO displacement is about -3.4 samples, and an
+      # upchirp-only timestamp is off by exactly that (fails here by +-3).
+      - name: Run joint grid completion with carrier offset of both signs
+        run: |
+          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=${{ matrix.grid_phase }} +cfo_nano=418000
+          vvp /tmp/lora_joint_grid_completion_tb +grid_phase=${{ matrix.grid_phase }} +cfo_nano=-418000
 
   joint-grid-multi-packet:
     # M6: a capture campaign re-arms with trace_rearm_in between packets

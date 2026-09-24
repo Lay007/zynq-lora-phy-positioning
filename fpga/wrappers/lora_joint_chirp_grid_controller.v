@@ -93,7 +93,18 @@ module lora_joint_chirp_grid_controller #(
     // fell inside +/-FINE_GUARD_SAMPLES, i.e. was actually applied to the
     // grid. timing_valid alone does not say this: it also pulses when the
     // estimate was computed and then declined by timing_range_error.
-    output reg                precise_correction_applied
+    output reg                precise_correction_applied,
+    // The packet's time of arrival with the carrier offset removed: the up
+    // leg's coarse start plus the joint (up + down) / 2 timing, split as the
+    // metadata ABI is (a whole sample count and a signed Q12 remainder within
+    // +/-0.5 sample). Valid on the precise_correction_applied pulse.
+    //
+    // Why: the metadata used to be the up leg's peak alone, and a carrier
+    // offset moves an upchirp's matched-filter peak by the CFO displacement
+    // (-2.8..-3.6 samples on the board, i.e. microseconds). The joint pair
+    // cancels it but only ever steered the symbol grid.
+    output reg  [63:0]        toa_coarse,
+    output reg  signed [31:0] toa_fraction_q12
 );
 
     localparam [2:0] STATE_IDLE           = 3'd0;
@@ -188,6 +199,12 @@ module lora_joint_chirp_grid_controller #(
         (offset_sum_q12_abs + TIMING_ROUND_BIAS_Q12x2) >>> 13;
     wire signed [65:0] rounded_timing =
         offset_sum_q12 < 0 ? -rounded_abs : rounded_abs;
+    // (up + down) / 2 in Q12. Halving the Q12 sum truncates 1/8192 sample,
+    // below anything the interpolator resolves.
+    wire signed [65:0] timing_q12 = offset_sum_q12 >>> 1;
+    wire signed [65:0] toa_fraction_wide = timing_q12 - (rounded_timing <<< 12);
+    wire signed [65:0] toa_coarse_wide =
+        $signed({2'b00, up_coarse_start}) + rounded_timing;
     wire timing_in_range =
         (rounded_timing >= -$signed(FINE_GUARD_U64))
         && (rounded_timing <= $signed(FINE_GUARD_U64));
@@ -226,6 +243,8 @@ module lora_joint_chirp_grid_controller #(
             up_search_abort_error     <= 1'b0;
             down_search_abort_error   <= 1'b0;
             precise_correction_applied<= 1'b0;
+            toa_coarse                <= 64'd0;
+            toa_fraction_q12          <= 32'sd0;
         end else begin
             search_start       <= 1'b0;
             fine_resync_valid  <= 1'b0;
@@ -331,6 +350,8 @@ module lora_joint_chirp_grid_controller #(
                             fine_skip <= guarded_skip[31:0];
                             fine_resync_valid <= 1'b1;
                             precise_correction_applied <= 1'b1;
+                            toa_coarse <= toa_coarse_wide[63:0];
+                            toa_fraction_q12 <= toa_fraction_wide[31:0];
                         end else begin
                             // Same rule for a rejected out-of-range estimate:
                             // decline the correction, but still hand back the

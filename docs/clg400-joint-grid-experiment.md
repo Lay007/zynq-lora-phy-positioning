@@ -2019,3 +2019,106 @@ not explained by the CFO value; time since boot (a warm-up effect in the board
 or the transmitter that the CFO merely tracked) remains, and nothing measured
 so far separates candidates within it. The scripts are in the session
 scratchpad, not in `tools/` (`cfo_grid_error_synthetic.py`, `cfo_rtl_synth.py`).
+
+## The packet timestamp carried the carrier offset; the grid errors are a half-bin effect -- 2026-09-24
+
+Two offline investigations, no board.
+
+### 1. The six 1-sample grid errors, replayed at the board's own phase
+
+The earlier replays of these recordings used arbitrary arrival phases. The
+board's phase can be recovered: the detector's preamble bin moves by one per
+8 samples of replay shift, so the shift that reproduces the board's bin is
+known to within 8 samples, and all 8 (plus margin, 24 shifts per capture,
+144 runs) were replayed with the joint search run to completion
+(`tb_replay_detect`, guard-image RTL). For every capture one shift reproduces
+the board's preamble bin, `up_offset` **and** correction exactly. At that
+shift the RTL's correction agrees with the float model's
+(`estimate_joint_chirp_timing` on the same window and the same coarse starts,
+`up_coarse` and `up_coarse + 10*1024`, radius 16) in 5 of 6; in the sixth
+(`152702Z`) the model has timing +0.471 and rounds to 0, the RTL rounds to 1
+(a fixed-point difference within 0.03 sample of the tie). So the errors are
+deterministic in the signal, not a board state.
+
+What the six share: the residual left after the grid correction,
+`t - correction`, is -0.46..-0.53 sample in every one, always the same sign,
+while the CFO displacement was about -3.4. The dechirped tone therefore sits
+at S = displacement + residual = -3.89..-4.03 samples, and -4 samples is half
+a bin (8 samples per bin). Over all 929 ordinary-path captures with ground
+truth: of the 8 with S below -3.85, 6 fail CRC; of the 921 above, none. The
+link to "the first 35 minutes after a cold boot" is that only then was the CFO
+negative enough for a residual of about -0.5 to reach the edge.
+
+The previous section tested whether CFO flips the *rounding* of the grid
+correction and found it does not; that stands. The mechanism is downstream:
+the joint (up+down)/2 grid removes the timing but leaves the CFO in every
+decision, about -0.43 bin here, with 0.07 bin of margin to the half-bin edge.
+
+Remedies tested against the ground-truth sweep of all 981 captures (which grid
+offsets from the PL's decode every symbol):
+
+| grid | captures decoding every symbol |
+|---|---|
+| as built, joint (up+down)/2 | 921/928 ordinary path (974/981 all) |
+| constant +1 sample | 830/928 |
+| constant -1 sample | 6/928 (exactly the 6 failures) |
+| aligned to the up leg's peak | 0/981 |
+
+The good window is 1-3 samples wide and always includes the built grid except
+where S < -3.85, where it jumps to -1 alone. The idea that data upchirps are
+best demodulated on a grid aligned to the upchirp peak (time and frequency are
+interchangeable for a chirp) is refuted by these data. No grid-only rule fixes
+the six; removing the fractional carrier offset before the bin decision (the
+joint pair already estimates it: (up - down)/2) is the candidate, not built.
+
+### 2. The final ToA metadata was the up leg's peak, i.e. timing plus CFO
+
+The timestamp software receives (page 0: coarse sample count and Q12 fraction)
+came from the up leg's matched-filter peak alone (`u_metadata_join` in
+`lora_packet_toa_receiver_top`, fed by `peak_triplet_valid` and
+`toa_offset_valid && !reference_down`). An upchirp's matched-filter peak moves
+by the CFO displacement; the joint pair cancels it, but its result only
+steered the grid (#28 section 1 raised this as a hypothesis).
+
+- **On the board:** over 923 captures with a correct grid, the up leg's peak
+  sat -3.15 samples (mean) from the joint timing, and the reference model's
+  CFO displacement on the same packets averages -3.15 (difference 0.00 +/-
+  0.36, the integer quantisation). The board's timestamps were about 3 us late
+  or early by the transmitter's frequency, and drifted 0.8 us over the day as
+  it warmed (-2.8..-3.6 samples).
+- **Through the RTL, synthetic packets with known delay:** 5 CFO levels of both
+  signs x 4 fractional delays x 2 phases, board noise. Before: metadata error
+  = displacement to within 0.07 sample (-3.65..-3.59 at -3.6, +3.40..+3.45 at
+  +3.41; 0 +/- 0.006 at zero CFO). After the fix: within +/-0.043 sample at
+  every level and both signs; zero CFO unchanged.
+
+**Fix.** `lora_joint_chirp_grid_controller` outputs `toa_coarse` and
+`toa_fraction_q12`: the up leg's coarse start plus (up + down) / 2 (Q12 sum
+halved; 1/8192-sample truncation), split as the metadata ABI is, valid on
+`precise_correction_applied`. The receiver top feeds them to the metadata join
+in joint-grid builds (the legacy build is unchanged). Consequences: the
+timestamp now completes after the down leg rather than the up leg; a packet
+whose joint estimate aborts or is rejected gets no timestamp (an up-only value
+would carry the CFO error, and the joint page's sticky bits say what happened);
+`toa_log_peak_q12` is held from the up leg, because the down leg's
+interpolation now runs before the timestamp completes.
+
+**What the change exposed in the testbenches.** `tb_lora_joint_grid_completion`,
+`tb_lora_joint_grid_multi_packet` and `tb_lora_packet_toa_receiver_top` had no
+SFD: after the sync symbols they drove upchirps "only so the down search window
+arrives". The down leg locked onto an upchirp 14 samples off, and the grid they
+produced was 7 samples late (`fine_skip` 23 where 16 means zero correction) -- a
+fault the old timestamp check could not see because it read the up leg only.
+All three now drive a real SFD (2 + 0.25 downchirps, `drive_css_downchirp`),
+and `fine_skip` is 16 at zero phase. `tb_lora_packet_toa_receiver_top` asserts
+both legs exactly (33 + 33 correlations from 1008 and 11248, two
+interpolations, one timestamp at 1024). `tb_lora_joint_grid_completion` takes
+`+cfo_nano=N`: with +/-418000 (the board's -3.4-sample displacement and its
+mirror) the old RTL fails at +/-3 samples at both phases tried and the new one
+passes; CI runs both signs at all five phases. `tb_lora_joint_chirp_grid_controller`
+checks the new outputs, including a CFO-like pair (up peak 3.75 early, down
+2.875 late) where the up peak alone would give 10436.25 and the output is
+10440 - 1792/4096.
+
+Not built or deployed yet. It belongs in the next image together with the M8
+diagnostics.
