@@ -2122,3 +2122,88 @@ checks the new outputs, including a CFO-like pair (up peak 3.75 early, down
 
 Not built or deployed yet. It belongs in the next image together with the M8
 diagnostics.
+
+## M8 image on hardware: the CFO-free timestamp holds; CRC losses are the half-bin; misses leave evidence -- 2026-09-24
+
+Image `bac7c143...` (RTL `afdf52e`: M8 diagnostics plus the CFO-free timestamp;
+WNS +0.146 ns, WHS +0.030 ns) deployed by the usual atomic swap (the M7 guard
+image kept on the card as `system_top.bit.pre_m8_20260924T000000Z`), cold-booted,
+smoke test `status=0x00011243`. Runs at 25 dB, `trace_rearm` between attempts:
+a 6-attempt probe (5 captured, 5/5 CRC), a 78-attempt run stopped early to
+restart with a tool that records the page-0 timestamp
+(`2026-09-24-clg400-m8-partial`), and a 500-attempt series
+(`2026-09-24-clg400-m8-series500`, 16:40-19:11 UTC).
+
+**Series:** 500 attempts, 486 captured, 8 transmitter-side failures (1 profile
+readback, 6 `send` timeouts, 1 recording without a packet), 6 detection misses
+(1.2% of 492 packets), CRC 461 of 486 (95%), 29 packets accepted through the
+straddle path.
+
+**The timestamp is the joint time on the board.** Every capture now records
+page 0. Over all 486: published timestamp minus `up_coarse_start` minus the
+joint correction = +0.015 sample mean, within +/-0.5 (the fraction); minus
+`up_offset` instead = +3.39 mean (-4.2..+4.0), the CFO displacement. The page-0
+sequence equals the capture sequence in 486/486, so each timestamp belongs to
+its packet. On the previous images the published value was the up leg's peak.
+
+**All 25 CRC failures are the half-bin mechanism.** The transmitter's CFO
+displacement stayed at -3.30..-3.47 samples all series (windows of 50), the
+region where the M7 guard image had its only errors, and did not drift out of
+it as it did on 2026-09-20. Ground truth over the 486: with S = displacement +
+residual after the grid correction, 17 of 35 packets with S < -3.85 fail and 0
+of 95 in -3.7..-3.5; 20 of the 25 failures have S -4.07..-3.82 and the other 5
+have model timing within 0.034 sample of the +/-0.5 tie, where the RTL rounded
+the other way than the model, which puts their actual S at -3.91..-4.06. Losses
+from this mechanism (5% here) now exceed detection misses (1.2%): removing the
+fractional carrier offset before the bin decision is the next receiver change.
+
+**The receive crossing lost 1906 samples once, before the first attempt.** The
+new drop count read 1906 right after the cold boot and profile restore, did not
+move in 30 s of idle, did not move on a second profile restore, and did not move
+in any of the 584 attempts of the day. So the sticky `crossing_overflow` that was
+set on every M7 capture comes from one event between boot and the first read;
+the next cold boot should read the count before `restore_rx_profile.sh` to tell
+boot from the first profile restore. None of the misses lost samples in the
+crossing.
+
+**Misses: reproduced in the RTL, a narrow phase band my earlier replays aliased over.**
+All six misses of the series and the one of the partial run carry the detector's
+decision history, and the crossing drop count did not move in any of them. In each,
+the preamble decisions jump by 2 bins a few symbols before sync (51 x8 then 53, 53,
+53, 52, sync 60, 69), which breaks "eight preamble decisions within +/-1 of the
+oldest". Five of them were replayed through the RTL (`fix_tb`, 20000 samples of
+silence in front, detection only) at every 1-sample shift in a 24-sample window
+around the board's phase (found from the preamble bin, which moves one bin per 8
+samples of shift). **For all five, one shift reproduces the board's 16 decisions
+exactly (16/16), and at that shift the RTL does not detect the packet either.**
+
+| capture | board phase shift | blind shifts in the window |
+|---|---|---|
+| 163349Z | 223 | 215, 223, 231 |
+| 164405Z | 142 | 134, 142, 150 |
+| 164957Z | 239 | 231, 239, 247 |
+| 174127Z | 1022 | 6, 1014, 1022 |
+| 180856Z | 181 | 173, 181, 189 |
+
+The blind shifts recur every 8 samples, one chip: a fixed position inside the chip
+(residues 5, 6, 7 mod 8 here). Every earlier replay of the misses stepped the
+arrival phase by 32 or 64 samples, always a multiple of 8, so all of them sampled
+the same residue and never once the blind one. "Not reproducible from the
+recording", written for the M7 guard image's five misses and taken as evidence for
+a board-side cause (and the reason the M8 diagnostics were built), was an artefact
+of that sampling. The diagnostics did their job the other way round: the decision
+history made the exact phase known, and the replay then reproduced it.
+
+The mechanism is a relative of the half-bin: at that position inside the chip,
+together with the CFO, the preamble tone sits where the correlator's decision
+alternates between two values two bins apart. The fractional-CFO compensation
+proposed for the CRC losses is the natural fix for this too; widening the preamble
+tolerance to +/-2 would also cover it but would weaken the detector against noise
+and needs its false-detection rate measured on silence first.
+
+An operator error to record: while the first series ran, I read the board's
+registers from a second shell to check the new page-0 read. That script
+switches pages through the same control register the capture tool uses, so the
+read (and possibly the attempt then in flight) saw mixed pages; the series was
+stopped and restarted with the timestamp-recording tool, and the partial run's
+last record (`163943Z`, interrupted, no PL state) is not a miss.
