@@ -429,7 +429,7 @@ def test_an_unfinished_trace_reports_what_the_rest_of_the_logic_saw() -> None:
 
     extra = "\n".join(
         [
-            "PAGE0 0x00011243 0x00000007 0x000f4240 0x00000001",
+            "PAGE0 0x00011243 0x00000007 0x000f4240 0x00000001 0xfffff800 0x00012345",
             _joint_page(seen=False),
             _clock_page(overflow=True),
         ]
@@ -441,7 +441,9 @@ def test_an_unfinished_trace_reports_what_the_rest_of_the_logic_saw() -> None:
     state = caught.value.state
     assert state["page0_status"] == "0x00011243"
     assert state["page0_sequence"] == 7
-    assert state["page0_coarse_lo"] == 0x000F4240
+    assert state["page0_coarse"] == 0x1_000F_4240
+    assert state["page0_fraction_q12"] == -2048
+    assert state["page0_log_peak_q12"] == 0x12345
     assert state["joint_seen"] is False
     assert state["crossing_overflow"] is True
     assert state["capture_sequence"] == 3
@@ -518,4 +520,28 @@ def test_an_old_image_reports_no_drop_count() -> None:
     trace = parse_trace(text)
 
     assert trace.clock is not None and trace.clock.crossing_drop_count is None
+
+
+def test_a_completed_trace_carries_the_published_timestamp() -> None:
+    text = _trace_page(grid_realigned=True).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241\nPAGE0 0x00011267 0x00000009 0x02345678 0x00000000 0x00000400 0x00001000",
+    )
+
+    trace = parse_trace(text)
+
+    assert trace.timestamp == {
+        "page0_status": "0x00011267",
+        "page0_sequence": 9,
+        "page0_coarse": 0x02345678,
+        "page0_fraction_q12": 1024,
+        "page0_log_peak_q12": 4096,
+    }
+    assert build_report_timestamp(trace) == trace.timestamp
+
+
+def build_report_timestamp(trace):
+    from tools.read_clg400_symbol_trace import build_report
+
+    return build_report(trace)["timestamp"]
 

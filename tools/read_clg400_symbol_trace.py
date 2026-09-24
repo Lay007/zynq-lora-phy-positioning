@@ -124,6 +124,8 @@ class SymbolTrace:
     entries: tuple[TraceEntry, ...]
     clock: ClockAccounting | None = None
     joint: JointEstimate | None = None
+    # Page 0 at the time of the read (M8 tooling): the published timestamp.
+    timestamp: dict[str, object] | None = None
 
 
 def _ssh_args(args: argparse.Namespace) -> list[str]:
@@ -232,9 +234,10 @@ printf 'HISTORY %s %s %s\\n' "$(devmem {STATUS} 32)" \\
   "$(devmem {SEQUENCE} 32)" "$(devmem {METRICS} 32)"
 page0sel=$((orig & 0x80f8ffff))
 devmem {CONTROL} 32 "$page0sel" >/dev/null
-printf 'PAGE0 %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
-  "$(devmem {SEQUENCE} 32)" "$(devmem {SAMPLE_LO} 32)" \\
-  "$(devmem {SAMPLE_HI} 32)"
+printf 'PAGE0 %s %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
+  "$(devmem {SEQUENCE} 32)" "$(devmem {SYMBOL} 32)" \\
+  "$(devmem {SAMPLE_LO} 32)" "$(devmem {SAMPLE_HI} 32)" \\
+  "$(devmem {METRICS} 32)"
 jointsel=$(((orig & 0x80f8ffff) | 0x00040000))
 devmem {CONTROL} 32 "$jointsel" >/dev/null
 printf 'JOINT %s %s %s %s %s %s\\n' "$(devmem {STATUS} 32)" \\
@@ -269,6 +272,26 @@ done
 """
 
 
+def _timestamp_summary(page0: list[int]) -> dict[str, object]:
+    """Page 0: the last packet timestamp the board published, as software sees it.
+
+    Registers in read order: STATUS, SEQUENCE, SYMBOL (coarse low word),
+    SAMPLE_LO (coarse high word), SAMPLE_HI (Q12 fraction, signed), METRICS
+    (log peak, signed). Until 2026-09-24 the script read only STATUS, SEQUENCE,
+    SAMPLE_LO and SAMPLE_HI and labelled the last two coarse_lo/coarse_hi, so
+    those two fields in earlier failure records are really coarse_hi and the
+    fraction.
+    """
+
+    return {
+        "page0_status": f"0x{page0[0]:08x}",
+        "page0_sequence": page0[1],
+        "page0_coarse": page0[2] | (page0[3] << 32),
+        "page0_fraction_q12": _signed32(page0[4]),
+        "page0_log_peak_q12": _signed32(page0[5]),
+    }
+
+
 def parse_trace(text: str) -> SymbolTrace:
     signature: int | None = None
     clock: ClockAccounting | None = None
@@ -282,7 +305,7 @@ def parse_trace(text: str) -> SymbolTrace:
             continue
         if fields[0] == "SIGNATURE" and len(fields) == 2:
             signature = int(fields[1], 0)
-        elif fields[0] == "PAGE0" and len(fields) == 5:
+        elif fields[0] == "PAGE0" and len(fields) == 7:
             page0 = [int(value, 0) for value in fields[1:]]
         elif fields[0] == "HISTORY" and len(fields) == 4:
             values = [int(value, 0) for value in fields[1:]]
@@ -364,10 +387,7 @@ def parse_trace(text: str) -> SymbolTrace:
         }
         if page0 is not None:
             state.update(
-                page0_status=f"0x{page0[0]:08x}",
-                page0_sequence=page0[1],
-                page0_coarse_lo=page0[2],
-                page0_coarse_hi=page0[3],
+                **_timestamp_summary(page0),
             )
         if joint is not None:
             state.update(
@@ -410,7 +430,7 @@ def parse_trace(text: str) -> SymbolTrace:
     )
     return SymbolTrace(
         rows[0][2], preamble_bin, captured_count, grid_realigned, entries,
-        clock, joint
+        clock, joint, _timestamp_summary(page0) if page0 is not None else None
     )
 
 
@@ -608,6 +628,12 @@ def build_report(trace: SymbolTrace) -> dict[str, object]:
         "grid_realigned": trace.grid_realigned,
         "receiver_clock": _clock_summary(trace.clock),
         "joint_estimate": _joint_summary(trace.joint),
+        # The published packet timestamp (page 0), read with the trace. On
+        # the M8 image it is the joint (up + down) / 2 time; before, the up
+        # leg's peak. Compare with joint_estimate: up_coarse_start + correction
+        # is the new one's whole-sample part, up_coarse_start + up_offset the
+        # old one's.
+        "timestamp": trace.timestamp,
         "decode": {
             "success": result.success,
             "header_valid": result.header_valid,
