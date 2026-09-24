@@ -11,6 +11,11 @@ every record also carries the receive crossing's drop count since boot; the
 summary reports how many samples the series lost and between which attempts,
 and on which misses the decision history was read.
 
+With --planned-attempts N the summary also accounts for records that are
+missing altogether (the run stopped early, a record was deleted) and exits
+non-zero unless every planned attempt has a record and every record is
+classifiable, so a partial campaign cannot pass for a complete one.
+
     python tools/summarize_capture_run.py experiments/runs/<run>
 """
 
@@ -59,9 +64,21 @@ def drop_increments(records: list[dict[str, object]]) -> list[tuple[str, str, in
     return increments
 
 
-def summarize(records: list[dict[str, object]], min_burst_ratio: float = 50.0) -> dict[str, object]:
+def _is_capture(record: dict[str, object]) -> bool:
+    """A success record has a decode verdict; anything else is unclassifiable."""
+
+    decode = record.get("decode")
+    return isinstance(decode, dict) and isinstance(decode.get("crc_valid"), bool)
+
+
+def summarize(
+    records: list[dict[str, object]],
+    min_burst_ratio: float = 50.0,
+    planned_attempts: int | None = None,
+) -> dict[str, object]:
     failed = [r for r in records if r.get("status") == "failed"]
-    captured = [r for r in records if r.get("status") != "failed"]
+    unclassified = [r for r in records if r.get("status") != "failed" and not _is_capture(r)]
+    captured = [r for r in records if r.get("status") != "failed" and _is_capture(r)]
 
     by_stage = Counter(str(r.get("stage")) for r in failed)
     undetected = [
@@ -89,8 +106,21 @@ def summarize(records: list[dict[str, object]], min_burst_ratio: float = 50.0) -
             f" ({100.0 * len(part) / len(whole):.0f}%)" if whole else ""
         )
 
+    accounting: dict[str, object] = {}
+    if planned_attempts is not None:
+        if planned_attempts < 1:
+            raise ValueError("planned_attempts must be positive")
+        if len(records) > planned_attempts:
+            raise ValueError("more records than planned attempts; select one campaign")
+        accounting = {
+            "planned_attempts": planned_attempts,
+            "missing_records": planned_attempts - len(records),
+            "accounting_complete": len(records) == planned_attempts and not unclassified,
+        }
     return {
+        **accounting,
         "attempts": len(records),
+        "unclassified_records": len(unclassified),
         "captured": len(captured),
         "failed": len(failed),
         "failed_by_stage": dict(by_stage),
@@ -125,11 +155,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--min-burst-ratio", type=float, default=50.0)
+    parser.add_argument(
+        "--planned-attempts",
+        type=int,
+        help="attempts the campaign planned; missing or unclassifiable records "
+        "then make the exit status non-zero",
+    )
     args = parser.parse_args()
-    summary = summarize(load_records(args.run_dir), args.min_burst_ratio)
+    summary = summarize(
+        load_records(args.run_dir), args.min_burst_ratio, args.planned_attempts
+    )
     for key, value in summary.items():
         print(f"{key:38s} {value}")
-    return 0
+    return 0 if summary.get("accounting_complete", True) else 1
 
 
 if __name__ == "__main__":

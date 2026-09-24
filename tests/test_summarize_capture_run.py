@@ -105,3 +105,34 @@ def test_crossing_drops_are_attributed_to_the_attempt_that_saw_them() -> None:
 def test_an_image_without_the_drop_count_says_so() -> None:
     assert summarize([_ok(), _ok()])["crossing_drop_increments"].startswith("n/a")
 
+
+def test_planned_attempts_count_missing_records() -> None:
+    summary = summarize([_ok(), _failed("send")], planned_attempts=5)
+
+    assert summary["missing_records"] == 3
+    assert summary["accounting_complete"] is False
+
+
+def test_a_complete_campaign_is_complete() -> None:
+    summary = summarize([_ok(), _failed("send")], planned_attempts=2)
+
+    assert summary["missing_records"] == 0
+    assert summary["accounting_complete"] is True
+
+
+def test_a_success_record_without_a_decode_verdict_is_not_a_capture() -> None:
+    bare = {"schema": "zynq-lora-clg400-symbol-trace-v1", "entries": []}
+
+    summary = summarize([_ok(), bare], planned_attempts=2)
+
+    assert summary["captured"] == 1
+    assert summary["unclassified_records"] == 1
+    assert summary["accounting_complete"] is False
+
+
+def test_more_records_than_planned_is_refused() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="more records"):
+        summarize([_ok(), _ok()], planned_attempts=1)
+
