@@ -2332,3 +2332,48 @@ M8 misses were the split.
 
 Regression: every CI RTL step run locally (the smoke job's 20 testbenches, the
 completion matrix 5 phases x 3 CFO values, multi-packet), 242 Python tests.
+
+## M9 on the board -- 2026-09-25
+
+Image `94aee611...` (source `92d5241`: CFO derotation, split-preamble and
+early-sync detection, the two-stage joint controller), deployed by the operator
+over the M8 image (backup `system_top.bit.pre_m9_20260925T000000Z`), cold boot,
+`GAIN=25 restore_rx_profile.sh`, cold-boot smoke PASS. Same link as M8: Heltec
+V4/SX1262 -> CLG400, ~1 m over the air, 868.1 MHz, trace_rearm between attempts.
+
+**Crossing drops happen at boot.** The drop count read straight after the cold
+boot, before `restore_rx_profile.sh`, was already 1901 (0x76D); it did not move
+through the profile restore or the whole series. The 1906 of the M8 day was the
+same boot-time event; the receive path drops nothing while it runs.
+
+**Series `2026-09-25-clg400-m9-series500`** (17:26-20:35 UTC, archived to
+zynq-sdr-course-artifacts with its manifest):
+
+| | M8 series500 (2026-09-24) | M9 series500 |
+|---|---|---|
+| attempts / captured | 500 / 486 | 500 / 492 |
+| CRC valid | 461 / 486 (94.9 %) | **492 / 492 (100 %)** |
+| detection misses | 6 | **0** |
+| failures outside the receiver | 8 | 8 (prepare_transmitter 3, send 4, one recording without a packet, peak-to-median 1.8) |
+| straddle path | -- | 26, all CRC valid |
+| split path | -- | 2, both CRC valid |
+| early-sync path | -- | 0 |
+| timestamp residual | +0.015 mean, within +/-0.5, sd 0.291 | +0.001 mean, within +/-0.5, sd 0.285 |
+| CFO displacement (up - joint) | -3.38 mean | -3.64 mean |
+
+The timestamp residual is page-0 time minus `up_coarse_start` minus the joint
+correction; its spread is the rounding of the integer correction (a uniform
++/-0.5 has sd 0.289), so the derotation did not move the published time.
+Both mechanisms found on the M8 day are gone on the hardware: no CRC failure at
+all (the half-bin mechanism), and no miss (the split preamble; two packets went
+through the split path and decoded).
+
+`up_coarse_start` on the joint page is the low 32 bits of the sample count; the
+counter passes 2^32 every 71.6 min at 1 MS/s, so in a 3-hour series about half
+the records differ from the 64-bit `page0_coarse` by 2^32 or 2^33 exactly. The
+residual above is taken modulo 2^32; the reader now says so.
+
+An overnight series with `--keep-iq anomalies` (new: the recording of an
+ordinary decoded packet is deleted after its record is written; failures,
+CRC failures and every rescue path keep theirs) was started at 21:09 UTC, 1400
+attempts, to put numbers on the rare paths.
