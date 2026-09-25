@@ -81,6 +81,9 @@ module lora_packet_toa_receiver_top #(
     // High in the same cycle as `detected` when the sync word was accepted
     // only by the detector's straddle-tolerant path (M7).
     output wire               packet_straddle_detected,
+    // The detector accepted the packet only through its split-tolerant path
+    // (M9), in the same cycle as `detected`.
+    output wire               packet_split_detected,
     output wire               preamble_detected,
     output wire               sync_valid,
     output wire [15:0]        preamble_bin,
@@ -165,6 +168,11 @@ module lora_packet_toa_receiver_top #(
     // A caller-supplied request wins, so an integration that owns its own
     // timing policy keeps the port it always had. With nothing driving it the
     // receiver aligns its own grid to the packet it just acquired.
+    // Declared here because the correlator path below uses them before the
+    // joint controller that drives them is instantiated.
+    wire joint_grid_precise_correction_applied;
+    wire signed [31:0] joint_cfo_q12;
+
     wire auto_resync_valid;
     wire [31:0] auto_resync_skip;
     wire fine_resync_valid;
@@ -214,6 +222,14 @@ module lora_packet_toa_receiver_top #(
         .resync_valid(effective_resync_valid),
         .resync_skip(effective_resync_skip),
         .sync_word(sync_word),
+        // Remove the packet's carrier offset from every decision after the
+        // joint estimate (see lora_cfo_derotator): start on the precise
+        // correction, stop at the next detection, re-arm or reset, so the
+        // preamble of the next packet is searched on the raw stream as
+        // before. The IQ history the joint search reads stays raw.
+        .cfo_load(joint_grid_precise_correction_applied),
+        .cfo_q12(joint_cfo_q12),
+        .cfo_clear(detected || reset_in || trace_rearm_in),
         .symbol_index(symbol_index),
         .symbol_valid(symbol_valid),
         .confidence(symbol_confidence),
@@ -221,6 +237,7 @@ module lora_packet_toa_receiver_top #(
         .timestamp_valid(symbol_timestamp_valid),
         .detected(detected),
         .straddle_detected(detector_straddle),
+        .split_detected(packet_split_detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
         .preamble_bin(preamble_bin),
@@ -291,7 +308,6 @@ module lora_packet_toa_receiver_top #(
     wire joint_grid_timing_range_error;
     wire joint_grid_up_search_abort_error;
     wire joint_grid_down_search_abort_error;
-    wire joint_grid_precise_correction_applied;
     wire joint_search_start;
     wire [63:0] joint_search_coarse_start;
     wire signed [31:0] joint_timing_correction_unused;
@@ -373,7 +389,8 @@ module lora_packet_toa_receiver_top #(
                 .down_search_abort_error(joint_grid_down_search_abort_error),
                 .precise_correction_applied(joint_grid_precise_correction_applied),
                 .toa_coarse(joint_toa_coarse),
-                .toa_fraction_q12(joint_toa_fraction_q12)
+                .toa_fraction_q12(joint_toa_fraction_q12),
+                .cfo_q12(joint_cfo_q12)
             );
         end else begin : g_legacy_toa_search
             assign joint_search_start = packet_start_valid && receiver_enable;
@@ -387,6 +404,7 @@ module lora_packet_toa_receiver_top #(
             assign joint_timing_correction_unused = 32'sd0;
             assign joint_toa_coarse = 64'd0;
             assign joint_toa_fraction_q12 = 32'sd0;
+            assign joint_cfo_q12 = 32'sd0;
             assign joint_timing_valid_unused = 1'b0;
             assign joint_grid_restart_error = 1'b0;
             assign joint_grid_timing_range_error = 1'b0;

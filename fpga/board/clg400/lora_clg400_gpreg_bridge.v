@@ -141,6 +141,8 @@ module lora_clg400_gpreg_bridge #(
     // The detector accepted the sync word only through its straddle-tolerant
     // path (M7): a packet the generated rule alone would have lost.
     wire packet_straddle_detected;
+    // ... or only through its split-tolerant path (M9).
+    wire packet_split_detected;
 
     wire unused_awready;
     wire unused_wready;
@@ -192,6 +194,7 @@ module lora_clg400_gpreg_bridge #(
         .symbol_timestamp_valid(symbol_timestamp_valid),
         .detected(packet_detected),
         .packet_straddle_detected(packet_straddle_detected),
+        .packet_split_detected(packet_split_detected),
         .preamble_detected(),
         .sync_valid(),
         .preamble_bin(preamble_bin),
@@ -393,6 +396,9 @@ module lora_clg400_gpreg_bridge #(
     // Sticky like the four above (joint_status bit 5): at least one packet
     // since the last re-arm was accepted through the straddle-tolerant path.
     reg        joint_straddle_sticky_sample;
+    // joint_status bit 6: at least one packet since the last re-arm was
+    // accepted only through the split-tolerant path (M9).
+    reg        joint_split_sticky_sample;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -408,6 +414,7 @@ module lora_clg400_gpreg_bridge #(
             joint_range_error_sticky_sample     <= 1'b0;
             joint_precise_applied_sticky_sample <= 1'b0;
             joint_straddle_sticky_sample        <= 1'b0;
+            joint_split_sticky_sample           <= 1'b0;
         end else if (stream_reset || trace_rearm) begin
             joint_seen_sample         <= 1'b0;
             joint_up_abort_sticky_sample        <= 1'b0;
@@ -415,9 +422,12 @@ module lora_clg400_gpreg_bridge #(
             joint_range_error_sticky_sample     <= 1'b0;
             joint_precise_applied_sticky_sample <= 1'b0;
             joint_straddle_sticky_sample        <= 1'b0;
+            joint_split_sticky_sample           <= 1'b0;
         end else begin
             if (packet_straddle_detected)
                 joint_straddle_sticky_sample <= 1'b1;
+            if (packet_split_detected)
+                joint_split_sticky_sample <= 1'b1;
             if (joint_up_search_abort_error)
                 joint_up_abort_sticky_sample <= 1'b1;
             if (joint_down_search_abort_error)
@@ -537,6 +547,8 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg [3:0] joint_sticky_sync;
     (* ASYNC_REG = "TRUE" *) reg       joint_straddle_meta;
     (* ASYNC_REG = "TRUE" *) reg       joint_straddle_sync;
+    (* ASYNC_REG = "TRUE" *) reg       joint_split_meta;
+    (* ASYNC_REG = "TRUE" *) reg       joint_split_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_b_meta;
@@ -655,6 +667,8 @@ module lora_clg400_gpreg_bridge #(
             joint_sticky_sync  <= 4'd0;
             joint_straddle_meta <= 1'b0;
             joint_straddle_sync <= 1'b0;
+            joint_split_meta <= 1'b0;
+            joint_split_sync <= 1'b0;
             joint_a_meta       <= 32'd0;
             joint_a_sync       <= 32'd0;
             joint_b_meta       <= 32'd0;
@@ -709,6 +723,8 @@ module lora_clg400_gpreg_bridge #(
             joint_sticky_sync <= joint_sticky_meta;
             joint_straddle_meta <= joint_straddle_sticky_sample;
             joint_straddle_sync <= joint_straddle_meta;
+            joint_split_meta <= joint_split_sticky_sample;
+            joint_split_sync <= joint_split_meta;
             joint_a_meta <= joint_correction_sample;
             joint_a_sync <= joint_a_meta;
             joint_b_meta <= joint_up_offset_sample;
@@ -759,10 +775,12 @@ module lora_clg400_gpreg_bridge #(
     // bit 4: a precise correction was actually applied to the grid.
     // bit 5: at least one packet was accepted only through the detector's
     //        straddle-tolerant path (M7), sticky like bits 4:1.
-    // bits 31:6 are reserved, zero.
+    // bit 6: ... only through its split-tolerant path (M9), sticky likewise.
+    // bits 15:7 are reserved, zero.
     wire [31:0] joint_status = {
         16'h4a54, // "JT": joint estimator ABI marker
-        10'd0,
+        9'd0,
+        joint_split_sync,
         joint_straddle_sync,
         joint_sticky_sync,
         joint_seen_sync

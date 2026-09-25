@@ -100,6 +100,10 @@ def summarize(
         r for r in captured if r.get("joint_estimate", {}).get("detector_straddle_accepted")
     ]
     plain = [r for r in captured if r not in straddled]
+    # M9: accepted only through the detector's split-tolerant path.
+    split = [
+        r for r in captured if r.get("joint_estimate", {}).get("detector_split_accepted")
+    ]
 
     def rate(part: list, whole: list) -> str:
         return f"{len(part)}/{len(whole)}" + (
@@ -141,6 +145,10 @@ def summarize(
         ),
         "not_straddle_crc_valid": rate(
             [r for r in plain if r["decode"]["crc_valid"]], plain
+        ),
+        "split_accepted": len(split),
+        "split_accepted_crc_valid": rate(
+            [r for r in split if r["decode"]["crc_valid"]], split
         ),
         "crossing_drop_increments": [
             f"{b}: +{n}" for _, b, n in drop_increments(records)

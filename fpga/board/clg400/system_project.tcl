@@ -73,6 +73,7 @@ set source_files [concat [lsort [glob -nocomplain [file join $fft_dir *.v]]] [li
   [file join $repo_root fpga wrappers fft_correlator_route_top.v] \
   [file join $repo_root fpga wrappers lora_detector_timestamp_align.v] \
   [file join $repo_root fpga wrappers lora_detector_timestamp_path.v] \
+  [file join $repo_root fpga wrappers lora_cfo_derotator.v] \
   [file join $repo_root fpga wrappers lora_fft_detector_timestamp_path.v] \
   [file join $repo_root fpga wrappers lora_iq_history_buffer.v] \
   [file join $repo_root fpga wrappers lora_reference_chirp_rom.v] \

@@ -104,7 +104,11 @@ module lora_joint_chirp_grid_controller #(
     // (-2.8..-3.6 samples on the board, i.e. microseconds). The joint pair
     // cancels it but only ever steered the symbol grid.
     output reg  [63:0]        toa_coarse,
-    output reg  signed [31:0] toa_fraction_q12
+    output reg  signed [31:0] toa_fraction_q12,
+    // The carrier offset the same pair measured, as the matched-filter
+    // displacement (up - down) / 2 in Q12 samples; valid with toa_coarse.
+    // lora_cfo_derotator removes it from the decisions that follow.
+    output reg  signed [31:0] cfo_q12
 );
 
     localparam [2:0] STATE_IDLE           = 3'd0;
@@ -203,6 +207,9 @@ module lora_joint_chirp_grid_controller #(
     // below anything the interpolator resolves.
     wire signed [65:0] timing_q12 = offset_sum_q12 >>> 1;
     wire signed [65:0] toa_fraction_wide = timing_q12 - (rounded_timing <<< 12);
+    wire signed [65:0] cfo_q12_wide =
+        ({{1{up_offset_q12[64]}}, up_offset_q12}
+         - {{1{down_offset_q12[64]}}, down_offset_q12}) >>> 1;
     wire signed [65:0] toa_coarse_wide =
         $signed({2'b00, up_coarse_start}) + rounded_timing;
     wire timing_in_range =
@@ -245,6 +252,7 @@ module lora_joint_chirp_grid_controller #(
             precise_correction_applied<= 1'b0;
             toa_coarse                <= 64'd0;
             toa_fraction_q12          <= 32'sd0;
+            cfo_q12                   <= 32'sd0;
         end else begin
             search_start       <= 1'b0;
             fine_resync_valid  <= 1'b0;
@@ -352,6 +360,7 @@ module lora_joint_chirp_grid_controller #(
                             precise_correction_applied <= 1'b1;
                             toa_coarse <= toa_coarse_wide[63:0];
                             toa_fraction_q12 <= toa_fraction_wide[31:0];
+                            cfo_q12 <= cfo_q12_wide[31:0];
                         end else begin
                             // Same rule for a rejected out-of-range estimate:
                             // decline the correction, but still hand back the

@@ -396,6 +396,7 @@ module tb_lora_clg400_gpreg_bridge;
         force dut.joint_precise_correction_applied = 1'b1;
         force dut.joint_timing_valid = 1'b1;
         force dut.packet_straddle_detected = 1'b1;
+        force dut.packet_split_detected = 1'b1;
         @(negedge sample_clk);
         force dut.joint_up_search_abort_error = 1'b0;
         force dut.joint_down_search_abort_error = 1'b0;
@@ -403,18 +404,19 @@ module tb_lora_clg400_gpreg_bridge;
         force dut.joint_precise_correction_applied = 1'b0;
         force dut.joint_timing_valid = 1'b0;
         force dut.packet_straddle_detected = 1'b0;
+        force dut.packet_split_detected = 1'b0;
         repeat (4) @(posedge sample_clk);
 
         gp_ctrl = 32'h0004_1201;
         repeat (6) @(posedge ctrl_clk);
         // Bit 5 (M7): a packet was accepted only through the detector's
         // straddle-tolerant path.
-        if (gp_status[5:0] !== 6'b111111) begin
-            $display("FAIL joint sticky bits before trace_rearm status=0x%08x (want bits 5:0 all set)",
+        if (gp_status[6:0] !== 7'b1111111) begin
+            $display("FAIL joint sticky bits before trace_rearm status=0x%08x (want bits 6:0 all set)",
                      gp_status);
             $fatal(1);
         end
-        $display("PASS joint straddle bit (5) set with the other sticky bits");
+        $display("PASS joint straddle (5) and split (6) bits set with the other sticky bits");
 
         // Pulse bit 2 alone -- bit 1 (stream_reset) stays low throughout.
         gp_ctrl = 32'h0000_1205;
@@ -424,8 +426,8 @@ module tb_lora_clg400_gpreg_bridge;
 
         gp_ctrl = 32'h0004_1201;
         repeat (6) @(posedge ctrl_clk);
-        if (gp_status[5:0] !== 6'b000000) begin
-            $display("FAIL joint sticky bits (incl. straddle) survived trace_rearm alone: status=0x%08x",
+        if (gp_status[6:0] !== 7'b0000000) begin
+            $display("FAIL joint sticky bits (incl. straddle, split) survived trace_rearm alone: status=0x%08x",
                      gp_status);
             $fatal(1);
         end

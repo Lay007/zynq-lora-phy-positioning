@@ -66,6 +66,9 @@ def parse_output(text: str) -> dict[str, object]:
         "straddle": [
             int(v) for v in re.findall(r"^DET \d+ \d+ n=\d+ straddle=(\d)", text, re.M)
         ],
+        "split": [
+            int(v) for v in re.findall(r"^DET \d+ \d+ n=\d+ straddle=\d split=(\d)", text, re.M)
+        ],
         "meta": [
             [int(c), int(f)] for c, f in re.findall(r"^META (\d+) (-?\d+)", text, re.M)
         ],

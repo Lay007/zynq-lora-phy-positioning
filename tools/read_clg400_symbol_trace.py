@@ -97,6 +97,9 @@ class JointEstimate:
     # last re-arm was accepted only through the detector's straddle-tolerant
     # path (M7), i.e. one the generated sync rule alone would have lost.
     detector_straddle_accepted: bool = False
+    # STATUS bit 6, sticky likewise: accepted only through the detector's
+    # split-tolerant path (M9) -- the preamble peak split into two lobes.
+    detector_split_accepted: bool = False
 
 
 class TraceNotComplete(ValueError):
@@ -333,6 +336,7 @@ def parse_trace(text: str) -> SymbolTrace:
                 timing_rejected_out_of_range=bool(values[0] & 8),
                 precise_correction_applied=bool(values[0] & 16),
                 detector_straddle_accepted=bool(values[0] & 32),
+                detector_split_accepted=bool(values[0] & 64),
             )
         elif fields[0] == "CLOCK" and len(fields) == 6:
             values = [int(value, 0) for value in fields[1:]]
@@ -395,6 +399,7 @@ def parse_trace(text: str) -> SymbolTrace:
                 up_search_aborted=joint.up_search_aborted,
                 down_search_aborted=joint.down_search_aborted,
                 detector_straddle_accepted=joint.detector_straddle_accepted,
+                detector_split_accepted=joint.detector_split_accepted,
             )
         if clock is not None:
             state.update(
@@ -610,6 +615,7 @@ def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:
         "timing_rejected_out_of_range": joint.timing_rejected_out_of_range,
         "precise_correction_applied": joint.precise_correction_applied,
         "detector_straddle_accepted": joint.detector_straddle_accepted,
+        "detector_split_accepted": joint.detector_split_accepted,
     }
 
 

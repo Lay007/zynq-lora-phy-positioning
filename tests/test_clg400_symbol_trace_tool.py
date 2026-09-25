@@ -263,6 +263,7 @@ def _joint_page(
     timing_rejected_out_of_range: bool = False,
     precise_correction_applied: bool = False,
     detector_straddle_accepted: bool = False,
+    detector_split_accepted: bool = False,
     marker: int = 0x4A54,
 ) -> str:
     status = (
@@ -273,6 +274,7 @@ def _joint_page(
         | (8 if timing_rejected_out_of_range else 0)
         | (16 if precise_correction_applied else 0)
         | (32 if detector_straddle_accepted else 0)
+        | (64 if detector_split_accepted else 0)
     )
     packed = (chips << 16) | bin_
     return (
@@ -365,6 +367,28 @@ def test_joint_page_reports_the_straddle_accepted_bit_on_its_own() -> None:
 
     both = parse(detector_straddle_accepted=True, precise_correction_applied=True)
     assert both.detector_straddle_accepted and both.precise_correction_applied
+
+
+def test_joint_page_reports_the_split_accepted_bit_on_its_own() -> None:
+    """STATUS bit 6 (M9): accepted only through the split-tolerant path."""
+
+    text = _trace_page(grid_realigned=False).replace(
+        "SIGNATURE 0x4c4f5241",
+        "SIGNATURE 0x4c4f5241" + chr(10) + _joint_page(detector_split_accepted=True),
+    )
+    joint = parse_trace(text).joint
+    assert joint is not None
+    assert joint.detector_split_accepted
+    assert not joint.detector_straddle_accepted
+
+    plain = parse_trace(
+        _trace_page(grid_realigned=False).replace(
+            "SIGNATURE 0x4c4f5241",
+            "SIGNATURE 0x4c4f5241" + chr(10) + _joint_page(detector_straddle_accepted=True),
+        )
+    ).joint
+    assert plain is not None
+    assert plain.detector_straddle_accepted and not plain.detector_split_accepted
 
 
 def test_joint_summary_recomputes_the_controllers_origin() -> None:
