@@ -143,6 +143,8 @@ module lora_clg400_gpreg_bridge #(
     wire packet_straddle_detected;
     // ... or only through its split-tolerant path (M9).
     wire packet_split_detected;
+    // ... or only through its early-sync path.
+    wire packet_early_sync_detected;
 
     wire unused_awready;
     wire unused_wready;
@@ -195,6 +197,7 @@ module lora_clg400_gpreg_bridge #(
         .detected(packet_detected),
         .packet_straddle_detected(packet_straddle_detected),
         .packet_split_detected(packet_split_detected),
+        .packet_early_sync_detected(packet_early_sync_detected),
         .preamble_detected(),
         .sync_valid(),
         .preamble_bin(preamble_bin),
@@ -399,6 +402,7 @@ module lora_clg400_gpreg_bridge #(
     // joint_status bit 6: at least one packet since the last re-arm was
     // accepted only through the split-tolerant path (M9).
     reg        joint_split_sticky_sample;
+    reg        joint_early_sticky_sample;
 
     always @(posedge sample_clk) begin
         if (!sample_resetn) begin
@@ -415,6 +419,7 @@ module lora_clg400_gpreg_bridge #(
             joint_precise_applied_sticky_sample <= 1'b0;
             joint_straddle_sticky_sample        <= 1'b0;
             joint_split_sticky_sample           <= 1'b0;
+            joint_early_sticky_sample           <= 1'b0;
         end else if (stream_reset || trace_rearm) begin
             joint_seen_sample         <= 1'b0;
             joint_up_abort_sticky_sample        <= 1'b0;
@@ -423,11 +428,14 @@ module lora_clg400_gpreg_bridge #(
             joint_precise_applied_sticky_sample <= 1'b0;
             joint_straddle_sticky_sample        <= 1'b0;
             joint_split_sticky_sample           <= 1'b0;
+            joint_early_sticky_sample           <= 1'b0;
         end else begin
             if (packet_straddle_detected)
                 joint_straddle_sticky_sample <= 1'b1;
             if (packet_split_detected)
                 joint_split_sticky_sample <= 1'b1;
+            if (packet_early_sync_detected)
+                joint_early_sticky_sample <= 1'b1;
             if (joint_up_search_abort_error)
                 joint_up_abort_sticky_sample <= 1'b1;
             if (joint_down_search_abort_error)
@@ -549,6 +557,8 @@ module lora_clg400_gpreg_bridge #(
     (* ASYNC_REG = "TRUE" *) reg       joint_straddle_sync;
     (* ASYNC_REG = "TRUE" *) reg       joint_split_meta;
     (* ASYNC_REG = "TRUE" *) reg       joint_split_sync;
+    (* ASYNC_REG = "TRUE" *) reg       joint_early_meta;
+    (* ASYNC_REG = "TRUE" *) reg       joint_early_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_a_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] joint_b_meta;
@@ -669,6 +679,8 @@ module lora_clg400_gpreg_bridge #(
             joint_straddle_sync <= 1'b0;
             joint_split_meta <= 1'b0;
             joint_split_sync <= 1'b0;
+            joint_early_meta <= 1'b0;
+            joint_early_sync <= 1'b0;
             joint_a_meta       <= 32'd0;
             joint_a_sync       <= 32'd0;
             joint_b_meta       <= 32'd0;
@@ -725,6 +737,8 @@ module lora_clg400_gpreg_bridge #(
             joint_straddle_sync <= joint_straddle_meta;
             joint_split_meta <= joint_split_sticky_sample;
             joint_split_sync <= joint_split_meta;
+            joint_early_meta <= joint_early_sticky_sample;
+            joint_early_sync <= joint_early_meta;
             joint_a_meta <= joint_correction_sample;
             joint_a_sync <= joint_a_meta;
             joint_b_meta <= joint_up_offset_sample;
@@ -776,10 +790,12 @@ module lora_clg400_gpreg_bridge #(
     // bit 5: at least one packet was accepted only through the detector's
     //        straddle-tolerant path (M7), sticky like bits 4:1.
     // bit 6: ... only through its split-tolerant path (M9), sticky likewise.
-    // bits 15:7 are reserved, zero.
+    // bit 7: ... only through its early-sync path, sticky likewise.
+    // bits 15:8 are reserved, zero.
     wire [31:0] joint_status = {
         16'h4a54, // "JT": joint estimator ABI marker
-        9'd0,
+        8'd0,
+        joint_early_sync,
         joint_split_sync,
         joint_straddle_sync,
         joint_sticky_sync,

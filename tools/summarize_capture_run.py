@@ -104,6 +104,11 @@ def summarize(
     split = [
         r for r in captured if r.get("joint_estimate", {}).get("detector_split_accepted")
     ]
+    # ... or only through its early-sync path.
+    early = [
+        r for r in captured
+        if r.get("joint_estimate", {}).get("detector_early_sync_accepted")
+    ]
 
     def rate(part: list, whole: list) -> str:
         return f"{len(part)}/{len(whole)}" + (
@@ -149,6 +154,10 @@ def summarize(
         "split_accepted": len(split),
         "split_accepted_crc_valid": rate(
             [r for r in split if r["decode"]["crc_valid"]], split
+        ),
+        "early_sync_accepted": len(early),
+        "early_sync_accepted_crc_valid": rate(
+            [r for r in early if r["decode"]["crc_valid"]], early
         ),
         "crossing_drop_increments": [
             f"{b}: +{n}" for _, b, n in drop_increments(records)

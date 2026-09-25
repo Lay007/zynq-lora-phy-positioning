@@ -100,6 +100,9 @@ class JointEstimate:
     # STATUS bit 6, sticky likewise: accepted only through the detector's
     # split-tolerant path (M9) -- the preamble peak split into two lobes.
     detector_split_accepted: bool = False
+    # STATUS bit 7, sticky likewise: accepted only through the detector's
+    # early-sync path -- the tie window at half a symbol read as sync.
+    detector_early_sync_accepted: bool = False
 
 
 class TraceNotComplete(ValueError):
@@ -337,6 +340,7 @@ def parse_trace(text: str) -> SymbolTrace:
                 precise_correction_applied=bool(values[0] & 16),
                 detector_straddle_accepted=bool(values[0] & 32),
                 detector_split_accepted=bool(values[0] & 64),
+                detector_early_sync_accepted=bool(values[0] & 128),
             )
         elif fields[0] == "CLOCK" and len(fields) == 6:
             values = [int(value, 0) for value in fields[1:]]
@@ -400,6 +404,7 @@ def parse_trace(text: str) -> SymbolTrace:
                 down_search_aborted=joint.down_search_aborted,
                 detector_straddle_accepted=joint.detector_straddle_accepted,
                 detector_split_accepted=joint.detector_split_accepted,
+                detector_early_sync_accepted=joint.detector_early_sync_accepted,
             )
         if clock is not None:
             state.update(
@@ -616,6 +621,7 @@ def _joint_summary(joint: JointEstimate | None) -> dict[str, object] | None:
         "precise_correction_applied": joint.precise_correction_applied,
         "detector_straddle_accepted": joint.detector_straddle_accepted,
         "detector_split_accepted": joint.detector_split_accepted,
+        "detector_early_sync_accepted": joint.detector_early_sync_accepted,
     }
 
 

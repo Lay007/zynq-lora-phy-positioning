@@ -38,6 +38,9 @@ module lora_detector_timestamp_path (
     // High in the same cycle as `detected` when only the split-tolerant path
     // (see below) accepted the packet.
     output wire         split_detected,
+    // High in the same cycle as `detected` when only the early-sync path
+    // (see below) accepted the packet.
+    output wire         early_sync_detected,
     output wire         preamble_detected,
     output wire         sync_valid,
     output wire [15:0]  preamble_bin,
@@ -242,11 +245,49 @@ module lora_detector_timestamp_path (
     wire detected_split = detected_split_raw && !detected_generated && !detected_straddle;
     wire split_straddle_form = detected_split && !split_s1_sync;
 
-    assign detected = detected_generated || detected_straddle || detected_split;
+    // Early-sync acceptance.
+    //
+    // The mirror image of the straddle path. When the packet lands exactly
+    // half a symbol from the correlator window, every window holds half of
+    // two chirps, and the one holding the last preamble chirp and the first
+    // sync chirp is a tie. Without a carrier offset it goes to the preamble
+    // and the generated rule fires; with one, the two halves' tones fall on
+    // different fractions of a bin, the tie breaks toward the sync, and the
+    // decisions read [7 x ref][s1][s1][s2]: one preamble decision short,
+    // nothing fires. Found by the CI matrix (grid_phase 512, CFO
+    // +/-0.000418 cycles/sample, the board's typical offset: 64 x 7, 72, 72,
+    // 81 against the generated rule's 64 x 8, 72, 80 at CFO 0).
+    //
+    // The windows are the generated rule's own -- the tie window is the one
+    // it counts as the eighth preamble decision -- so the path fires on the
+    // same symbol, with the same preamble bin (ref) and chips_to_boundary
+    // (N - ref), and the joint controller treats it as an ordinary
+    // detection (no straddle flag). Seven equal decisions and the first sync
+    // twice are no weaker a pattern than the generated rule's eight and one.
+    // Guards as for the straddle path.
+    reg early_run_ok;
+    always @* begin
+        early_run_ok = 1'b1;
+        for (alt_i = 0; alt_i < 7; alt_i = alt_i + 1)
+            early_run_ok = early_run_ok && bin_within(prev_bin[alt_i], alt_ref);
+    end
+    wire detected_early_raw = alt_step && (prev_filled == 4'd9) &&
+        early_run_ok && alt_signal_present && alt_ref_in_band &&
+        bin_within(prev_bin[7], alt_s1_target) &&
+        bin_within(prev_bin[8], alt_s1_target) &&
+        bin_within(detector_symbol_index, alt_s2_target);
+    wire detected_early = detected_early_raw && !detected_generated &&
+        !detected_straddle && !detected_split;
+    wire [15:0] early_chips = ((BIN_MASK + 16'd1) - alt_ref) & BIN_MASK;
+
+    assign detected = detected_generated || detected_straddle || detected_split || detected_early;
     assign straddle_detected = (detected_straddle && !detected_generated) || split_straddle_form;
     assign split_detected = detected_split;
-    assign preamble_bin = detected_split ? split_bin : generated_preamble_bin;
-    assign chips_to_boundary = detected_split ? split_chips : generated_chips_to_boundary;
+    assign early_sync_detected = detected_early;
+    assign preamble_bin = detected_split ? split_bin :
+                          detected_early ? alt_ref : generated_preamble_bin;
+    assign chips_to_boundary = detected_split ? split_chips :
+                               detected_early ? early_chips : generated_chips_to_boundary;
 
     always @(posedge clk) begin
         if (!resetn || reset_in) begin

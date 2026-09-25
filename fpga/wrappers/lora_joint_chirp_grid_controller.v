@@ -111,14 +111,22 @@ module lora_joint_chirp_grid_controller #(
     output reg  signed [31:0] cfo_q12
 );
 
-    localparam [2:0] STATE_IDLE           = 3'd0;
-    localparam [2:0] STATE_LAUNCH_UP      = 3'd1;
-    localparam [2:0] STATE_WAIT_UP        = 3'd2;
-    localparam [2:0] STATE_WAIT_DOWN_DATA = 3'd3;
-    localparam [2:0] STATE_LAUNCH_DOWN    = 3'd4;
-    localparam [2:0] STATE_WAIT_DOWN      = 3'd5;
-    localparam [2:0] STATE_WAIT_UP_FRAC   = 3'd6;
-    localparam [2:0] STATE_WAIT_DOWN_FRAC = 3'd7;
+    localparam [3:0] STATE_IDLE           = 4'd0;
+    localparam [3:0] STATE_LAUNCH_UP      = 4'd1;
+    localparam [3:0] STATE_WAIT_UP        = 4'd2;
+    localparam [3:0] STATE_WAIT_DOWN_DATA = 4'd3;
+    localparam [3:0] STATE_LAUNCH_DOWN    = 4'd4;
+    localparam [3:0] STATE_WAIT_DOWN      = 4'd5;
+    localparam [3:0] STATE_WAIT_UP_FRAC   = 4'd6;
+    localparam [3:0] STATE_WAIT_DOWN_FRAC = 4'd7;
+    // Two register stages between the down leg's interpolator result and
+    // the latched estimate. With the sum, the rounding, the range check and
+    // the CFO difference all in the interpolator's output cycle, the M9
+    // build missed timing by 0.056 ns on that one path (46 logic levels,
+    // 36 of them carry chains, quotientReg -> toa_fraction_q12 CE). The
+    // estimate arrives two clocks later; a sample takes 63.
+    localparam [3:0] STATE_SUM            = 4'd8;
+    localparam [3:0] STATE_DECIDE         = 4'd9;
 
     localparam [63:0] SYMBOL_SAMPLES_U64 = SYMBOL_SAMPLES;
     localparam [63:0] SEARCH_RADIUS_U64 = SEARCH_RADIUS;
@@ -127,12 +135,15 @@ module lora_joint_chirp_grid_controller #(
     // nearest integer sample below (see the comment at rounded_abs).
     localparam signed [65:0] TIMING_ROUND_BIAS_Q12x2 = 66'sd4096;
 
-    reg [2:0] state;
+    reg [3:0] state;
     reg [63:0] up_coarse_start;
     reg [63:0] down_coarse_start;
     reg signed [64:0] up_offset_int;
     reg signed [15:0] up_offset_frac_q12;
     reg signed [64:0] down_offset_int;
+    reg signed [15:0] down_offset_frac_q12;
+    reg signed [65:0] offset_sum_q12_r;
+    reg signed [65:0] cfo_q12_r;
 
     assign diag_up_coarse_start = up_coarse_start;
     assign diag_up_offset_samples = up_offset_int[31:0];
@@ -173,23 +184,20 @@ module lora_joint_chirp_grid_controller #(
 
     // Q12 fixed-point combination: each leg's offset is its captured integer
     // sample count, scaled to Q12, plus the interpolator's sub-sample
-    // refinement in the same units. The up leg's refinement was captured
-    // earlier into up_offset_frac_q12 (STATE_WAIT_UP_FRAC); the down leg's is
-    // only ever needed in the same cycle it arrives (STATE_WAIT_DOWN_FRAC),
-    // so it is read live off search_offset_q12 here rather than registered
-    // first -- reading a register the same cycle it is written would see
-    // last cycle's stale value, not the one just captured.
+    // refinement in the same units, both captured into registers
+    // (STATE_WAIT_UP_FRAC, STATE_WAIT_DOWN_FRAC). STATE_SUM registers the
+    // sum and the difference; STATE_DECIDE rounds, range-checks and latches.
     wire signed [64:0] up_offset_q12 =
         (up_offset_int <<< 12)
         + {{49{up_offset_frac_q12[15]}}, up_offset_frac_q12};
     wire signed [64:0] down_offset_q12 =
         (down_offset_int <<< 12)
-        + {{49{search_offset_q12[15]}}, search_offset_q12};
+        + {{49{down_offset_frac_q12[15]}}, down_offset_frac_q12};
     wire signed [65:0] offset_sum_q12 =
         {{1{up_offset_q12[64]}}, up_offset_q12}
         + {{1{down_offset_q12[64]}}, down_offset_q12};
     wire signed [65:0] offset_sum_q12_abs =
-        offset_sum_q12 < 0 ? -offset_sum_q12 : offset_sum_q12;
+        offset_sum_q12_r < 0 ? -offset_sum_q12_r : offset_sum_q12_r;
     // offset_sum_q12 is (up_offset + down_offset) in units of 1/4096 sample,
     // i.e. 2*timing*4096 = timing*8192. Round timing to the nearest whole
     // sample, ties away from zero, by adding half of that 8192 divisor before
@@ -202,10 +210,10 @@ module lora_joint_chirp_grid_controller #(
     wire signed [65:0] rounded_abs =
         (offset_sum_q12_abs + TIMING_ROUND_BIAS_Q12x2) >>> 13;
     wire signed [65:0] rounded_timing =
-        offset_sum_q12 < 0 ? -rounded_abs : rounded_abs;
+        offset_sum_q12_r < 0 ? -rounded_abs : rounded_abs;
     // (up + down) / 2 in Q12. Halving the Q12 sum truncates 1/8192 sample,
     // below anything the interpolator resolves.
-    wire signed [65:0] timing_q12 = offset_sum_q12 >>> 1;
+    wire signed [65:0] timing_q12 = offset_sum_q12_r >>> 1;
     wire signed [65:0] toa_fraction_wide = timing_q12 - (rounded_timing <<< 12);
     wire signed [65:0] cfo_q12_wide =
         ({{1{up_offset_q12[64]}}, up_offset_q12}
@@ -236,6 +244,9 @@ module lora_joint_chirp_grid_controller #(
             down_coarse_start         <= 64'd0;
             up_offset_int             <= 65'sd0;
             up_offset_frac_q12        <= 16'sd0;
+            down_offset_frac_q12      <= 16'sd0;
+            offset_sum_q12_r          <= 66'sd0;
+            cfo_q12_r                 <= 66'sd0;
             down_offset_int           <= 65'sd0;
             search_start              <= 1'b0;
             search_coarse_start       <= 64'd0;
@@ -345,11 +356,20 @@ module lora_joint_chirp_grid_controller #(
                 end
 
                 STATE_WAIT_DOWN_FRAC: begin
-                    // rounded_timing/timing_in_range/guarded_skip already
-                    // reflect this cycle's live search_offset_q12 through
-                    // down_offset_q12, so they are correct to latch the
-                    // instant this pulses -- no extra cycle of delay needed.
                     if (search_offset_valid) begin
+                        down_offset_frac_q12 <= search_offset_q12;
+                        state <= STATE_SUM;
+                    end
+                end
+
+                STATE_SUM: begin
+                    offset_sum_q12_r <= offset_sum_q12;
+                    cfo_q12_r <= cfo_q12_wide;
+                    state <= STATE_DECIDE;
+                end
+
+                STATE_DECIDE: begin
+                    begin
                         timing_correction_samples <= rounded_timing[31:0];
                         timing_valid <= 1'b1;
                         busy <= 1'b0;
@@ -360,7 +380,7 @@ module lora_joint_chirp_grid_controller #(
                             precise_correction_applied <= 1'b1;
                             toa_coarse <= toa_coarse_wide[63:0];
                             toa_fraction_q12 <= toa_fraction_wide[31:0];
-                            cfo_q12 <= cfo_q12_wide[31:0];
+                            cfo_q12 <= cfo_q12_r[31:0];
                         end else begin
                             // Same rule for a rejected out-of-range estimate:
                             // decline the correction, but still hand back the

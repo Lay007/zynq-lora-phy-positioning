@@ -84,6 +84,9 @@ module lora_packet_toa_receiver_top #(
     // The detector accepted the packet only through its split-tolerant path
     // (M9), in the same cycle as `detected`.
     output wire               packet_split_detected,
+    // ... or only through its early-sync path (the tie window at half a
+    // symbol read as the first sync symbol).
+    output wire               packet_early_sync_detected,
     output wire               preamble_detected,
     output wire               sync_valid,
     output wire [15:0]        preamble_bin,
@@ -238,6 +241,7 @@ module lora_packet_toa_receiver_top #(
         .detected(detected),
         .straddle_detected(detector_straddle),
         .split_detected(packet_split_detected),
+        .early_sync_detected(packet_early_sync_detected),
         .preamble_detected(preamble_detected),
         .sync_valid(sync_valid),
         .preamble_bin(preamble_bin),

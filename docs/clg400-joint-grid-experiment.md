@@ -2297,3 +2297,38 @@ path's refusal.)
 Regression: fft detector, receiver top, AXI path, joint path x3, bridge (bit 6),
 multi-packet, completion x5 plus two with CFO, controller, derotator, detector,
 FIFO; 242 Python tests. Not built or deployed yet.
+
+### M9 build 1 failed timing; CI found an early-sync miss -- 2026-09-25
+
+The first M9 build missed timing by 0.056 ns (WNS) on one path: interpolator
+`quotientReg` -> joint controller `toa_fraction_q12` CE, 46 logic levels (36
+carry chains). Since the M8 timestamp fix the (up + down)/2 sum, its rounding,
+the range check and now the CFO difference were all computed in the cycle the
+down leg's interpolator result arrives. The controller now registers the down
+leg's refinement (`STATE_WAIT_DOWN_FRAC`), the sum and difference
+(`STATE_SUM`), and rounds, range-checks and latches in `STATE_DECIDE`: the
+estimate arrives two clocks later (135519 -> 135521 cycles after detection in
+`tb_lora_joint_chirp_grid_path`); a sample takes 63.
+
+CI had been red since `afdf52e` on one job: `tb_lora_joint_grid_completion`
+at grid_phase 512 with CFO +/-0.000418 cycles/sample found no packet (only the
+two CFO signs at this phase; all other 13 combinations passed). Grid phase 512
+is exactly half a symbol: every window holds half of two chirps, and the one
+holding the last preamble chirp and the first sync chirp is a tie. At CFO 0 it
+went to the preamble (decisions 64 x8, 72, 80 -- the generated rule fires);
+with the offset it went to the sync (64 x7, 72, 72, 81): one preamble decision
+short, and neither the straddle path (the mirror case: first sync read as
+preamble) nor the split path accepted it. I had run the CFO cases locally only
+at phases 0 and 700.
+
+`lora_detector_timestamp_path` gains an early-sync path:
+[7 x (ref +/-1)][s1 +/-1][s1 +/-1][s2 +/-1], guards as the straddle path. Its
+windows are the generated rule's own (the tie window is the one it counts as
+the eighth preamble decision), so it fires on the same symbol with the same
+preamble bin and chips_to_boundary = N - ref, and raises no straddle flag.
+New sticky bit 7 on the joint page (`detector_early_sync_accepted`,
+`early_sync_accepted` in the run summary). Not seen on the board so far: all
+M8 misses were the split.
+
+Regression: every CI RTL step run locally (the smoke job's 20 testbenches, the
+completion matrix 5 phases x 3 CFO values, multi-packet), 242 Python tests.
