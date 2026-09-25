@@ -2207,3 +2207,93 @@ switches pages through the same control register the capture tool uses, so the
 read (and possibly the attempt then in flight) saw mixed pages; the series was
 stopped and restarted with the timestamp-recording tool, and the partial run's
 last record (`163943Z`, interrupted, no PL state) is not a miss.
+
+## M9: fractional-CFO removal before the bin decision, and split-preamble detection -- 2026-09-25
+
+Both remaining loss mechanisms of the M8 series come from the carrier offset
+left in the correlator's input, and both were reproduced in the RTL at the
+board's own phase before anything was changed.
+
+### Why the preamble peak splits (the detection misses)
+
+The correlator is a time-domain correlation with the reference chirp, decimated
+to one lag per chip (`fft_correlator_stages`: the two-FFT identity). On the
+free-running grid the window holds the tail of one preamble chirp and the head
+of the next. For the blind phase of miss `163349Z` the correlation profile of
+every preamble window has two nearly equal peaks at 51 and 53 with a trough at
+52 (0.27): the two parts arrive in antiphase and cancel at the true lag. The
+ratio of the two lobes creeps from 0.953 to 0.996 over nine symbols and then
+crosses, so the argmax jumps by two bins. Rotating the recording by the
+carrier offset (the model's joint estimate) makes the profile single-peaked in
+all five misses (second/first 0.35-0.75 instead of ~0.99) and the preamble
+decisions constant: the relative phase of the two parts is the carrier offset
+accumulated over a symbol.
+
+### Fix 1: remove the carrier offset after the joint estimate
+
+`lora_cfo_derotator` sits in front of the generated correlator, inside
+`lora_fft_detector_timestamp_path`. A 16-stage pipelined CORDIC (one sample per
+clock, no multipliers in the loop, maximum error 2 LSB at full scale in
+`tb_lora_cfo_derotator`) rotates each sample by a 32-bit phase accumulator
+advancing `cfo_q12 * 2^7` per sample. `cfo_q12` is the joint pair's own
+displacement (up - down)/2 in Q12 samples, a new controller output latched with
+the precise correction; a displacement d samples is a tone of -d/8192
+cycles/sample (the calibration used in the model experiments above). Rotation
+starts on `precise_correction_applied` and stops on the next `detected`, a
+re-arm or a stream reset, so the next preamble is searched on the raw stream as
+before, and the IQ history the joint search reads stays raw. The grid-resync
+request travels through the same 19-clock delay as the samples (the skip is
+applied inside the generated correlator, so its order with the samples must not
+change); the stream reset goes to the correlator directly and flushes the delay
+line. With rotation off the output is the input, bit for bit.
+
+Evidence:
+
+- Reference model, series `m8-series500`: with the IQ rotated by each packet's
+  joint CFO, 25 of 25 CRC failures decode on the grid the board used and 50 of
+  50 random controls still do; the window of grid offsets that decode every
+  symbol widens from 1-3 to 7-8 samples.
+- RTL on board recordings at the board's phase, with the board's sample rate
+  (`tb_replay_detect +gap_det=63`: one sample per 63 clocks from the detection
+  until the joint result, where the ratio matters; one per clock elsewhere).
+  The phase was pinned for 7 of the 14 recordings tried (a two-run method: the
+  preamble bin gives the phase to 8 samples, the joint `up_offset` the rest;
+  for the other 7 it did not converge and they are left out). The old RTL
+  reproduces the board's failure on all 4 failures pinned, the new one decodes
+  all 4; the 3 controls decode on both.
+
+### Fix 2: accept the split preamble
+
+Before detection the carrier offset is not known, so the detector has to
+tolerate the split. `lora_detector_timestamp_path` gains a third path next to
+the generated rule and the M7 straddle path: eight preamble decisions within
++/-2 of the oldest, the first sync decision within +/-2 of ref + 8*highNibble
+(or, in the straddle form, of ref itself), the second within +/-2 of
+ref + 8*lowNibble. The straddle form was needed: two of the five misses had
+both the split and the straddle (the first sync symbol read as one more
+preamble bin), and it raises `straddle_detected` too so the controller does not
+unwrap the coarse origin. Guards as for M7 (every decision of the window from a
+correlator that saw a signal; reference bin in N/4..3N/4). The path reports its
+own preamble bin, the centre of the two lobes, and chips_to_boundary = N - bin,
+because the generated detector's tracking restarted at the jump. It cannot fire
+on an ordinary packet a symbol early or late (at sync1 the sync1 check fails, a
+symbol later sync1 is inside the preamble run), and never where the generated
+rule or the straddle path fired. A new sticky bit 6 on the joint page
+(`detector_split_accepted`) counts it on the board.
+
+Evidence: unit tests with the board's own decision sequences (`163349Z`
+ordinary form, `180856Z` and `164405Z` straddle form) plus a 3-bin spread,
+silence and an out-of-band reference, all as expected; the existing detector
+tests unchanged. RTL on the five miss recordings at their blind phases, 20000
+samples of silence in front, `+gap_det=63`: the old RTL detects none, the new
+one detects all five (three ordinary, two straddle form; preamble bins 52, 62,
+50, 79, 56 = the lobe centres) and every one decodes with a valid CRC.
+
+(A unit test first asserted that "silence, then 8, 16" is not detected; it is --
+by the generated rule, whose own pattern that is with reference 0, the known
+two-coincidences-after-silence weakness. The test now asserts only the split
+path's refusal.)
+
+Regression: fft detector, receiver top, AXI path, joint path x3, bridge (bit 6),
+multi-packet, completion x5 plus two with CFO, controller, derotator, detector,
+FIFO; 242 Python tests. Not built or deployed yet.
