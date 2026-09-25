@@ -150,3 +150,41 @@ def test_every_arm_releases_the_decision_history_freeze(monkeypatch, full) -> No
     mask = int(run_line.split("& ")[1].rstrip("))"), 0)
     assert not mask & 0x8
 
+
+
+def _ok_report(**joint) -> dict:
+    base = {"precise_correction_applied": True}
+    base.update(joint)
+    return {"decode": {"crc_valid": True}, "joint_estimate": base}
+
+
+def test_an_ordinary_decoded_packet_does_not_keep_its_recording() -> None:
+    assert not tool.iq_worth_keeping(_ok_report())
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "detector_straddle_accepted",
+        "detector_split_accepted",
+        "detector_early_sync_accepted",
+        "up_search_aborted",
+        "down_search_aborted",
+        "timing_rejected_out_of_range",
+    ],
+)
+def test_a_rescued_or_irregular_packet_keeps_its_recording(flag) -> None:
+    assert tool.iq_worth_keeping(_ok_report(**{flag: True}))
+
+
+def test_a_crc_failure_or_an_unapplied_estimate_keeps_its_recording() -> None:
+    bad_crc = _ok_report()
+    bad_crc["decode"]["crc_valid"] = False
+    assert tool.iq_worth_keeping(bad_crc)
+    assert tool.iq_worth_keeping(_ok_report(precise_correction_applied=False))
+    assert tool.iq_worth_keeping({"decode": {"crc_valid": True}})
+
+
+def test_keep_iq_defaults_to_keeping_everything(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["x", "--run-dir", "r"])
+    assert tool.parse_args().keep_iq == "all"

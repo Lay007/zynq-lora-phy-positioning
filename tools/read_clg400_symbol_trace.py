@@ -79,6 +79,11 @@ class JointEstimate:
 
     correction_samples: int
     up_offset_samples: int
+    # Low 32 bits only: the joint page has one register for it. The sample
+    # counter passes 2^32 every 71.6 minutes at 1 MS/s, so compare it with
+    # the 64-bit page-0 timestamp modulo 2^32 (on 2026-09-25 about half the
+    # records of a 3-hour series differed from page0_coarse by 2^32 or 2^33
+    # exactly, following the page-0 high word).
     up_coarse_start: int
     packet_start_count: int
     chips_to_boundary: int

@@ -237,6 +237,35 @@ def burst_ratio(path: Path) -> float:
     return float(smooth.max() / median)
 
 
+def iq_worth_keeping(report: dict) -> bool:
+    """Whether a successful attempt's recording is evidence worth its 6 MB.
+
+    Failed attempts always keep theirs (the failure path never deletes). Of
+    the successful ones, keep what a later replay would be needed for: a CRC
+    failure, and a packet accepted only through one of the detector's rescue
+    paths (straddle, split, early sync) or with the joint estimate aborted,
+    rejected or not applied. An ordinary decoded packet's recording adds
+    nothing its trace record does not already say.
+    """
+
+    if not report.get("decode", {}).get("crc_valid"):
+        return True
+    joint = report.get("joint_estimate") or {}
+    if not joint.get("precise_correction_applied"):
+        return True
+    return any(
+        joint.get(flag)
+        for flag in (
+            "detector_straddle_accepted",
+            "detector_split_accepted",
+            "detector_early_sync_accepted",
+            "up_search_aborted",
+            "down_search_aborted",
+            "timing_rejected_out_of_range",
+        )
+    )
+
+
 def capture_once(
     args: argparse.Namespace, full_rearm: bool = True
 ) -> dict[str, object]:
@@ -401,6 +430,10 @@ def capture_once(
         )
         raise
 
+    if args.keep_iq == "anomalies" and not iq_worth_keeping(report):
+        local_iq.unlink()
+        report["serial"]["iq_capture"] = None
+        report["iq_discarded"] = True
     trace_path = args.run_dir / f"clg400-trace-{stamp}.json"
     trace_path.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -451,6 +484,14 @@ def parse_args() -> argparse.Namespace:
         default=50.0,
         help="reject a recording whose peak-to-median power is below this; "
         "a real packet gives several hundred, noise alone gives about one",
+    )
+    parser.add_argument(
+        "--keep-iq",
+        choices=["all", "anomalies"],
+        default="all",
+        help="'anomalies' deletes the 6 MB recording of an ordinary decoded "
+        "packet after its record is written (see iq_worth_keeping); failed "
+        "attempts always keep theirs. For long series on a full disk.",
     )
     return parser.parse_args()
 
