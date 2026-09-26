@@ -2377,3 +2377,15 @@ An overnight series with `--keep-iq anomalies` (new: the recording of an
 ordinary decoded packet is deleted after its record is written; failures,
 CRC failures and every rescue path keep theirs) was started at 21:09 UTC, 1400
 attempts, to put numbers on the rare paths.
+
+**Overnight series `2026-09-26-clg400-m9-overnight`** (1400 planned, from 21:09
+UTC): the host disk filled at about attempt 243 (22:40 UTC; not by the series,
+which used ~25 MB with `--keep-iq anomalies`), and every attempt after it failed
+with `ENOSPC`. Before that: 240 captured, CRC 240/240, 0 misses; split path 1
+(CRC valid), early-sync 0, straddle 10; 4 transmitter-side failures and one IQ
+file truncated as the disk filled. No crossing drop.
+
+Together with series500: **0 misses in 732 packets**, CRC 732/732. Wilson 95 %
+upper bound 0.52 % (M7 had 5/798 = 0.63 %); Fisher exact, one-sided, against
+M8 (6/492) p = 0.004, against M7 p = 0.04. Issue #31 closed. The early-sync
+path has not fired on the board yet.
