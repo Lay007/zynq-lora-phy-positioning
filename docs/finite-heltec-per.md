@@ -74,8 +74,10 @@ query and CRC enabled in addition to readData success. Older logs retain their
 legacy parsing and cannot retroactively prove the missing metadata. RadioLib
 readData success alone does not establish a correct delivered payload.
 
-LR1121 RX firmware 0.2.2 records the internal radio hardware/device/firmware
-version and supports `set empty_recovery on|off` (default on). After reporting
+LR1121 RX firmware 0.2.3 records the internal radio hardware/device/base firmware
+version and supports `set empty_recovery on|off` (default off). It queries only
+the base version, avoiding unsupported WiFi/GNSS queries on device ID 0xF3.
+After reporting
 a zero-length reception unchanged, recovery reinitializes the radio, restores
 the selected profile and RF switch, then restarts reception. `RECOVERY` lines
 and the `empty_recoveries` profile counter identify these receive gaps. Counter

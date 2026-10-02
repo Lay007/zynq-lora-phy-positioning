@@ -25,7 +25,7 @@
 
 namespace {
 
-constexpr char kFirmwareVersion[] = "0.2.2";
+constexpr char kFirmwareVersion[] = "0.2.3";
 constexpr size_t kMaxPacket = 255;
 constexpr uint32_t kRadioPowerUpDelayMs = 1500;
 
@@ -43,6 +43,11 @@ struct Profile {
 class LilygoLR1121 : public LR1121 {
  public:
   explicit LilygoLR1121(Module* module) : LR1121(module) { chipType = board::kRadioDeviceId; }
+  int16_t getBaseVersion(LR11x0VersionInfo_t* info) {
+    // Some boards expose device ID 0xF3. getVersionInfo() then also queries
+    // unsupported WiFi/GNSS commands. This diagnostic needs only base version.
+    return getVersion(&info->hardware, &info->device, &info->fwMajor, &info->fwMinor);
+  }
 };
 
 LilygoLR1121 radio(new Module(board::kRadioCs, board::kRadioDio9, board::kRadioReset,
@@ -60,7 +65,7 @@ Profile profile;
 volatile bool packetFlag = false;
 bool receiving = false;
 uint32_t packetCount = 0;
-bool emptyRecovery = true;
+bool emptyRecovery = false;
 uint32_t emptyRecoveries = 0;
 LR11x0VersionInfo_t radioVersion = {};
 int16_t radioVersionState = RADIOLIB_ERR_UNKNOWN;
@@ -115,7 +120,7 @@ bool initializeRadio() {
   radio.setRfSwitchTable(kRfSwitchPins, kRfSwitchTable);
   if (!ok(begin, "begin") || !apply(profile)) return false;
   radioVersion = {};
-  radioVersionState = radio.getVersionInfo(&radioVersion);
+  radioVersionState = radio.getBaseVersion(&radioVersion);
   radio.setPacketReceivedAction(onPacket);
   return true;
 }
